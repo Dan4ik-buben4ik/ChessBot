@@ -1,5 +1,5 @@
 from util import pos_to_cord
-
+# A file with errors. Quite self-explanatory
 
 class ImpossibleMoveException(BaseException):
     def __init__(self, piece, reason, init_pos, new_pos):
