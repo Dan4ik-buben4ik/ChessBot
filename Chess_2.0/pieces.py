@@ -1,4 +1,4 @@
-
+from Errors import JustError
 
 class Piece:
     # A class for Rook
@@ -13,6 +13,7 @@ class Piece:
         self.color = color if color in ("white", "black") else None
 
     def move(self, new_pos):
+        print(f"Moved {self.name} on {self.pos} to {new_pos}")
         self.pos = new_pos
 
     def reach_check(self, pos: tuple[int, int], en_passan: bool = False) -> tuple[bool, str | None]:
@@ -35,20 +36,40 @@ class Rook(Piece):
 
     def blocking_check(self, pos):
         pos_change = self.pos[0] - pos[0], self.pos[1] - pos[1]
-        points = self.get_line_position()
+        axis = 0 if pos_change[0] else 1
+        points = self.get_line_position(axis, pos_change)
+        if axis == 0:
+            for i in points:
+                res = self.board.board[self.pos[1]][i]
+                if res is Piece:
+                    return True
+        if axis == 1:
+            for i in points:
+                res = self.board.board[i][self.pos[0]]
+                if res is Piece:
+                    return True
         # Checks if there is a piece on the way
 
     def get_line_position(self, axis: 0 | 1, pos_change):
         # axis can only be x: 0 | y: 1
         if pos_change[axis] < 0:
-            points_change = range(pos_change-1, 0, -1)
+            points_change = range(pos_change[axis]-1, 0, -1)
         elif pos_change[axis] > 0:
-            points_change = range(1, pos_change, -1)
+            points_change = range(1, pos_change[axis], -1)
         else:
-            raise BaseException
+            raise JustError
 
         points_axis = list(map(lambda p: p + self.pos[axis], points_change))
 
         points = [self.pos[0], self.pos[1]]
         points[axis] = points_axis
         return points
+
+    @staticmethod
+    def construct_rooks(board):
+        # A function that adds the rooks to the board
+        board.board[0][0] = Rook(board, "white", (0, 0))
+        board.board[0][7] = Rook(board, "white", (7, 0))
+        board.board[7][0] = Rook(board, "black", (0, 7))
+        board.board[7][7] = Rook(board, "black", (7, 7))
+

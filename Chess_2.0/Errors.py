@@ -18,5 +18,5 @@ class UnrecognisableMove(BaseException):
 
 
 class JustError(BaseException):
-    def __init__(self, move):
+    def __init__(self):
         super(JustError, self).__init__(f"\nI dont know what to write in this case, so you have somewhere an unexpected error")

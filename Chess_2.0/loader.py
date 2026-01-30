@@ -1,7 +1,8 @@
 
-from Pieces.Bishop import *
-from Pieces.Rook import *
-from Pieces.King import *
+# from Pieces.Bishop import *
+# from Pieces.Rook import *
+# from Pieces.King import *
+from pieces import Rook, Piece
 
 from util import cord_to_pos
 from Errors import UnrecognisableMove, PieceColorException, ImpossibleMoveException
@@ -76,9 +77,9 @@ class Board:
         # self.board = construct_pawns(self.board)
         # construct_knights(self.board)
         # construct_bishops(self.board)
-        construct_rooks(self.board)
+        Rook.construct_rooks(self)
         # construct_queens(self.board)
-        construct_kings(self.board)
+        # construct_kings(self.board)
 
         # establishes whose move it is currently
         self.player = "white"  # "white"
@@ -86,37 +87,12 @@ class Board:
         # stores king's position (useful for checks)
         self.kings_pos = ((3, 0), (3, 7))
 
-        # A dict that stores the squares that are under attack (WILL BE CHANGED)
-        self.attacking_pos = {
-            "white": {},
-            "black": {}
-        }
+        # later use
+        self.kings_surroundings = {}
+        self.check_line = []
 
-        # Function that gathers the checks from all of the pieces
-        self.gather_check_spaces(self.kings_pos[1], "white")
-        self.gather_check_spaces(self.kings_pos[0], "black")
-
-        # print(self.attacking_pos["black"])
-
-    def gather_check_spaces(self, pos, color) -> None:
-        #  A function tha gathers all of the attacked squares
-        #  by brute forcing through whole board and all of the pieces (WILL BE DELETED)
-        print("KING_POS: ", pos)
-
-        # checks through each row
-        for row in self.board:
-            # checks each piece
-            for piece in row:
-                # if empty, we skip
-                if piece == 0:
-                    continue
-                elif piece.color == color:
-                    piece.piece_attack_check(self, pos)
-
-
-    def move(self) -> None:
-        # a function to move a piece on the board
-
+    @staticmethod
+    def input_move():
         # Getting the move in a format of: Piece Position - New Position
         move = input("Input your move (ex. Qa2-a4): ")
 
@@ -130,30 +106,44 @@ class Board:
         # Getting new and old position
         init_pos = cord_to_pos(move[1:3])  # gets the first (old) position eg. Qa2-a4 -> a2
         new_pos = cord_to_pos(move[4:6])  # gets the second (new) position eg. Qa2-a4 -> a4
-
-        # getting the piece
-        piece = self.board[init_pos[1]][init_pos[0]]
-
-        # checks the symbol and colour of the piece
-        if piece.sym != move[0]:  # if the square is empty, raises error
-            raise UnrecognisableMove(move)
-        elif piece.color != self.player:  # if the pieces colour is not of the current players turn, raises error
-            raise PieceColorException(piece)
+        return move, init_pos, new_pos
 
 
-        # gathers all squares that are under attack. WILL BE DELETED
-        self.check_for_check(self.kings_pos[0 if self.player == "white" else 1], piece, init_pos, new_pos)
+    @staticmethod
+    def is_reachable_move(piece, init_pos, new_pos):
 
         # checks if the move is within the board
         if (new_pos[0] > 7 or new_pos[0] < 0) or (new_pos[1] > 7 or new_pos[1] < 0):
             raise ImpossibleMoveException(piece, "Piece can't reach", init_pos, new_pos)
 
-        # check if king is under attack. WILL BE DELETED AND RE_MADE
-        if self.kings_pos[0 if self.player == "white" else 1] in chain.from_iterable(self.attacking_pos["white" if self.player == "black" else "black"].values()):
-            raise ImpossibleMoveException(piece, "need to move king on check", init_pos, new_pos)
+        # Checks if the piece is actually moving
+        if init_pos == new_pos:
+            raise ImpossibleMoveException(piece, "Piece doesn't move", init_pos, new_pos)
 
+
+    def move(self) -> None:
+        # getting the piece
+        move_txt, init_pos, new_pos = self.input_move()
+        piece: Piece | 0 = self.board[init_pos[1]][init_pos[0]]
+
+        # checks the symbol and colour of the piece
+        if piece == 0:  # if the square is empty, raises error
+            raise UnrecognisableMove(move_txt)
+        elif piece.color != self.player:  # if the pieces colour is not of the current players turn, raises error
+            raise PieceColorException(piece)
+
+        # identifier that helps to see methods
+        piece: Piece
+        # check if it is on the board
+        self.is_reachable_move(piece, init_pos, new_pos)
+
+        is_check = self.in_check(self.kings_pos[0 if self.player == "white" else 1], piece, init_pos, new_pos)
+
+        # piece class checks
+        piece.reach_check(new_pos, en_passan=False)
+        piece.blocking_check(new_pos)
         # After all of the basic checks, calls the piece to check if it can move, and then moves it
-        new_pos = piece.move(self, new_pos)
+        piece.move(self, new_pos)
 
         # changes the current player, aka the turn
         if self.player == "white":
@@ -164,23 +154,15 @@ class Board:
         # updates the position of the piece. Might need to be recoded
         self.update_pos(piece, new_pos)
 
-    def update_pos(self, piece, cord):
+    def update_pos(self, piece: Piece, cord: tuple[int, int]) -> None:
         # A function that updates the pieces position on the board
         self.board[piece.pos[1]][piece.pos[0]] = 0  # makes the old square empty
         self.board[cord[1]][cord[0]] = piece  # puts the pieces symbol on the new spot
-        piece.old_pos = piece.pos  # updates the old coordinates within the piece
-        piece.pos = cord  # updates the coordinates within the piece
 
-        # adds new squares that are under attack. WILL BE DELETED
-        piece.piece_attack_check(self, self.kings_pos[0 if piece.color == "black" else 1])
-
-    def check_for_check(self, king_pos, piece, init_pos, new_pos):
+    def in_check(self, king_pos, piece, init_pos, new_pos) -> bool:  # !!!!!! Change
         # A function that checks if the king is under the attack, via the brute force
-        print(king_pos)
-        king = self.board[king_pos[1]][king_pos[0]]
-        king_check = king.check_if_can_go(self, king_pos)
-        if king_check:
-            return ImpossibleMoveException(piece, "Cant move due to check", init_pos, new_pos)
+        print("In development. Assume returns False")
+        return False
 
 
     def construct(self):
