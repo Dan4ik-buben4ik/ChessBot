@@ -1,5 +1,4 @@
-from Errors import ImpossibleMoveException, PieceColorException
-from util import cord_to_pos
+from Errors import ImpossibleMoveException
 
 
 def construct_pawns(board):

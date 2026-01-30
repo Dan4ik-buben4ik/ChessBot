@@ -1,5 +1,4 @@
-from Errors import ImpossibleMoveException, PieceColorException
-from util import cord_to_pos, pos_to_cord
+from Errors import ImpossibleMoveException
 
 from itertools import chain
 

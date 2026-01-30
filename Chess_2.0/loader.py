@@ -1,8 +1,21 @@
-from Pieces import *
-from util import pos_to_cord, cord_to_pos
+
+from Pieces.Bishop import *
+from Pieces.Rook import *
+from Pieces.King import *
+
+from util import cord_to_pos
 from Errors import UnrecognisableMove, PieceColorException, ImpossibleMoveException
 
 from itertools import chain
+
+# board check logic
+# if (pos_change[0] != 0 and pos_change[1] != 0) or not (8 > new_pos[0] > -1 and 8 > new_pos[1] > -1):
+#     raise ImpossibleMoveException(self, f"{self.name} can't reach", self.pos, new_pos)
+#
+# # Checks if the piece is actually moving
+# elif pos_change[0] == 0 and pos_change[1] == 0:
+#     raise ImpossibleMoveException(self, "Need to move", self.pos, new_pos)
+
 
 # King- K
 # Queen - Q --
