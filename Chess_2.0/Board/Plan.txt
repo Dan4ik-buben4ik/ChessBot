@@ -1,0 +1,8 @@
+- get king set up. -> Think about the square around him and the check lines (so that one could block check or take the piece)
+
+
+
+
+Idea for the kings check:
+- we record all blocked, attacked squares in a box around king
+- if checked, shows what moves are possible

@@ -61,9 +61,8 @@ class Rook(Piece):
 
         points_axis = list(map(lambda p: p + self.pos[axis], points_change))
 
-        points = [self.pos[0], self.pos[1]]
-        points[axis] = points_axis
-        return points
+
+        return points_axis
 
     @staticmethod
     def construct_rooks(board):

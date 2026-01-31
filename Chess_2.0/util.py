@@ -23,3 +23,5 @@ def cord_to_pos(cord: str) -> tuple[int, int]:  # eg. (0, 0)
     # eg. (0,0) -> A1
     return 7 - (ord(cord[0]) - 97), int(cord[1]) - 1
 
+
+

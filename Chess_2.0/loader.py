@@ -143,7 +143,6 @@ class Board:
         piece.reach_check(new_pos, en_passan=False)
         piece.blocking_check(new_pos)
         # After all of the basic checks, calls the piece to check if it can move, and then moves it
-        piece.move(self, new_pos)
 
         # changes the current player, aka the turn
         if self.player == "white":
@@ -155,9 +154,12 @@ class Board:
         self.update_pos(piece, new_pos)
 
     def update_pos(self, piece: Piece, cord: tuple[int, int]) -> None:
+        print(f"UPDATE position: {piece}")
         # A function that updates the pieces position on the board
         self.board[piece.pos[1]][piece.pos[0]] = 0  # makes the old square empty
+        print(self.board[piece.pos[1]][piece.pos[0]])
         self.board[cord[1]][cord[0]] = piece  # puts the pieces symbol on the new spot
+        piece.move(cord)
 
     def in_check(self, king_pos, piece, init_pos, new_pos) -> bool:  # !!!!!! Change
         # A function that checks if the king is under the attack, via the brute force
