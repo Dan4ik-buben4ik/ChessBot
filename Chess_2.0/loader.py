@@ -2,7 +2,7 @@
 # from Pieces.Bishop import *
 # from Pieces.Rook import *
 # from Pieces.King import *
-from pieces import Rook, Piece
+from pieces import Piece, Rook, Bishop
 
 from util import cord_to_pos
 from Errors import UnrecognisableMove, PieceColorException, ImpossibleMoveException
@@ -76,8 +76,8 @@ class Board:
         # Functions that are called for the board to add pieces starting position.
         # self.board = construct_pawns(self.board)
         # construct_knights(self.board)
-        # construct_bishops(self.board)
-        Rook.construct_rooks(self)
+        Bishop.construct(self)
+        # Rook.construct(self)
         # construct_queens(self.board)
         # construct_kings(self.board)
 
@@ -140,7 +140,9 @@ class Board:
         is_check = self.in_check(self.kings_pos[0 if self.player == "white" else 1], piece, init_pos, new_pos)
 
         # piece class checks
-        piece.reach_check(new_pos, en_passan=False)
+        reach, reason = piece.reach_check(new_pos, en_passan=False) # needed ???
+        if not reach:
+            raise ImpossibleMoveException(piece, reason, init_pos, new_pos)
         piece.blocking_check(new_pos)
         # After all of the basic checks, calls the piece to check if it can move, and then moves it
 
