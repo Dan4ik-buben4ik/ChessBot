@@ -1,5 +1,9 @@
 from Errors import JustError
+from position import PositionVector2D
+
 from types import GeneratorType
+
+
 class Piece:
     # A class for Rook
     def __init__(self, board, color: str, pos: tuple[int, int]):
