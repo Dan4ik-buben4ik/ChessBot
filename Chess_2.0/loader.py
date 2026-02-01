@@ -2,7 +2,7 @@
 # from Pieces.Bishop import *
 # from Pieces.Rook import *
 # from Pieces.King import *
-from pieces import Piece, Rook, Bishop
+from pieces import Piece, Rook, King, Bishop
 
 from util import cord_to_pos
 from Errors import UnrecognisableMove, PieceColorException, ImpossibleMoveException
@@ -76,10 +76,11 @@ class Board:
         # Functions that are called for the board to add pieces starting position.
         # self.board = construct_pawns(self.board)
         # construct_knights(self.board)
-        Bishop.construct(self)
-        # Rook.construct(self)
+        # Bishop.construct(self)
+        Rook.construct(self)
         # construct_queens(self.board)
-        # construct_kings(self.board)
+        King.construct(self)
+
 
         # establishes whose move it is currently
         self.player = "white"  # "white"
@@ -134,6 +135,7 @@ class Board:
 
         # identifier that helps to see methods
         piece: Piece
+
         # check if it is on the board
         self.is_reachable_move(piece, init_pos, new_pos)
 

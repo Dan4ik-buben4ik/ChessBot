@@ -22,6 +22,9 @@ class Piece:
     def blocking_check(self, pos):
         pass
 
+    def around_pos_attack_check(self, pos):  # used to compute if the positions around king are attacked
+        pass
+
     @staticmethod
     def construct(board):
         pass
@@ -43,33 +46,43 @@ class Rook(Piece):
 
     def blocking_check(self, pos):
         pos_change = self.pos[0] - pos[0], self.pos[1] - pos[1]
-        axis = 0 if pos_change[0] else 1
-        points = self.get_line_positions(axis, pos_change)
-        if axis == 0:
-            for i in points:
-                res = self.board.board[self.pos[1]][i]
-                if res is Piece:
-                    return True
-        if axis == 1:
-            for i in points:
-                res = self.board.board[i][self.pos[0]]
-                if res is Piece:
-                    return True
+        # \/ change using class for pos \/
+        direction = pos_change[0] // abs(pos_change[0]), pos_change[1] // abs(pos_change[1])
+        points = self.get_line_positions(direction, pos_change)
+        print(f"blocking check in Rook")
+        for i in points:
+            print(i)
+            if self.board.board[i[1]][i[0]]:
+                return True
+
         # Checks if there is a piece on the way
 
-    def get_line_positions(self, axis: 0 | 1, pos_change):
+    def get_line_positions(self, direction, pos_change):
         # axis can only be x: 0 | y: 1
-        if pos_change[axis] < 0:
-            points_change = range(pos_change[axis]-1, 0, -1)
-        elif pos_change[axis] > 0:
-            points_change = range(1, pos_change[axis], -1)
-        else:
-            raise JustError
 
-        points_axis = list(map(lambda p: p + self.pos[axis], points_change))
+        print(f"direction: {direction}\npos_change: {pos_change}")
+
+        for i in range(1, max(map(abs, pos_change))):
+            yield self.pos[0] + i * direction[0], self.pos[1] + i * direction[1]
+
+    def around_pos_attack_check(self, pos):
+        pos_change = pos[0] - self.pos[0], pos[1] - self.pos[1]
+        # \/ change using class for pos \/
+        direction = pos_change[0] // abs(pos_change[0]), 0 if abs(pos_change[0]) > abs(pos_change[1]) else 0, pos_change[1] // abs(pos_change[1])
+        pos_boarder_change = abs(direction[0]) * 7, abs(direction[1]) * 7  # pos_change from pos to boarder in the needed direction
+
+        points = self.get_line_positions(direction, pos_boarder_change)
+
+        print(f"around_pos_attack_check for {self.name}")
+        print(f"points: {points}")
+        for p in points:
+            delta_p = pos[0] - p[0], pos[1]-p[1]
+            if delta_p[0] in (-1, 0, 1) and delta_p[1] in (-1, 0, 1):
+                yield p
 
 
-        return points_axis
+
+
 
     @staticmethod
     def construct(board):
@@ -116,3 +129,51 @@ class Bishop(Piece):
         board.board[0][5] = Bishop(board, "white", (5, 0))
         board.board[7][2] = Bishop(board, "black", (2, 7))
         board.board[7][5] = Bishop(board, "black", (5, 7))
+
+class King(Piece):
+    def __init__(self, board, color: str, pos: tuple[int, int]):
+        super(King, self).__init__(board, color, pos)
+        self.name = "King"
+        self.sym = "K"
+        self.blocked_list = [
+            [False, False, False],
+            [False, None,  False],
+            [False, False, False]
+        ]
+
+    def reach_check(self, pos: tuple[int, int], en_passan: bool = False) -> tuple[bool, str | None]:
+        # Position change. Needed to check if the movement is possible
+        pos_change = abs(self.pos[0] - pos[0]), abs(self.pos[1] - pos[1])
+        if (pos_change[0] != 0 and pos_change[1] != 0) and (pos_change[0] == 1 or pos_change[1] == 1):
+            return True, None
+
+        return False, f"{self.name} can't reach from {self.pos} to {pos}"
+
+    def blocking_check(self, pos):
+        # in case of king, this will check whether the space he wants to go is free.
+        pos_change = self.pos[0] - pos[0], self.pos[1] - pos[1]
+        direction = pos_change
+        return self.blocked_list[direction[1]+1][direction[0]+1]
+
+    def move(self, new_pos):
+        print(f"Moved {self.name} on {self.pos} to {new_pos}")
+        self.pos = new_pos
+
+    def update_blocked_list(self, new_pos):
+        for y, row in enumerate(self.board.board):
+            for x, piece in enumerate(row):
+                pos_change = new_pos[0] - x, new_pos[1] - y
+                if piece is self:
+                    pass
+                elif piece.color == self.color and (pos_change[0] in (-1, 0, 1) and pos_change[0] in (-1, 0, 1)):
+                    self.blocked_list[pos_change[1]+1][pos_change[0]+1] = True
+                else:  # implement a function for the pieces to find the closest path to king and check if it is near
+                    pass
+
+    @staticmethod
+    def construct(board):
+        board.board[0][3] = King(board, "white", (3, 0))
+        board.board[7][3] = King(board, "black", (3, 7))
+
+
+
