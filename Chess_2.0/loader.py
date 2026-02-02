@@ -139,6 +139,7 @@ class Board:
         # check if it is on the board
         self.is_reachable_move(piece, init_pos, new_pos)
 
+        # in development
         is_check = self.in_check(self.kings_pos[0 if self.player == "white" else 1], piece, init_pos, new_pos)
 
         # piece class checks
@@ -157,7 +158,7 @@ class Board:
         # updates the position of the piece. Might need to be recoded
         self.update_pos(piece, new_pos)
 
-    def update_pos(self, piece: Piece, cord: tuple[int, int]) -> None:
+    def update_pos(self, piece: Piece, cord: tuple[int, int]) -> None:  # !!!
         print(f"UPDATE position: {piece}")
         # A function that updates the pieces position on the board
         self.board[piece.pos[1]][piece.pos[0]] = 0  # makes the old square empty

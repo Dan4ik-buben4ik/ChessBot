@@ -1,29 +1,47 @@
 class PositionVector2D:
     def __init__(self, val: str | tuple[int, int]):
-        if val is str:
-            self.pos = val
-            self.cord = self.pos_to_cord(val)
-        elif val is tuple[int, int]:
+        self.pos: str
+        self.cord: tuple[int, int]
+        if isinstance(val, str):
+            print("val is str")
             self.cord = val
             self.pos = self.cord_to_pos(val)
+            print(self.pos, self.cord)
+        elif isinstance(val, tuple):
+            print("val is tuple[int, int]")
+            self.pos = val
+            self.cord = self.pos_to_cord(val)
+            print(self.pos, self.cord)
+
 
     def __sub__(self, other):
-        if other is PositionVector2D:
-            return PositionVector2D((self.cord[0] - other.cord[0], self.cord[1] - other.cord[1]))
-        elif other is tuple[int, int]:
-            return PositionVector2D((self.cord[0] - other[0], self.cord[1] - other[1]))
+        if isinstance(other, PositionVector2D):
+            res = (self.pos[0] - other.pos[0], self.pos[1] - other.pos[1])
+            print(res)
+            return PositionVector2D((self.pos[0] - other.pos[0], self.pos[1] - other.pos[1]))
+        elif isinstance(other, tuple):   # add a check if a 1x2 int array
+            return PositionVector2D((self.pos[0] - other[0], self.pos[1] - other[1]))
 
     def __add__(self, other):
-        if other is PositionVector2D:
-            return PositionVector2D((self.cord[0] + other.cord[0], self.cord[1] + other.cord[1]))
-        elif other is tuple[int, int]:
-            return PositionVector2D((self.cord[0] + other[0], self.cord[1] + other[1]))
+        if isinstance(other, PositionVector2D):
+            return PositionVector2D((self.pos[0] + other.pos[0], self.pos[1] + other.pos[1]))
+        elif isinstance(other, tuple):
+            return PositionVector2D((self.pos[0] + other[0], self.pos[1] + other[1]))
+
+    def __getattr__(self, item):
+        pass
+        # print(item)
+        # if item == "pos":
+        #     return self.pos
 
     def normalize(self):
-        return self.sign(self.cord[0]), self.sign(self.cord[1])
+        return self.sign(self.pos[0]), self.sign(self.pos[1])
 
     def __abs__(self):
-        return PositionVector2D((abs(self.cord[0]), abs(self.cord[1])))
+        return PositionVector2D((abs(self.pos[0]), abs(self.pos[1])))
+
+    def __getitem__(self, item):
+        return self.cord[item]
 
     @staticmethod
     def pos_to_cord(pos: tuple[int, int]) -> str:
@@ -45,4 +63,31 @@ class PositionVector2D:
             return 1
         else:
             return 0
+
+
+#         0     1     2     3     4     5     6     7
+#      |-----|-----|-----|-----|-----|-----|-----|-----|
+#  0   | A1  | B1  | ### | D1  | E1  | F1  | G1  | H1  |
+#      |-----|-----|-----|-----|-----|-----|-----|-----|
+#  1   | A2  | B2  | C2  | D2  | E2  | F2  | G2  | H2  |
+#      |-----|-----|-----|-----|-----|-----|-----|-----|
+#  2   | A3  | B3  | C3  | D3  | E3  | F3  | G3  | H3  |
+#      |-----|-----|-----|-----|-----|-----|-----|-----|
+#  3   | A4  | B4  | C4  | D4  | E4  | F4  | G4  | H4  |
+#      |-----|-----|-----|-----|-----|-----|-----|-----|
+#  4   | A5  | B5  | C5  | D5  | E5  | F5  | G5  | H5  |
+#      |-----|-----|-----|-----|-----|-----|-----|-----|
+#  5   | A6  | B6  | C6  | D6  | ### | F6  | G6  | H6  |
+#      |-----|-----|-----|-----|-----|-----|-----|-----|
+#  6   | A7  | B7  | C7  | D7  | E7  | F7  | G7  | H7  |
+#      |-----|-----|-----|-----|-----|-----|-----|-----|
+#  7   | A8  | B8  | C8  | D8  | E8  | F8  | G8  | H8  |
+#      |-----|-----|-----|-----|-----|-----|-----|-----|
+
+pos = PositionVector2D((2, 0))
+print(pos.pos, pos.cord)
+add_v = PositionVector2D((4, 5))
+direction = pos - add_v
+print(direction)
+print(direction.normalize())
 
