@@ -7,7 +7,10 @@ from types import GeneratorType
 class Piece:
     # A class for Rook
     def __init__(self, board, color: str, pos: tuple[int, int]):
-        self.pos = pos  # refers to the coordinates. WILL BE RENAMED
+        if isinstance(pos, PositionVector2D):
+            self.pos = pos
+        else:
+            self.pos = PositionVector2D(pos)
 
         self.board = board
         # ? add reference to the board?
@@ -23,7 +26,7 @@ class Piece:
     def reach_check(self, pos: tuple[int, int], en_passan: bool = False) -> tuple[bool, str | None]:
         pass
 
-    def blocking_check(self, pos):
+    def blocking_check(self, pos) -> tuple[bool, str | None]:
         pass
 
     def around_pos_attack_check(self, pos):  # used to compute if the positions around king are attacked
@@ -39,48 +42,63 @@ class Rook(Piece):
         self.name = "Rook"
         self.sym = "R"
 
-    def reach_check(self, pos: tuple[int, int], en_passan: bool = False) -> tuple[bool, str | None]:
+    def reach_check(self, pos: PositionVector2D | tuple[int, int], en_passan: bool = False) -> tuple[bool, str | None]:
         # doesn't needed
         # Position change. Needed to check if the movement is possible
-        pos_change = abs(self.pos[0] - pos[0]), abs(self.pos[1] - pos[1])
+        pos_change = abs(self.pos - pos)
         if pos_change[0] != 0 or pos_change[1] != 0:
             return True, None
 
         return False, f"{self.name} can't reach from {self.pos} to {pos}"
 
-    def blocking_check(self, pos):
-        pos_change = self.pos[0] - pos[0], self.pos[1] - pos[1]
+    def blocking_check(self, pos: PositionVector2D | tuple[int, int]) -> tuple[bool, str | None]:
+        pos_change = (self.pos - pos) * -1  # == pos - self.pos
         # \/ change using class for pos \/
-        direction = pos_change[0] // abs(pos_change[0]), pos_change[1] // abs(pos_change[1])
+        direction = pos_change.normalize()
         points = self.get_line_positions(direction, pos_change)
         print(f"blocking check in Rook")
         for i in points:
-            print(i)
-            if self.board.board[i[1]][i[0]]:
-                return True
+            piece = self.board.board[i[1]][i[0]]
+#            print(i)
+#            print(self.board.board[i[1]][i[0]])
+
+# address the issue of not checking last piece and colour. IF it is same colour: return False
+#             if i == points[-1] and piece.color == "black":
+#                 print("err")
+            if piece:
+                return True, f"a piece ({piece} is blocking the way on {i}"
+
+        return False, None
 
         # Checks if there is a piece on the way
 
-    def get_line_positions(self, direction, pos_change):
-        # axis can only be x: 0 | y: 1
+    def get_line_positions(self, direction: PositionVector2D | tuple[int, int], pos_change: PositionVector2D | tuple[int, int]) -> GeneratorType:
 
-        print(f"direction: {direction}\npos_change: {pos_change}")
+    #    print(f"direction: {direction} ({type(direction)})\npos_change: {pos_change}")
 
-        for i in range(1, max(map(abs, pos_change))):
-            yield self.pos[0] + i * direction[0], self.pos[1] + i * direction[1]
+        for i in range(1, max(abs(pos_change))):  # address the issue of last piece not being checked
+    #        print(f"Rook.get_line_position(): yield {self.pos + direction * i}, d * i = {direction * i}")
+            yield self.pos + direction * i
+
 
     def around_pos_attack_check(self, pos):
-        pos_change = pos[0] - self.pos[0], pos[1] - self.pos[1]
+        pos_change = pos - self.pos
         # \/ change using class for pos \/
-        direction = pos_change[0] // abs(pos_change[0]), 0 if abs(pos_change[0]) > abs(pos_change[1]) else 0, pos_change[1] // abs(pos_change[1])
-        pos_boarder_change = abs(direction[0]) * 7, abs(direction[1]) * 7  # pos_change from pos to boarder in the needed direction
+        # direction = pos_change[0] // abs(pos_change[0]), 0 if abs(pos_change[0]) > abs(pos_change[1]) else 0, pos_change[1] // abs(pos_change[1])
+        direction = pos_change.normalize()
+        if direction[0] > direction[1]:
+            direction[1] = 0
+        else:
+            direction[0] = 0
+
+        pos_boarder_change = abs(direction) * 7  # pos_change from pos to boarder in the needed direction
 
         points = self.get_line_positions(direction, pos_boarder_change)
 
         print(f"around_pos_attack_check for {self.name}")
         print(f"points: {points}")
         for p in points:
-            delta_p = pos[0] - p[0], pos[1]-p[1]
+            delta_p = pos - p
             if delta_p[0] in (-1, 0, 1) and delta_p[1] in (-1, 0, 1):
                 yield p
 

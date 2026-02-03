@@ -47,7 +47,7 @@ from itertools import chain
 #         h     g     f     e     d     c     b     a
 
 
-# Board Visualisation (with coordinate system on the axis and positions in the squares)
+# Board Visualisation (with coordinate system on the axis and positions in the squares)  ~ swap A and H
 #                       White
 #         0     1     2     3     4     5     6     7
 #      |-----|-----|-----|-----|-----|-----|-----|-----|
@@ -146,7 +146,9 @@ class Board:
         reach, reason = piece.reach_check(new_pos, en_passan=False) # needed ???
         if not reach:
             raise ImpossibleMoveException(piece, reason, init_pos, new_pos)
-        piece.blocking_check(new_pos)
+        reason, blocking = piece.blocking_check(new_pos)
+        if blocking:
+            raise ImpossibleMoveException(piece, reason, init_pos, new_pos)
         # After all of the basic checks, calls the piece to check if it can move, and then moves it
 
         # changes the current player, aka the turn
