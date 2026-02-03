@@ -63,9 +63,9 @@ class Rook(Piece):
 #            print(self.board.board[i[1]][i[0]])
 
 # address the issue of not checking last piece and colour. IF it is same colour: return False
-#             if i == points[-1] and piece.color == "black":
-#                 print("err")
-            if piece:
+            if i == pos and piece.color != self.color:
+                pass
+            elif piece:
                 return True, f"a piece ({piece} is blocking the way on {i}"
 
         return False, None
@@ -76,7 +76,7 @@ class Rook(Piece):
 
     #    print(f"direction: {direction} ({type(direction)})\npos_change: {pos_change}")
 
-        for i in range(1, max(abs(pos_change))):  # address the issue of last piece not being checked
+        for i in range(1, max(abs(pos_change))+1):  # address the issue of last piece not being checked (+1)
     #        print(f"Rook.get_line_position(): yield {self.pos + direction * i}, d * i = {direction * i}")
             yield self.pos + direction * i
 
