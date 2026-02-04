@@ -110,7 +110,7 @@ class Rook:
         except ZeroDivisionError:
             x = 0
 
-        print("CHECK:")
+        print(f"CHECK:")
         print(f"Old pos: {self.old_pos}")
         print(f"pos: {self.pos}")
         print(f"king pos: {king_pos}")

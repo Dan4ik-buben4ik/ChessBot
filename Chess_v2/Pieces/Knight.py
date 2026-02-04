@@ -20,7 +20,7 @@ class Knight:
 
         self.color = color if color in ("white", "black") else None
 
-    def move(self, new_pos):
+    def move(self, board, new_pos):
         print(f"New pos: {new_pos}")
         # if board.board[new_pos[1]][new_pos[0]] != 0:
 
@@ -28,6 +28,9 @@ class Knight:
 
         if pos_change[0] + pos_change[1] != 3 or (pos_change[0] not in (1, 2) or pos_change[1] not in (1, 2)):
             raise ImpossibleMoveException(self, f"{self.name} can't reach", self.pos, new_pos)
+            
+            
+        #Maybe not needed if validate alr
         elif pos_change[0] == 0 and pos_change[1] == 0:
             raise ImpossibleMoveException(self, "Need to move", self.pos, new_pos)
 
@@ -35,8 +38,10 @@ class Knight:
 
     def piece_attack_check(self, board, king_pos):
         pos_change = (self.pos[0] - king_pos[0]) // 1, (self.pos[1] - king_pos[1]) // 1
+
         if 0 <= self.pos[0] + (2 + pos_change[0]) <= 7 and 0 <= self.pos[1] + (1 + pos_change[1]) <= 7:
             board.attacking_pos[self.color][(self.name, self.pos)].append(self.pos[0] + (2 + pos_change[0]), self.pos[1] - (1 + pos_change[1]))
+
         if 0 <= self.pos[0] + (1 + pos_change[0]) <= 7 and 0 <= self.pos[1] + (2 + pos_change[1]) <= 7:
             board.attacking_pos[self.color][(self.name, self.pos)].append(self.pos[0] + (1 + pos_change[0]), self.pos[1] + (2 + pos_change[1]))
 

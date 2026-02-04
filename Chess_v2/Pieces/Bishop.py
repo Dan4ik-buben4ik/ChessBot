@@ -35,9 +35,6 @@ class Bishop:
         if check:
             raise ImpossibleMoveException(self, f"Another piece is blocking the way on {pos_to_cord(check)}", self.pos, new_pos)
 
-
-
-
         # elif board.board[new_pos[1]][new_pos[0]] != 0:
         #     raise ImpossibleMoveException(self, "Another piece is blocking the way", self.pos, new_pos)
 

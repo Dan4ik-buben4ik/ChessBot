@@ -61,7 +61,7 @@ class Board:
 
         # Functions that are called for the board to add pieces starting position.
         # self.board = construct_pawns(self.board)
-        # construct_knights(self.board)
+        construct_knights(self.board)
         # construct_bishops(self.board)
         construct_rooks(self.board)
         # construct_queens(self.board)
