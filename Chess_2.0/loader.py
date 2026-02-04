@@ -4,8 +4,8 @@
 # from Pieces.King import *
 from pieces import Piece, Rook, King, Bishop
 
-from util import cord_to_pos
 from Errors import UnrecognisableMove, PieceColorException, ImpossibleMoveException
+from position import PositionVector2D
 
 from itertools import chain
 
@@ -105,13 +105,13 @@ class Board:
         # Here is going to be a check for the format of the input, but it is later
 
         # Getting new and old position
-        init_pos = cord_to_pos(move[1:3])  # gets the first (old) position eg. Qa2-a4 -> a2
-        new_pos = cord_to_pos(move[4:6])  # gets the second (new) position eg. Qa2-a4 -> a4
+        init_pos = PositionVector2D.cord_to_pos(move[1:3])  # gets the first (old) position eg. Qa2-a4 -> a2
+        new_pos = PositionVector2D.cord_to_pos(move[4:6])  # gets the second (new) position eg. Qa2-a4 -> a4
         return move, init_pos, new_pos
 
 
     @staticmethod
-    def is_reachable_move(piece, init_pos, new_pos):
+    def is_reachable_move(piece, init_pos, new_pos) -> None:
 
         # checks if the move is within the board
         if (new_pos[0] > 7 or new_pos[0] < 0) or (new_pos[1] > 7 or new_pos[1] < 0):

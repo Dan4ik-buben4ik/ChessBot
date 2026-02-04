@@ -81,8 +81,8 @@ class Rook(Piece):
             yield self.pos + direction * i
 
 
-    def around_pos_attack_check(self, pos):
-        pos_change = pos - self.pos
+    def around_pos_attack_check(self, king_pos):
+        pos_change = king_pos - self.pos
         # \/ change using class for pos \/
         # direction = pos_change[0] // abs(pos_change[0]), 0 if abs(pos_change[0]) > abs(pos_change[1]) else 0, pos_change[1] // abs(pos_change[1])
         direction = pos_change.normalize()
@@ -98,7 +98,7 @@ class Rook(Piece):
         print(f"around_pos_attack_check for {self.name}")
         print(f"points: {points}")
         for p in points:
-            delta_p = pos - p
+            delta_p = king_pos - p
             if delta_p[0] in (-1, 0, 1) and delta_p[1] in (-1, 0, 1):
                 yield p
 
@@ -163,29 +163,40 @@ class King(Piece):
             [False, False, False]
         ]
 
-    def reach_check(self, pos: tuple[int, int], en_passan: bool = False) -> tuple[bool, str | None]:
+    def reach_check(self, pos: PositionVector2D | tuple[int, int], en_passan: bool = False) -> tuple[bool, str | None]:
         # Position change. Needed to check if the movement is possible
-        pos_change = abs(self.pos[0] - pos[0]), abs(self.pos[1] - pos[1])
-        if (pos_change[0] != 0 and pos_change[1] != 0) and (pos_change[0] == 1 or pos_change[1] == 1):
+        pos_change = abs(self.pos - pos)
+        if pos_change[0] == 1 or pos_change[1] == 1:
             return True, None
 
         return False, f"{self.name} can't reach from {self.pos} to {pos}"
 
-    def blocking_check(self, pos):
+    def blocking_check(self, pos: PositionVector2D | tuple[int, int]) -> tuple[bool, str | None]:  # need to check
         # in case of king, this will check whether the space he wants to go is free.
-        pos_change = self.pos[0] - pos[0], self.pos[1] - pos[1]
+        pos_change = self.pos - pos
         direction = pos_change
-        return self.blocked_list[direction[1]+1][direction[0]+1]
+        self.update_blocked_list(pos)
+        print("\nKing.blocking_check()")
+        print(f"old King.blocked_list{self.blocked_list}")
+        return self.blocked_list[direction[1]+1][direction[0]+1], f"piece is blocking"
 
-    def move(self, new_pos):
+    def move(self, new_pos: PositionVector2D | tuple[int, int]):
         print(f"Moved {self.name} on {self.pos} to {new_pos}")
         self.pos = new_pos
 
-    def update_blocked_list(self, new_pos):
+    def update_blocked_list(self, new_pos: PositionVector2D | tuple[int, int]):
+        self.blocked_list = [
+            [False, False, False],
+            [False, None,  False],
+            [False, False, False]
+        ]
+
         for y, row in enumerate(self.board.board):
             for x, piece in enumerate(row):
-                pos_change = new_pos[0] - x, new_pos[1] - y
+                pos_change = new_pos - (x, y) if type(new_pos) is PositionVector2D else PositionVector2D((new_pos[0] - x, new_pos[1] - y))
                 if piece is self:
+                    pass
+                elif piece == 0:
                     pass
                 elif piece.color == self.color and (pos_change[0] in (-1, 0, 1) and pos_change[0] in (-1, 0, 1)):
                     self.blocked_list[pos_change[1]+1][pos_change[0]+1] = True

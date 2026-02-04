@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 class PositionVector2D:
     def __init__(self, val: str | tuple[int, int]):
         self.pos: str
@@ -14,7 +16,7 @@ class PositionVector2D:
 #            print(self.pos, self.cord)
 
 
-    def __sub__(self, other):
+    def __sub__(self, other: PositionVector2D | tuple[int, int]):
         if isinstance(other, PositionVector2D):
             res = (self.pos[0] - other.pos[0], self.pos[1] - other.pos[1])
 #            print(res)
@@ -22,16 +24,16 @@ class PositionVector2D:
         elif isinstance(other, tuple):   # add a check if a 1x2 int array
             return PositionVector2D((self.pos[0] - other[0], self.pos[1] - other[1]))
 
-    def __add__(self, other):
+    def __add__(self, other: PositionVector2D | tuple[int, int]):
         if isinstance(other, PositionVector2D):
             return PositionVector2D((self.pos[0] + other.pos[0], self.pos[1] + other.pos[1]))
         elif isinstance(other, tuple):
             return PositionVector2D((self.pos[0] + other[0], self.pos[1] + other[1]))
 
-    def __mul__(self, other):
+    def __mul__(self, other: PositionVector2D | tuple[int, int] | int | float):
         if isinstance(other, int | float):
             return PositionVector2D((self.pos[0] * other, self.pos[1] * other))
-        elif isinstance(other, PositionVector2D):
+        elif isinstance(other, PositionVector2D | tuple):
             return PositionVector2D((self.pos[0] * other[0], self.pos[1] * other[1]))
 
     # def __getattr__(self, item):
@@ -56,16 +58,16 @@ class PositionVector2D:
         return f"{self.pos}"
 
     @staticmethod
-    def pos_to_cord(pos: tuple[int, int]) -> str:
+    def pos_to_cord(pos: PositionVector2D | tuple[int, int]) -> str:
         # A function that changes the text position into a coordinate
         # eg. A1 -> (0,0)
         return "".join((chr(96 - pos[0] + 8), str(pos[1] + 1)))
 
     @staticmethod
-    def cord_to_pos(cord: str) -> tuple[int, int]:  # eg. (0, 0)
+    def cord_to_pos(cord: str) -> PositionVector2D | tuple[int, int]:  # eg. (0, 0)
         # A function that changes the coordinate value to the text position
         # eg. (0,0) -> A1
-        return 7 - (ord(cord[0]) - 97), int(cord[1]) - 1
+        return PositionVector2D((7 - (ord(cord[0]) - 97), int(cord[1]) - 1))
 
     @staticmethod
     def sign(value: int):
