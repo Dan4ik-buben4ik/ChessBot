@@ -2,6 +2,7 @@ from Errors import JustError
 from position import PositionVector2D
 
 from types import GeneratorType
+from math import sin, cos
 
 
 class Piece:
@@ -87,16 +88,16 @@ class Rook(Piece):
         # direction = pos_change[0] // abs(pos_change[0]), 0 if abs(pos_change[0]) > abs(pos_change[1]) else 0, pos_change[1] // abs(pos_change[1])
         direction = pos_change.normalize()
         if direction[0] > direction[1]:
-            direction[1] = 0
+            direction = PositionVector2D((direction[0], 0))
         else:
-            direction[0] = 0
+            direction = PositionVector2D((0, direction[1]))
 
         pos_boarder_change = abs(direction) * 7  # pos_change from pos to boarder in the needed direction
 
         points = self.get_line_positions(direction, pos_boarder_change)
 
         print(f"around_pos_attack_check for {self.name}")
-        print(f"points: {points}")
+        print(f"points: {list(points)}")
         for p in points:
             delta_p = king_pos - p
             if delta_p[0] in (-1, 0, 1) and delta_p[1] in (-1, 0, 1):
@@ -178,12 +179,26 @@ class King(Piece):
         self.update_blocked_list(pos)
         print("\nKing.blocking_check()")
         print(f"old King.blocked_list{self.blocked_list}")
-        return self.blocked_list[direction[1]+1][direction[0]+1], f"piece is blocking"
+        return self.blocked_list[direction[1]+1][direction[0]+1], f"piece is attacking space"
 
     def move(self, new_pos: PositionVector2D | tuple[int, int]):
         print(f"Moved {self.name} on {self.pos} to {new_pos}")
         self.pos = new_pos
 
+
+    def check_if_pos_attacked(self, pos):
+        directions_list = [(0, 1), (1, 1), (1, 0), (1, -1), (0, -1), (-1, -1), (-1, 0), (-1, 1)]
+        # maybe for loop for directions? use sin(deg) or go back
+        for i in range(1, 8):
+            for deg in range(0, 360, 45):
+                direction = PositionVector2D((cos(deg), sin(deg))).normalize()
+                piece_pos = self.pos + direction * i
+                piece = self.board.board[piece_pos[1]][piece_pos[0]]
+                if piece.color == "black":
+                    pass
+                else:
+                    return True, None
+        return False, None
     def update_blocked_list(self, new_pos: PositionVector2D | tuple[int, int]):
         self.blocked_list = [
             [False, False, False],
@@ -194,14 +209,14 @@ class King(Piece):
         for y, row in enumerate(self.board.board):
             for x, piece in enumerate(row):
                 pos_change = new_pos - (x, y) if type(new_pos) is PositionVector2D else PositionVector2D((new_pos[0] - x, new_pos[1] - y))
-                if piece is self:
-                    pass
-                elif piece == 0:
+                if piece is self or piece == 0:
                     pass
                 elif piece.color == self.color and (pos_change[0] in (-1, 0, 1) and pos_change[0] in (-1, 0, 1)):
                     self.blocked_list[pos_change[1]+1][pos_change[0]+1] = True
                 else:  # implement a function for the pieces to find the closest path to king and check if it is near
-                    pass
+                    for i in piece.around_pos_attack_check(self.pos):
+                        print(f"King.update_blocked_list()\ni: {i}")
+                        self.blocked_list[i[1]][i[0]] = True
 
     @staticmethod
     def construct(board):

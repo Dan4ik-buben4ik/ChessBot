@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 class PositionVector2D:
-    def __init__(self, val: str | tuple[int, int]):
+    def __init__(self, val: str | tuple[int | float, int | float]):
         self.pos: str
         self.cord: tuple[int, int]
         if isinstance(val, str):
@@ -48,11 +48,16 @@ class PositionVector2D:
     def in_range(self, upper_b, lower_b):  # do we need it?
         pass
 
+
     def __abs__(self):
         return PositionVector2D((abs(self.pos[0]), abs(self.pos[1])))
 
     def __getitem__(self, item):
         return self.pos[item]
+
+    # think
+    # def __setitem__(self, key, value):
+    #     self.pos[key] = value
 
     def __repr__(self):
         return f"{self.pos}"

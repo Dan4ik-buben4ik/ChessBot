@@ -1,5 +1,6 @@
-- convert every pos to PositionVector2D
-- get king set up. -> Think about the square around him and the check lines (so that one could block check or take the piece)
+- set up the king by checking FROM the pos OUTWARDS attack lines. Add knight checks too
+- create a function for checking if pos is under attack
+- decide if use deg and for-loop (wont be able to delete dir) or use a list with enumerate
 
 
 Decide:
@@ -7,12 +8,4 @@ Decide:
 - - if in kings class -> hard to access from board
 - - if in board class ->  hard to access from king and requires code change
 
-- Add the cord <-> change to pieces
-- - if yes -> easier to change here and there in pieces + easier with errors
-- - if no -> store them in pieces?
 
-
-
-Idea for the kings check:
-- we record all blocked, attacked squares in a box around king
-- if checked, shows what moves are possible
