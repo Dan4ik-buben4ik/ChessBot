@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 class PositionVector2D:
-    def __init__(self, val: str | tuple[int | float, int | float]):
+    def __init__(self, val: str | tuple[int, int]):
         self.pos: str
         self.cord: tuple[int, int]
         if isinstance(val, str):
@@ -30,7 +30,7 @@ class PositionVector2D:
         elif isinstance(other, tuple):
             return PositionVector2D((self.pos[0] + other[0], self.pos[1] + other[1]))
 
-    def __mul__(self, other: PositionVector2D | tuple[int, int] | int | float):
+    def __mul__(self, other: PositionVector2D | tuple[int, int] | int):
         if isinstance(other, int | float):
             return PositionVector2D((self.pos[0] * other, self.pos[1] * other))
         elif isinstance(other, PositionVector2D | tuple):

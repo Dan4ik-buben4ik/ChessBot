@@ -2,6 +2,8 @@
 - create a function for checking if pos is under attack
 - decide if use deg and for-loop (wont be able to delete dir) or use a list with enumerate
 
+- check if can move on top of self colour pieces (king and other)
+
 
 Decide:
 - where the kings check spaces are stored:
