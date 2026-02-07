@@ -175,8 +175,9 @@ class King(Piece):
     def blocking_check(self, pos: PositionVector2D | tuple[int, int]) -> tuple[bool, str | None]:  # need to check
         # in case of king, this will check whether the space he wants to go is free.
         piece_in_pos = self.board.board[pos[1]][pos[1]]
-        if piece_in_pos.color == self.color:
-            return True, f"There is a {self.color} piece on the spot"
+        if piece_in_pos != 0:
+            if piece_in_pos.color == self.color:
+                return True, f"There is a {self.color} piece on the spot"
         attacked, reason = self.check_if_pos_attacked(pos)
         return attacked, reason
 
@@ -190,6 +191,15 @@ class King(Piece):
         directions_list = list(map(lambda x: PositionVector2D(x), directions_list))
         direction_del = []
         print("King.check_if_pos_attacked")
+
+        # check for knight
+        knight_pos = [(1, 2), (1, -2), (-1, 2), (-1, -2), (2, 1), (-2, 1), (-2, -1), (2, -1)]
+        for i in knight_pos:
+            piece = self.board.board[i[1]][i[0]]
+            if piece == 0:
+                continue
+            elif piece.name == "Knight" and piece.color != self.color:
+                return True, f"knight is attacking the pos"
 
         for i in range(1, 8):
             print("new_cycle")
@@ -211,7 +221,7 @@ class King(Piece):
                         return True, f"{piece.name} is attacking the position"
                     elif piece.name in ("Bishop", "Queen") and sum(abs(direction)) == 2:
                         return True, None
-                    elif piece.name == "Pawn" and i == 1 and (direction[0], direction[1]) in ((-1, -1), (-1, 0), (-1, 1)):
+                    elif piece.name == "Pawn" and i == 1 and (direction[0], direction[1]) in ((-1, -1), (-1, 1)):
                         return True, None
                     else:
                         direction_del.append(direction)
