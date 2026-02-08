@@ -86,10 +86,13 @@ class Board:
         self.player = "white"  # "white"
 
         # stores king's position (useful for checks)
-        self.kings_pos = ((3, 0), (3, 7))
 
-        # later use
-        self.check_line = []
+        # check
+        self.check = False
+        self.attack_line = []
+
+        # collapse in 1 dict?
+        self.kings_pos = {"white": PositionVector2D((3, 0)), "black": PositionVector2D((3, 7))}
         self.kings_castle = {"white": [True, True], "black": [True, True]}  # king, queen side
 
     @staticmethod
@@ -136,6 +139,13 @@ class Board:
         # identifier that helps to see methods
         piece: Piece
 
+        # check if currently under check
+        print(f" the king is under check: {self.check}")
+        if self.check:
+            if init_pos not in self.attack_line:
+                raise ImpossibleMoveException(piece, f"king on {self.kings_pos[self.player]} is under check")
+
+
         # checks if castle or en_passan
         pos_change = new_pos - init_pos
         print(isinstance(piece, King), type(piece))
@@ -151,8 +161,6 @@ class Board:
         # check if it is on the board
         self.is_reachable_move(piece, init_pos, new_pos)
 
-        # in development
-        is_check = self.in_check(self.kings_pos[0 if self.player == "white" else 1], piece, init_pos, new_pos)
 
         # piece class checks
         reach, reason = piece.reach_check(new_pos) # needed ???
@@ -163,6 +171,12 @@ class Board:
             raise ImpossibleMoveException(piece, reason, init_pos, new_pos)
         # After all of the basic checks, calls the piece to check if it can move, and then moves it
 
+        # in development
+        is_check, attack_points = self.king_check(self.kings_pos["black" if self.player == "white" else "white"], piece, init_pos, new_pos)
+        if is_check:
+            self.check = True
+            self.attack_line = attack_points
+
         # changes the current player, aka the turn
         if self.player == "white":
             self.player = "black"
@@ -172,7 +186,7 @@ class Board:
         # updates the position of the piece. Might need to be recoded
         self.update_pos(piece, new_pos)
 
-    def update_pos(self, piece: Piece, cord: tuple[int, int], *, castle=False, en_passan=False) -> None:  # !!!
+    def update_pos(self, piece: Piece, cord: tuple[int, int]) -> None:  # !!!
         print(f"UPDATE position: {piece}")
         # A function that updates the pieces position on the board
         self.board[piece.pos[1]][piece.pos[0]] = 0  # makes the old square empty
@@ -180,10 +194,15 @@ class Board:
         self.board[cord[1]][cord[0]] = piece  # puts the pieces symbol on the new spot
         piece.move(cord)
 
-    def in_check(self, king_pos, piece, init_pos, new_pos) -> bool:  # !!!!!! Change
+        if isinstance(piece, King):
+            self.kings_pos[piece.color] = cord
+
+    def king_check(self, king_pos, piece, init_pos, new_pos) -> tuple[bool, list | None]:  # !!!!!! Change
         # A function that checks if the king is under the attack, via the brute force
-        print("In development. Assume returns False")
-        return False
+        attack_points = list(piece.around_pos_attack_check(king_pos))
+        if king_pos in attack_points:
+            return True, attack_points
+        return False, None
 
     def castle(self, piece, init_pos, new_pos, pos_change) -> None:
         direction = PositionVector2D.sign(pos_change[0])

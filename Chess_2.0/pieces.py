@@ -77,8 +77,7 @@ class Rook(Piece):
 
     #    print(f"direction: {direction} ({type(direction)})\npos_change: {pos_change}")
 
-        for i in range(1, max(abs(pos_change))+1):  # address the issue of last piece not being checked (+1)
-    #        print(f"Rook.get_line_position(): yield {self.pos + direction * i}, d * i = {direction * i}")
+        for i in range(0, max(abs(pos_change))+1):  # address the issue of last piece not being checked (+1) # address the issue of the rook not taking the piece
             yield self.pos + direction * i
 
 
@@ -259,7 +258,7 @@ class King(Piece):
         if pos_1[0] is True or pos_2[0] is True:
             return False, "the way is attacked"
 
-        return True, "castling"
+        return True, None
 
 
     @staticmethod
