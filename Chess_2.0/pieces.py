@@ -24,7 +24,7 @@ class Piece:
         print(f"Moved {self.name} on {self.pos} to {new_pos}")
         self.pos = new_pos
 
-    def reach_check(self, pos: tuple[int, int], en_passan: bool = False) -> tuple[bool, str | None]:
+    def reach_check(self, pos: tuple[int, int]) -> tuple[bool, str | None]:
         pass
 
     def blocking_check(self, pos) -> tuple[bool, str | None]:
@@ -43,17 +43,17 @@ class Rook(Piece):
         self.name = "Rook"
         self.sym = "R"
 
-    def reach_check(self, pos: PositionVector2D | tuple[int, int], en_passan: bool = False) -> tuple[bool, str | None]:
+    def reach_check(self, pos: PositionVector2D | tuple[int, int]) -> tuple[bool, str | None]:
         # doesn't needed
         # Position change. Needed to check if the movement is possible
-        pos_change = abs(self.pos - pos)
+        pos_change = abs(pos - self.pos)
         if pos_change[0] != 0 or pos_change[1] != 0:
             return True, None
 
         return False, f"{self.name} can't reach from {self.pos} to {pos}"
 
     def blocking_check(self, pos: PositionVector2D | tuple[int, int]) -> tuple[bool, str | None]:
-        pos_change = (self.pos - pos) * -1  # == pos - self.pos
+        pos_change = pos - self.pos  # == pos - self.pos
         # \/ change using class for pos \/
         direction = pos_change.normalize()
         points = self.get_line_positions(direction, pos_change)
@@ -121,7 +121,7 @@ class Bishop(Piece):
         self.name = "Bishop"
         self.sym = "B"
 
-    def reach_check(self, pos: tuple[int, int], en_passan: bool = False) -> tuple[bool, str | None]:
+    def reach_check(self, pos: tuple[int, int]) -> tuple[bool, str | None]:
         # Position change. Needed to check if the movement is possible
         pos_change = abs(self.pos[0] - pos[0]), abs(self.pos[1] - pos[1])
         if (pos_change[0] != 0 and pos_change[1] != 0) and pos_change[0] == pos_change[1]:
@@ -132,7 +132,6 @@ class Bishop(Piece):
     def blocking_check(self, pos):
         pos_change = self.pos[0] - pos[0], self.pos[1] - pos[1]
         direction = pos_change[0] // 1, pos_change[1] // 1
-        axis = 0 if pos_change[0] else 1
 
         points = self.get_diagonal_positions(pos_change, direction)
         for i in points:
@@ -164,10 +163,10 @@ class King(Piece):
             [False, False, False]
         ]
 
-    def reach_check(self, pos: PositionVector2D | tuple[int, int], en_passan: bool = False) -> tuple[bool, str | None]:
+    def reach_check(self, pos: PositionVector2D | tuple[int, int]) -> tuple[bool, str | None]:
         # Position change. Needed to check if the movement is possible
-        pos_change = abs(self.pos - pos)
-        if pos_change[0] == 1 or pos_change[1] == 1:
+        pos_change = abs(pos - self.pos)
+        if pos_change[0] == 1 or pos_change[1] == 1:  # moving
             return True, None
 
         return False, f"{self.name} can't reach from {self.pos} to {pos}"
@@ -186,7 +185,7 @@ class King(Piece):
         self.pos = new_pos
 
 
-    def check_if_pos_attacked(self, pos: PositionVector2D | tuple[int, int]):
+    def check_if_pos_attacked(self, pos: PositionVector2D | tuple[int, int]) -> tuple[bool, str | None]:
         directions_list = [(0, 1), (1, 1), (1, 0), (1, -1), (0, -1), (-1, -1), (-1, 0), (-1, 1)]
         directions_list = list(map(lambda x: PositionVector2D(x), directions_list))
         direction_del = []
@@ -251,6 +250,17 @@ class King(Piece):
                     for i in piece.around_pos_attack_check(self.pos):
                         print(f"King.update_blocked_list()\ni: {i}")
                         self.blocked_list[i[1]][i[0]] = True
+
+
+    def castle(self, new_pos, side: -1 | 1) -> tuple[bool, str | None]:  # king | queen side
+        print(f"in King.castle()\n pos_1: {self.pos + PositionVector2D((1, 0)) * side}\n pos_2 : {self.pos + PositionVector2D((2, 0)) * side}")
+        pos_1 = self.check_if_pos_attacked(self.pos + PositionVector2D((1, 0)) * side)
+        pos_2 = self.check_if_pos_attacked(self.pos + PositionVector2D((2, 0)) * side)
+        if pos_1[0] is True or pos_2[0] is True:
+            return False, "the way is attacked"
+
+        return True, "castling"
+
 
     @staticmethod
     def construct(board):
