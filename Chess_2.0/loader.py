@@ -4,7 +4,7 @@
 # from Pieces.King import *
 from pieces import Piece, Rook, King, Bishop
 
-from Errors import UnrecognisableMove, PieceColorException, ImpossibleMoveException
+from Errors import UnrecognisableMove, PieceColorException, ImpossibleMoveException, UnderCheckException, JustError
 from position import PositionVector2D
 
 from itertools import chain
@@ -146,9 +146,13 @@ class Board:
                 raise ImpossibleMoveException(piece, f"king on {self.kings_pos[self.player]} is under check")
 
 
+        # check for checks
+        if self.check:
+            if not isinstance(piece, King):
+                raise UnderCheckException(move_txt, self.kings_pos[self.player])
+
         # checks if castle or en_passan
         pos_change = new_pos - init_pos
-        print(isinstance(piece, King), type(piece))
         if isinstance(piece, King):
             print("checked king in board.move()")
             if abs(pos_change[0]) == 2 and pos_change[1] == 0:
@@ -163,7 +167,7 @@ class Board:
 
 
         # piece class checks
-        reach, reason = piece.reach_check(new_pos) # needed ???
+        reach, reason = piece.reach_check(new_pos)
         if not reach:
             raise ImpossibleMoveException(piece, reason, init_pos, new_pos)
         blocking, reason = piece.blocking_check(new_pos)
@@ -175,6 +179,7 @@ class Board:
         is_check, attack_points = self.king_check(self.kings_pos["black" if self.player == "white" else "white"], piece, init_pos, new_pos)
         if is_check:
             self.check = True
+            print("check on the king")
             self.attack_line = attack_points
 
         # changes the current player, aka the turn
@@ -200,6 +205,9 @@ class Board:
     def king_check(self, king_pos, piece, init_pos, new_pos) -> tuple[bool, list | None]:  # !!!!!! Change
         # A function that checks if the king is under the attack, via the brute force
         attack_points = list(piece.around_pos_attack_check(king_pos))
+        print("Board.king_check()")
+        print(f"attack pos {attack_points}")
+        print(king_pos)
         if king_pos in attack_points:
             return True, attack_points
         return False, None
@@ -228,6 +236,7 @@ class Board:
 
         self.update_pos(king, new_pos)
         self.update_pos(rook, rook_new_pos)
+
 
 
 

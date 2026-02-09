@@ -36,6 +36,15 @@ class PositionVector2D:
         elif isinstance(other, PositionVector2D | tuple):
             return PositionVector2D((self.pos[0] * other[0], self.pos[1] * other[1]))
 
+    def __eq__(self, other):
+        if isinstance(other, PositionVector2D):
+            return self.pos == other.pos
+        elif isinstance(other, tuple):
+            return self.pos[0] == other[0] and self.pos[1] == other[1]
+        elif isinstance(other, str):
+            return self.cord == other
+        return False
+
     # def __getattr__(self, item):
     #     pass
     #     # print(item)

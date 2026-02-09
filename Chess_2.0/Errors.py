@@ -18,6 +18,11 @@ class UnrecognisableMove(BaseException):
         super(UnrecognisableMove, self).__init__(f"\nCan't recognise the move ({move})")
 
 
+class UnderCheckException(BaseException):
+    def __init__(self, move, king_pos: PositionVector2D):
+        super(UnderCheckException, self).__init__(f"\nCant move the piece ({move} as the king is under check on {king_pos.cord}")
+
+
 class JustError(BaseException):
     def __init__(self):
         super(JustError, self).__init__(f"\nI dont know what to write in this case, so you have somewhere an unexpected error")

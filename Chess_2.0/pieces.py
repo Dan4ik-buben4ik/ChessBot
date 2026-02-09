@@ -2,7 +2,6 @@ from Errors import JustError
 from position import PositionVector2D
 
 from types import GeneratorType
-from math import sin, cos
 
 
 class Piece:
@@ -63,11 +62,10 @@ class Rook(Piece):
 #            print(i)
 #            print(self.board.board[i[1]][i[0]])
 
-# address the issue of not checking last piece and colour. IF it is same colour: return False
-            if i == pos and piece.color != self.color:
+            if (i == pos and piece.color != self.color) or piece == self:
                 pass
             elif piece:
-                return True, f"a piece ({piece} is blocking the way on {i}"
+                return True, f"a piece ({piece} is blocking the way on {i.cord}"
 
         return False, None
 
