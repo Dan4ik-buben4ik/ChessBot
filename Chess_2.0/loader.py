@@ -142,20 +142,24 @@ class Board:
         # check if currently under check
         print(f" the king is under check: {self.check}")
         if self.check:
-            if init_pos not in self.attack_line:
-                raise ImpossibleMoveException(piece, f"king on {self.kings_pos[self.player]} is under check")
+            # surely final pos or the king movement
+            if new_pos not in self.attack_line and not isinstance(piece, King):
+                raise ImpossibleMoveException(piece, f"king on {self.kings_pos[self.player]} is under check", init_pos, new_pos)
 
 
         # check for checks
-        if self.check:
-            if not isinstance(piece, King):
-                raise UnderCheckException(move_txt, self.kings_pos[self.player])
+        # if self.check:
+        #     if not isinstance(piece, King):
+        #         raise UnderCheckException(move_txt, self.kings_pos[self.player])
 
         # checks if castle or en_passan
         pos_change = new_pos - init_pos
         if isinstance(piece, King):
             print("checked king in board.move()")
             if abs(pos_change[0]) == 2 and pos_change[1] == 0:
+                if self.check is True:
+                    raise ImpossibleMoveException(piece, f"king on {self.kings_pos[self.player]} is under check", init_pos, new_pos)
+
                 print("king is castling...")
                 self.castle(piece, init_pos, new_pos, pos_change)
                 return
@@ -176,7 +180,13 @@ class Board:
         # After all of the basic checks, calls the piece to check if it can move, and then moves it
 
         # in development
-        is_check, attack_points = self.king_check(self.kings_pos["black" if self.player == "white" else "white"], piece, init_pos, new_pos)
+
+
+        # updates the position of the piece. Might need to be recoded
+        self.update_pos(piece, new_pos)
+
+        is_check, attack_points = self.king_check(self.kings_pos["black" if self.player == "white" else "white"], piece,
+                                                  init_pos, new_pos)
         if is_check:
             self.check = True
             print("check on the king")
@@ -187,9 +197,6 @@ class Board:
             self.player = "black"
         else:
             self.player = "white"
-
-        # updates the position of the piece. Might need to be recoded
-        self.update_pos(piece, new_pos)
 
     def update_pos(self, piece: Piece, cord: tuple[int, int]) -> None:  # !!!
         print(f"UPDATE position: {piece}")
@@ -204,7 +211,9 @@ class Board:
 
     def king_check(self, king_pos, piece, init_pos, new_pos) -> tuple[bool, list | None]:  # !!!!!! Change
         # A function that checks if the king is under the attack, via the brute force
-        attack_points = list(piece.around_pos_attack_check(king_pos))
+        if isinstance(piece, King):
+            return False, None
+        attack_points = list(piece.king_direction_position(king_pos))
         print("Board.king_check()")
         print(f"attack pos {attack_points}")
         print(king_pos)

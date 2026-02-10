@@ -13,7 +13,6 @@ class Piece:
             self.pos = PositionVector2D(pos)
 
         self.board = board
-        # ? add reference to the board?
         self.name: str
         self.sym: str
 
@@ -27,6 +26,9 @@ class Piece:
         pass
 
     def blocking_check(self, pos) -> tuple[bool, str | None]:
+        pass
+
+    def king_direction_position(self, kings_pos) -> GeneratorType:
         pass
 
     def around_pos_attack_check(self, pos):  # used to compute if the positions around king are attacked
@@ -62,7 +64,7 @@ class Rook(Piece):
 #            print(i)
 #            print(self.board.board[i[1]][i[0]])
 
-            if (i == pos and piece.color != self.color) or piece == self:
+            if (i == pos and piece.color != self.color if piece is Piece else True) or piece == self:
                 pass
             elif piece:
                 return True, f"a piece ({piece} is blocking the way on {i.cord}"
@@ -77,6 +79,26 @@ class Rook(Piece):
 
         for i in range(0, max(abs(pos_change))+1):  # address the issue of last piece not being checked (+1) # address the issue of the rook not taking the piece
             yield self.pos + direction * i
+
+    def king_direction_position(self, kings_pos: PositionVector2D | tuple[int, int]) -> GeneratorType:
+        # print("Rook.king_direction_position()")
+        pos_change = kings_pos - self.pos
+        direction = pos_change.normalize()
+        # print(direction)
+        if abs(pos_change[0]) > abs(pos_change[1]):
+            direction = PositionVector2D((direction[0], 0))
+        else:
+            direction = PositionVector2D((0, direction[1]))
+
+        # print(direction)
+
+        pos_boarder_change = abs(direction) * 7
+        points = self.get_line_positions(direction, pos_boarder_change)
+        for p in points:
+            yield p
+            if p == kings_pos:
+                break
+
 
 
     def around_pos_attack_check(self, king_pos):
@@ -99,9 +121,6 @@ class Rook(Piece):
             delta_p = king_pos - p
             if delta_p[0] in (-1, 0, 1) and delta_p[1] in (-1, 0, 1):
                 yield p
-
-
-
 
 
     @staticmethod
