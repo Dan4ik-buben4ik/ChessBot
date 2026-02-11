@@ -144,7 +144,7 @@ class Board:
         if self.check:
             # surely final pos or the king movement
             if new_pos not in self.attack_line and not isinstance(piece, King):
-                raise ImpossibleMoveException(piece, f"king on {self.kings_pos[self.player]} is under check", init_pos, new_pos)
+                raise ImpossibleMoveException(piece, f"attacking on {self.kings_pos[self.player]} is under check", init_pos, new_pos)
 
 
         # check for checks
@@ -154,11 +154,11 @@ class Board:
 
         # checks if castle or en_passan
         pos_change = new_pos - init_pos
-        if isinstance(piece, King):
+        if isinstance(piece, King) and self.kings_castle[self.player] == [True, True]:
             print("checked king in board.move()")
             if abs(pos_change[0]) == 2 and pos_change[1] == 0:
                 if self.check is True:
-                    raise ImpossibleMoveException(piece, f"king on {self.kings_pos[self.player]} is under check", init_pos, new_pos)
+                    raise ImpossibleMoveException(piece, f"attacking on {self.kings_pos[self.player]} is under check", init_pos, new_pos)
 
                 print("king is castling...")
                 self.castle(piece, init_pos, new_pos, pos_change)
@@ -185,12 +185,14 @@ class Board:
         # updates the position of the piece. Might need to be recoded
         self.update_pos(piece, new_pos)
 
-        is_check, attack_points = self.king_check(self.kings_pos["black" if self.player == "white" else "white"], piece,
-                                                  init_pos, new_pos)
+        opponent_king_pos = self.kings_pos["black" if self.player == "white" else "white"]
+        opponent_king: King = self.board[opponent_king_pos[1]][opponent_king_pos[0]]
+        is_check, attack_points = self.king_check(opponent_king.pos, piece, init_pos, new_pos)
         if is_check:
             self.check = True
             print("check on the king")
             self.attack_line = attack_points
+            opponent_king.update_blocked_list(opponent_king.pos)
 
         # changes the current player, aka the turn
         if self.player == "white":
@@ -209,7 +211,7 @@ class Board:
         if isinstance(piece, King):
             self.kings_pos[piece.color] = cord
 
-    def king_check(self, king_pos, piece, init_pos, new_pos) -> tuple[bool, list | None]:  # !!!!!! Change
+    def king_check(self, king_pos: PositionVector2D, piece: Piece, init_pos, new_pos) -> tuple[bool, list | None]:  # !!!!!! Change
         # A function that checks if the king is under the attack, via the brute force
         if isinstance(piece, King):
             return False, None
