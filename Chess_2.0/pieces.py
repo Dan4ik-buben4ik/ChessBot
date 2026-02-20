@@ -22,16 +22,16 @@ class Piece:
         print(f"Moved {self.name} on {self.pos} to {new_pos}")
         self.pos = new_pos
 
-    def reach_check(self, pos: tuple[int, int]) -> tuple[bool, str | None]:
+    def reach_check(self, pos: PositionVector2D | tuple[int, int]) -> tuple[bool, str | None]:
         pass
 
-    def blocking_check(self, pos) -> tuple[bool, str | None]:
+    def blocking_check(self, pos: PositionVector2D | tuple[int, int]) -> tuple[bool, str | None]:
         pass
 
-    def king_direction_position(self, kings_pos) -> GeneratorType:
+    def king_direction_position(self, kings_pos: PositionVector2D | tuple[int, int]) -> GeneratorType:
         pass
 
-    def around_pos_attack_check(self, pos):  # used to compute if the positions around king are attacked
+    def around_pos_attack_check(self, pos: PositionVector2D | tuple[int, int]):  # used to compute if the positions around king are attacked
         pass
 
     @staticmethod
@@ -100,7 +100,7 @@ class Rook(Piece):
 
 
 
-
+    # function to find positions that are around king
     def around_pos_attack_check(self, king_pos):
         pos_change = king_pos - self.pos
         # \/ change using class for pos \/
@@ -133,42 +133,42 @@ class Rook(Piece):
         board.board[7][0] = Rook(board, "black", (0, 7))
         board.board[7][7] = Rook(board, "black", (7, 7))
 
-class Bishop(Piece):
-    def __init__(self, board, color: str, pos: tuple[int, int]):
-        super(Bishop, self).__init__(board, color, pos)
-        self.name = "Bishop"
-        self.sym = "B"
-
-    def reach_check(self, pos: tuple[int, int]) -> tuple[bool, str | None]:
-        # Position change. Needed to check if the movement is possible
-        pos_change = abs(self.pos[0] - pos[0]), abs(self.pos[1] - pos[1])
-        if (pos_change[0] != 0 and pos_change[1] != 0) and pos_change[0] == pos_change[1]:
-            return True, None
-
-        return False, f"{self.name} can't reach from {self.pos} to {pos}"
-
-    def blocking_check(self, pos):
-        pos_change = self.pos[0] - pos[0], self.pos[1] - pos[1]
-        direction = pos_change[0] // 1, pos_change[1] // 1
-
-        points = self.get_diagonal_positions(pos_change, direction)
-        for i in points:
-            res = self.board.board[i[0]][i[1]]
-            if res is Piece:
-                return True
-
-        # Checks if there is a piece on the way
-
-    def get_diagonal_positions(self, pos_change, direction) -> GeneratorType:  # tuple[int, int]
-        for i in range(abs(pos_change[0])):
-            yield self.pos[0] + i * direction[0], self.pos[1] + i * direction[1]
-
-    @staticmethod
-    def construct(board):
-        board.board[0][2] = Bishop(board, "white", (2, 0))
-        board.board[0][5] = Bishop(board, "white", (5, 0))
-        board.board[7][2] = Bishop(board, "black", (2, 7))
-        board.board[7][5] = Bishop(board, "black", (5, 7))
+# class Bishop(Piece):
+#     def __init__(self, board, color: str, pos: tuple[int, int]):
+#         super(Bishop, self).__init__(board, color, pos)
+#         self.name = "Bishop"
+#         self.sym = "B"
+#
+#     def reach_check(self, pos: tuple[int, int]) -> tuple[bool, str | None]:
+#         # Position change. Needed to check if the movement is possible
+#         pos_change = abs(self.pos[0] - pos[0]), abs(self.pos[1] - pos[1])
+#         if (pos_change[0] != 0 and pos_change[1] != 0) and pos_change[0] == pos_change[1]:
+#             return True, None
+#
+#         return False, f"{self.name} can't reach from {self.pos} to {pos}"
+#
+#     def blocking_check(self, pos):
+#         pos_change = self.pos[0] - pos[0], self.pos[1] - pos[1]
+#         direction = pos_change[0] // 1, pos_change[1] // 1
+#
+#         points = self.get_diagonal_positions(pos_change, direction)
+#         for i in points:
+#             res = self.board.board[i[0]][i[1]]
+#             if res is Piece:
+#                 return True
+#
+#         # Checks if there is a piece on the way
+#
+#     def get_diagonal_positions(self, pos_change, direction) -> GeneratorType:  # tuple[int, int]
+#         for i in range(abs(pos_change[0])):
+#             yield self.pos[0] + i * direction[0], self.pos[1] + i * direction[1]
+#
+#     @staticmethod
+#     def construct(board):
+#         board.board[0][2] = Bishop(board, "white", (2, 0))
+#         board.board[0][5] = Bishop(board, "white", (5, 0))
+#         board.board[7][2] = Bishop(board, "black", (2, 7))
+#         board.board[7][5] = Bishop(board, "black", (5, 7))
 
 class King(Piece):
     def __init__(self, board, color: str, pos: tuple[int, int]):
@@ -295,4 +295,41 @@ class King(Piece):
         board.board[7][3] = King(board, "black", (3, 7))
 
 
+
+class Pawn(Piece):
+    def __init__(self, board, color: str, pos: tuple[int, int]):
+        super(Pawn, self).__init__(board, color, pos)
+        self.name = "King"
+        self.sym = "K"
+
+        self.moving_direction = 1 if color == "White" else -1
+        self.can_en_passant = True
+
+    def reach_check(self, pos: PositionVector2D | tuple[int, int]) -> tuple[bool, str | None]:
+        pos_change = pos - self.pos
+        piece = self.board.board[pos[1]][pos[0]]
+        if pos_change[1] == self.moving_direction and pos_change[0] == 0:
+            if piece == 0:
+                return True, None
+            return False, f"{piece.name} is blocking the way"
+        elif pos_change[1] == self.moving_direction and abs(pos_change[0]) == 1 and isinstance(piece, Piece):
+            if piece.color != self.color:
+                return True, None
+            return False, f"Cant capture your own piece"
+
+        return False, f"Cant move to the {pos}"
+
+    def blocking_check(self, pos) -> tuple[bool, str | None]:
+        return True, None
+
+    def king_direction_position(self, kings_pos) -> GeneratorType:
+        for i in (-1, 1):
+            yield self.pos + (0, i)
+
+    def around_pos_attack_check(self, king_pos):
+        pos_change = king_pos - self.pos
+
+    @staticmethod
+    def construct(board):
+        pass
 
