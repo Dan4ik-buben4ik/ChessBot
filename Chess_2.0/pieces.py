@@ -299,19 +299,37 @@ class King(Piece):
 class Pawn(Piece):
     def __init__(self, board, color: str, pos: tuple[int, int]):
         super(Pawn, self).__init__(board, color, pos)
-        self.name = "King"
-        self.sym = "K"
+        self.name = "Pawn"
+        self.sym = "P"
 
-        self.moving_direction = 1 if color == "White" else -1
+        self.moving_direction = 1 if color == "white" else -1
         self.can_en_passant = True
+        self.can_double = True
+        self.just_doubled = False
 
     def reach_check(self, pos: PositionVector2D | tuple[int, int]) -> tuple[bool, str | None]:
         pos_change = pos - self.pos
         piece = self.board.board[pos[1]][pos[0]]
-        if pos_change[1] == self.moving_direction and pos_change[0] == 0:
+
+        # moving normally
+        if (pos_change[1] == self.moving_direction or (pos_change[1] == self.moving_direction * 2 and self.can_double is True)) and pos_change[0] == 0:
+            print("passed moving")
+            print(self.can_double, self.just_doubled)
             if piece == 0:
+                if self.can_double is True:
+                    self.can_double = False
+
+                if pos_change[1] == 2:  # logic for future en passant
+                    self.can_double = False
+                    self.just_doubled = True
+
+                elif self.just_doubled is True:
+                    self.just_doubled = False
+
                 return True, None
             return False, f"{piece.name} is blocking the way"
+
+        # capturing a piece
         elif pos_change[1] == self.moving_direction and abs(pos_change[0]) == 1 and isinstance(piece, Piece):
             if piece.color != self.color:
                 return True, None
@@ -320,16 +338,21 @@ class Pawn(Piece):
         return False, f"Cant move to the {pos}"
 
     def blocking_check(self, pos) -> tuple[bool, str | None]:
-        return True, None
+        return False, None
 
     def king_direction_position(self, kings_pos) -> GeneratorType:
         for i in (-1, 1):
-            yield self.pos + (0, i)
+            yield self.pos + (i, self.moving_direction)
 
     def around_pos_attack_check(self, king_pos):
-        pos_change = king_pos - self.pos
+        # pos_change = king_pos - self.pos
+        # king: King = self.board.board[king_pos[1]][king_pos[0]]
+        # attack_pos = self.pos + (0, 1), self.pos + (0, -1)
+        # if king_pos - attack_pos ==
+        return
 
     @staticmethod
     def construct(board):
-        pass
+        board.board[1][3] = Pawn(board, "white", (3, 1))
+        board.board[6][3] = Pawn(board, "black", (3, 6))
 

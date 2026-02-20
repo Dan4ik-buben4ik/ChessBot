@@ -2,7 +2,7 @@
 # from Pieces.Bishop import *
 # from Pieces.Rook import *
 # from Pieces.King import *
-from pieces import Piece, Rook, King, Bishop
+from pieces import Piece, Rook, King, Pawn
 
 from Errors import UnrecognisableMove, PieceColorException, ImpossibleMoveException, UnderCheckException, JustError
 from position import PositionVector2D
@@ -79,6 +79,7 @@ class Board:
         # Bishop.construct(self)
         Rook.construct(self)
         # construct_queens(self.board)
+        Pawn.construct(self)
         King.construct(self)
 
 
