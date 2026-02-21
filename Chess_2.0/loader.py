@@ -77,7 +77,7 @@ class Board:
         # self.board = construct_pawns(self.board)
         # construct_knights(self.board)
         # Bishop.construct(self)
-        Rook.construct(self)
+        # Rook.construct(self)
         # construct_queens(self.board)
         Pawn.construct(self)
         King.construct(self)

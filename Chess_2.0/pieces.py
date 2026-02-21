@@ -198,7 +198,7 @@ class King(Piece):
 
         if self.board.check:
             pos_change = pos - self.pos
-            if self.blocked_list[pos_change[1]+1][pos_change[0]+1] is True:
+            if self.blocked_list[pos_change[1]][pos_change[0]+1] is True:  # change +1 to -1 | 0. 1. 2 | -1, 0, 1
                 return True, "piece is attacking the pos"
             return False, None
         attacked, reason = self.check_if_pos_attacked(pos)
@@ -243,9 +243,9 @@ class King(Piece):
                     if piece.name in ("Rook", "Queen") and sum(abs(direction)) == 1:
                         return True, f"{piece.name} is attacking the position"
                     elif piece.name in ("Bishop", "Queen") and sum(abs(direction)) == 2:
-                        return True, None
+                        return True, f"{piece.name} is attacking the position"
                     elif piece.name == "Pawn" and i == 1 and (direction[0], direction[1]) in ((-1, -1), (-1, 1)):
-                        return True, None
+                        return True, f"{piece.name} is attacking the position"
                     else:
                         direction_del.append(direction)
 
@@ -268,14 +268,18 @@ class King(Piece):
                 pos_change = new_pos - (x, y) if type(new_pos) is PositionVector2D else PositionVector2D((new_pos[0] - x, new_pos[1] - y))
                 if isinstance(piece, King) or piece == 0:
                     pass
-                elif piece.color == self.color and (pos_change[0] in (-1, 0, 1) and pos_change[0] in (-1, 0, 1)):
-                    self.blocked_list[pos_change[1]+1][pos_change[0]+1] = True
+                elif piece.color == self.color and (pos_change[0] in (-1, 0, 1) and pos_change[1] in (-1, 0, 1)):
+                    print(pos_change)
+                    self.blocked_list[pos_change[1]][pos_change[0]+1] = True  # think about this too
                 else:  # implement a function for the pieces to find the closest path to king and check if it is near
-                    for i in piece.around_pos_attack_check(self.pos): # the function return None
-                        print(f"King.update_blocked_list()\ni: {i}")
-                        d_pos = self.pos - i
-                        print(f"King.update_blocked_list()\nd_pos: {d_pos}")
-                        self.blocked_list[d_pos[1]+1][d_pos[0]+1] = True
+                    try:
+                        for i in piece.around_pos_attack_check(self.pos): # the function return None
+                            print(f"King.update_blocked_list()\ni: {i}")
+                            d_pos = self.pos - i
+                            print(f"King.update_blocked_list()\nd_pos: {d_pos}")
+                            self.blocked_list[d_pos[1]][d_pos[0]+1] = True  # think about making +1 to -1 for kings as positions get mirrored
+                    except TypeError:
+                        continue
         print(f"self.blocked_list = {self.blocked_list}")
 
 
@@ -344,15 +348,21 @@ class Pawn(Piece):
         for i in (-1, 1):
             yield self.pos + (i, self.moving_direction)
 
-    def around_pos_attack_check(self, king_pos):
-        # pos_change = king_pos - self.pos
-        # king: King = self.board.board[king_pos[1]][king_pos[0]]
-        # attack_pos = self.pos + (0, 1), self.pos + (0, -1)
-        # if king_pos - attack_pos ==
-        return
+    def around_pos_attack_check(self, king_pos) -> GeneratorType:
+        king: King = self.board.board[king_pos[1]][king_pos[0]]
+        for i in (-1, 1):
+            attack_pos = self.pos + (i, self.moving_direction)
+            pos_change = king_pos - attack_pos
+            if pos_change[0] in (1, 0, -1) and pos_change[1] in (1, 0, -1):
+                print(attack_pos)
+                yield attack_pos
+
 
     @staticmethod
     def construct(board):
-        board.board[1][3] = Pawn(board, "white", (3, 1))
-        board.board[6][3] = Pawn(board, "black", (3, 6))
+        # board.board[4][3] = Pawn(board, "white", (3, 4))
+        # # board.board[6][4] = Pawn(board, "black", (4, 6))
+
+        # board.board[4][3] = Pawn(board, "white", (3, 4))
+        board.board[3][3] = Pawn(board, "black", (3, 3))
 
