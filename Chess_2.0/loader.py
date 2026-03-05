@@ -95,6 +95,7 @@ class Board:
         # collapse in 1 dict?
         self.kings_pos = {"white": PositionVector2D((3, 0)), "black": PositionVector2D((3, 7))}
         self.kings_castle = {"white": [True, True], "black": [True, True]}  # king, queen side
+        self.last_move = None
 
     @staticmethod
     def input_move():
@@ -147,12 +148,6 @@ class Board:
             if new_pos not in self.attack_line and not isinstance(piece, King):
                 raise ImpossibleMoveException(piece, f"attacking on {self.kings_pos[self.player]} is under check", init_pos, new_pos)
 
-
-        # check for checks
-        # if self.check:
-        #     if not isinstance(piece, King):
-        #         raise UnderCheckException(move_txt, self.kings_pos[self.player])
-
         # checks if castle or en_passan
         pos_change = new_pos - init_pos
         if isinstance(piece, King) and self.kings_castle[self.player] == [True, True]:
@@ -188,6 +183,8 @@ class Board:
 
         opponent_king_pos = self.kings_pos["black" if self.player == "white" else "white"]
         opponent_king: King = self.board[opponent_king_pos[1]][opponent_king_pos[0]]
+
+        is_check = opponent_king.around_pos_attack_check(opponent_king_pos)
         is_check, attack_points = self.king_check(opponent_king.pos, piece, init_pos, new_pos)
         if is_check:
             self.check = True
@@ -201,8 +198,10 @@ class Board:
         else:
             self.player = "white"
 
+
     def update_pos(self, piece: Piece, cord: tuple[int, int]) -> None:  # !!!
         print(f"UPDATE position: {piece}")
+        self.last_move = (piece, piece.pos, cord)
         # A function that updates the pieces position on the board
         self.board[piece.pos[1]][piece.pos[0]] = 0  # makes the old square empty
         print(self.board[piece.pos[1]][piece.pos[0]])

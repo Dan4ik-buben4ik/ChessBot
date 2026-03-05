@@ -102,7 +102,10 @@ class Rook(Piece):
 
     # function to find positions that are around king
     def around_pos_attack_check(self, king_pos):
-        pos_change = king_pos - self.pos
+        for i in self.king_direction_position(king_pos):
+            pos_change = king_pos - i
+            if pos_change[0] in (-1, 0, 1) and pos_change[1] in (-1, 0, 1):
+                return i
         # \/ change using class for pos \/
         # direction = pos_change[0] // abs(pos_change[0]), 0 if abs(pos_change[0]) > abs(pos_change[1]) else 0, pos_change[1] // abs(pos_change[1])
         direction = pos_change.normalize()
@@ -307,9 +310,7 @@ class Pawn(Piece):
         self.sym = "P"
 
         self.moving_direction = 1 if color == "white" else -1
-        self.can_en_passant = True
         self.can_double = True
-        self.just_doubled = False
 
     def reach_check(self, pos: PositionVector2D | tuple[int, int]) -> tuple[bool, str | None]:
         pos_change = pos - self.pos
@@ -318,25 +319,35 @@ class Pawn(Piece):
         # moving normally
         if (pos_change[1] == self.moving_direction or (pos_change[1] == self.moving_direction * 2 and self.can_double is True)) and pos_change[0] == 0:
             print("passed moving")
-            print(self.can_double, self.just_doubled)
+            print(self.can_double)
             if piece == 0:
                 if self.can_double is True:
                     self.can_double = False
-
-                if pos_change[1] == 2:  # logic for future en passant
-                    self.can_double = False
-                    self.just_doubled = True
-
-                elif self.just_doubled is True:
-                    self.just_doubled = False
 
                 return True, None
             return False, f"{piece.name} is blocking the way"
 
         # capturing a piece
-        elif pos_change[1] == self.moving_direction and abs(pos_change[0]) == 1 and isinstance(piece, Piece):
-            if piece.color != self.color:
-                return True, None
+        elif pos_change[1] == self.moving_direction and abs(pos_change[0]) == 1:
+            try:
+                if piece.color != self.color and isinstance(piece, Piece):
+                    return True, None
+            except AttributeError:
+                pass
+
+            # the en passant logic
+            en_passant_piece_pos = PositionVector2D((pos[0], pos[1] - self.moving_direction))
+            en_passant_piece_pos_init = PositionVector2D((pos[0], pos[1] + self.moving_direction))
+            en_passant_piece = self.board.board[en_passant_piece_pos[1]][en_passant_piece_pos[0]]
+
+            if isinstance(en_passant_piece, Pawn):
+
+                if self.board.last_move == (en_passant_piece, en_passant_piece_pos_init, en_passant_piece_pos):  # ***
+                    print("had just doubled")
+                    self.board.board[pos[1] - self.moving_direction][pos[0]] = 0
+                    return True, None
+                else:
+                    return False, f"can't capture a pawn that hadn't moved 2 squares"
             return False, f"Cant capture your own piece"
 
         return False, f"Cant move to the {pos}"
@@ -361,8 +372,8 @@ class Pawn(Piece):
     @staticmethod
     def construct(board):
         # board.board[4][3] = Pawn(board, "white", (3, 4))
-        # # board.board[6][4] = Pawn(board, "black", (4, 6))
+        board.board[6][4] = Pawn(board, "black", (4, 6))
 
         # board.board[4][3] = Pawn(board, "white", (3, 4))
-        board.board[3][3] = Pawn(board, "black", (3, 3))
+        board.board[3][3] = Pawn(board, "white", (3, 3))
 
