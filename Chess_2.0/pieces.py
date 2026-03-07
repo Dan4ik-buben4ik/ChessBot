@@ -209,18 +209,7 @@ class King(Piece):
         pos_that_attack = []
 
         # check for knight
-        knight_directions = [(1, 2), (1, -2), (-1, 2), (-1, -2), (2, 1), (-2, 1), (-2, -1), (2, -1)]
-        for i in knight_directions:
-            knight_pos = pos + i
-            try:
-                piece = self.board.board[knight_pos[1]][knight_pos[0]]
-            except IndexError:
-                continue
-            finally:
-                if piece == 0:
-                    continue
-                elif piece.name == "Knight" and piece.color != self.color:
-                    pos_that_attack.append(knight_pos)
+        pos_that_attack.extend(list(self.get_pos_of_knights_attacking_pos(pos)))
 
         # check for any other pieces
         for i in range(1, 8):
@@ -231,13 +220,14 @@ class King(Piece):
                 if not (0 <= piece_pos[0] <= 7 and 0 <= piece_pos[1] <= 7):
                     direction_del.append(direction)
                     continue
-                print(piece_pos, piece_pos.cord)
+                # print(piece_pos, piece_pos.cord)
                 piece = self.board.board[piece_pos[1]][piece_pos[0]]
 
                 if piece == 0:
                     pass
                 elif piece.color == self.color:
                     direction_del.append(direction)
+
                 else:
                     if piece.name in ("Rook", "Queen") and sum(abs(direction)) == 1:
                         pos_that_attack.append(piece_pos)
@@ -256,6 +246,24 @@ class King(Piece):
             direction_del = []
 
         return True if len(pos_that_attack) > 0 else False, pos_that_attack
+
+
+
+    def get_pos_of_knights_attacking_pos(self, pos: PositionVector2D) -> GeneratorType:
+        knight_directions = [(1, 2), (1, -2), (-1, 2), (-1, -2), (2, 1), (-2, 1), (-2, -1), (2, -1)]
+        for i in knight_directions:
+            knight_pos = pos + i
+            try:
+                piece = self.board.board[knight_pos[1]][knight_pos[0]]
+            except IndexError:
+                continue
+            finally:
+                if piece == 0:
+                    continue
+                elif piece.name == "Knight" and piece.color != self.color:
+                    yield knight_pos
+
+
 
 
 # good but adjust for the function the piece functions need a change in name too.

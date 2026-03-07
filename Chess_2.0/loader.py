@@ -137,6 +137,9 @@ class Board:
         if init_pos == new_pos:
             raise ImpossibleMoveException(piece, "Piece doesn't move", init_pos, new_pos)
 
+    # ===========================================================================================================================
+    # ===========================================================================================================================
+    # ===========================================================================================================================
 
     def move(self) -> None:
         # break down into smaller functions like check, castle
@@ -155,44 +158,26 @@ class Board:
         # identifier that helps to see methods
         piece: Piece
 
+
         # check if currently under check
         print(f" the king is under check: {self.check}")
         if self.check:
-            # surely final pos or the king movement
             if new_pos not in self.attack_line and not isinstance(piece, King):
                 raise ImpossibleMoveException(piece, f"attacking on {self.kings_pos[self.player]} is under check", init_pos, new_pos)
-
-
         # checks if castle
-        res = self.check_if_castle(piece, init_pos, new_pos)
-        if res is True:
-            return
+        elif self.check_if_castle(piece, init_pos, new_pos):
+            self.castle(piece, init_pos, new_pos)
+        else:
+            self.normal_move_check(piece, init_pos, new_pos)
 
-        # check if it is on the board
-        self.is_reachable_move(piece, init_pos, new_pos)
-
-
-        # piece class checks
-        reach, reason = piece.reach_check(new_pos)
-        if not reach:
-            raise ImpossibleMoveException(piece, reason, init_pos, new_pos)
-        blocking, reason = piece.blocking_check(new_pos)
-        if blocking:
-            raise ImpossibleMoveException(piece, reason, init_pos, new_pos)
-        # After all of the basic checks, calls the piece to check if it can move, and then moves it
-
-
-
-        # updates the position of the piece. Might need to be recoded
+        # updates the position of the piece
         self.update_pos(piece, new_pos)
-
 
         # maybe bring into self.check_if_king_attacked ("colour")
         opponent_king_pos = self.kings_pos["black" if self.player == "white" else "white"]
         opponent_king: King = self.board[opponent_king_pos[1]][opponent_king_pos[0]]
 
-        is_check = self.check_if_king_attacked(opponent_king)
-        if is_check:
+        if self.check_if_king_attacked(opponent_king) is True:
             self.check = True
             print("check on the king")
             opponent_king.update_blocked_list(opponent_king.pos)
@@ -203,7 +188,9 @@ class Board:
         else:
             self.player = "white"
 
-
+# ===========================================================================================================================
+# ===========================================================================================================================
+# ===========================================================================================================================
     def update_pos(self, piece: Piece, cord: tuple[int, int]) -> None:  # !!!
         print(f"UPDATE position: {piece}")
         self.last_move = (piece, piece.pos, cord)
@@ -216,13 +203,31 @@ class Board:
         if isinstance(piece, King):
             self.kings_pos[piece.color] = cord
 
-    def check_if_king_attacked(self, king: King) -> bool:  # !!!!!! Change
-        # A function that checks if the king is under the attack, via the brute force
+
+    def normal_move_check(self, piece, init_pos, new_pos) -> None:
+        # check if it is on the board
+        self.is_reachable_move(piece, init_pos, new_pos)
+
+        # piece class checks
+        reach, reason = piece.reach_check(new_pos)
+        if not reach:
+            raise ImpossibleMoveException(piece, reason, init_pos, new_pos)
+        blocking, reason = piece.blocking_check(new_pos)
+        if blocking:
+            raise ImpossibleMoveException(piece, reason, init_pos, new_pos)
+
+
+    def check_if_king_attacked(self, king: King) -> bool:
         res, positions_that_attack_king = king.check_if_pos_attacked(king.pos)
         self.positions_that_attack_king = positions_that_attack_king
         return res
 
-    def castle(self, piece, init_pos, new_pos, pos_change) -> None:
+
+    def move_under_check(self, piece, init_pos, new_pos, pos_change) -> None:
+        pass
+
+    def castle(self, piece, init_pos, new_pos) -> None:
+        pos_change = new_pos - init_pos
         direction = PositionVector2D.sign(pos_change[0])
         if self.kings_castle[self.player][direction] is False:
             raise ImpossibleMoveException(piece, "The king/rook had already moved", init_pos, new_pos)
@@ -238,13 +243,6 @@ class Board:
 
         rook_new_pos = rook_pos[0] - 3 if direction == 1 else rook_pos[0] + 2, rook_pos[1]
 
-        # changes the current player, aka the turn
-        if self.player == "white":
-            self.player = "black"
-        else:
-            self.player = "white"
-
-        self.update_pos(king, new_pos)
         self.update_pos(rook, rook_new_pos)
 
     def check_if_castle(self, piece: Piece, new_pos, init_pos) -> bool:
@@ -258,7 +256,6 @@ class Board:
                                                   init_pos, new_pos)
 
                 print("king is castling...")
-                self.castle(piece, init_pos, new_pos, pos_change)
                 return True
             else:
                 self.kings_castle[self.player][PositionVector2D.sign(pos_change[0])] = False
