@@ -37,6 +37,9 @@ class Piece:
     def get_line_positions_towards_king(self, kings_pos: PositionVector2D | tuple[int, int]) -> GeneratorType:
         pass
 
+    def get_possible_moves(self):
+        pass
+
     @staticmethod
     def construct(board):
         pass
@@ -76,8 +79,9 @@ class Rook(Piece):
         # Checks if there is a piece on the way
 
     def get_line_positions(self, direction: PositionVector2D | tuple[int, int]) -> GeneratorType:
-
-    #    print(f"direction: {direction} ({type(direction)})\npos_change: {pos_change}")
+        # make sure it yields only right positions (aka not outside the border)
+        if not isinstance(direction, PositionVector2D):
+            direction = PositionVector2D(direction)
         pos_boarder_change = abs(direction) * 7
 
         for i in range(0, max(abs(pos_boarder_change))+1):
@@ -113,6 +117,21 @@ class Rook(Piece):
             if pos_change[0] in (-1, 0, 1) and pos_change[1] in (-1, 0, 1):
                 yield point
 
+# add a decorator that formats the positions into the string
+    def get_possible_moves(self) -> GeneratorType:
+        for i in ((0, 1), (0, -1), (1, 0), (-1, 0)):
+            for j in self.get_line_positions(i):
+                # do this part with try/except? or not needed?
+                if not (0 <= j[0] <= 7 and 0 <= j[1] <= 7):
+                    break
+                elif j == self.pos:
+                    continue
+                piece = self.board.board[j[1]][j[0]]
+                if isinstance(piece, Piece):
+                    if piece.color != self.color:
+                        yield j
+                    break
+                yield j
 
 
     @staticmethod
@@ -180,7 +199,6 @@ class King(Piece):
 
         return False, f"{self.name} can't reach from {self.pos} to {pos}"
 
-
     def blocking_check(self, pos: PositionVector2D | tuple[int, int]) -> tuple[bool, str | None]:  # need to check
         # in case of king, this will check whether the space he wants to go is free.
         piece_in_pos = self.board.board[pos[1]][pos[0]]
@@ -188,23 +206,13 @@ class King(Piece):
             if piece_in_pos.color == self.color:
                 return True, f"There is a {self.color} piece on the spot"
 
-        # if self.board.check:
-        #     pos_change = pos - self.pos
-        #     if self.blocked_list[pos_change[1]][pos_change[0]+1] is True:  # change +1 to -1 | 0. 1. 2 | -1, 0, 1
-        #         return True, "piece is attacking the pos"
-        #     return False, None
-
         attacked, pos_that_attack = self.check_if_pos_attacked(pos)
         return attacked, f"there are pieces in positions {pos_that_attack} that attack the position"
 
     def move(self, new_pos: PositionVector2D | tuple[int, int]):
         print(f"Moved {self.name} on {self.pos} to {new_pos}")
         self.pos = new_pos
-        print(self.get_possible_moves())
 
-
-
-# add so that it yielded in from which positions the king is attacked from
     def check_if_pos_attacked(self, pos: PositionVector2D | tuple[int, int]) -> tuple[bool, list]:
         # maybe needs to be separated into smaller functions???
         directions_list = [(0, 1), (1, 1), (1, 0), (1, -1), (0, -1), (-1, -1), (-1, 0), (-1, 1)]
@@ -241,6 +249,8 @@ class King(Piece):
                         # return True, f"{piece.name} is attacking the position"
                     elif piece.name == "Pawn" and i == 1 and (direction[0], direction[1]) in ((-1, -1), (1, -1)):  # piece.direction somewhere
                         pos_that_attack.append(piece_pos)
+                    elif piece.name == "King" and i == 1:
+                        pos_that_attack.append(piece_pos)
                         # return True, f"{piece.name} is attacking the position"
 
                     direction_del.append(direction)
@@ -250,8 +260,6 @@ class King(Piece):
             direction_del = []
 
         return True if len(pos_that_attack) > 0 else False, pos_that_attack
-
-
 
     def get_pos_of_knights_attacking_pos(self, pos: PositionVector2D) -> GeneratorType:
         knight_directions = [(1, 2), (1, -2), (-1, 2), (-1, -2), (2, 1), (-2, 1), (-2, -1), (2, -1)]
@@ -268,49 +276,23 @@ class King(Piece):
                 elif piece.name == "Knight" and piece.color != self.color:
                     yield knight_pos
 
-
-
-
-# good but adjust for the function the piece functions need a change in name too.
-    def get_possible_moves(self) -> GeneratorType or list:
-        print("King.update_blocked_list()")
-        possible_moves_list = [
-            (-1, 1), (0, 1), (1, 1),
-            (-1, 0), (0, 0), (1, 0),
-            (-1, -1), (0, -1), (1, -1)
-        ]
-
-        for y, row in enumerate(self.board.board):
-            for x, piece in enumerate(row):
-                pos_change = self.pos - (x, y) if type(self.pos) is PositionVector2D else PositionVector2D((self.pos[0] - x, self.pos[1] - y))
-                if isinstance(piece, King) or piece == 0:
-                    pass
-                elif piece.color == self.color and (pos_change[0] in (-1, 0, 1) and pos_change[1] in (-1, 0, 1)):
-                    print(pos_change)
-                    possible_moves_list.remove((pos_change[0], pos_change[1]))  # think about this too
-                else:  # implement a function for the pieces to find the closest path to king and check if it is near
-                    try:
-                        for i in piece.get_positions_attacking_around_king(self.pos):
-                            print(f"i: {i}")
-                            d_pos = self.pos - i
-                            print(f"d_pos: {d_pos}")
-                            possible_moves_list.remove((d_pos[0], d_pos[1])) 
-                    except TypeError or ValueError:
-                        continue
-        print(f"possible_moves_list = {possible_moves_list}")
-        map(lambda x: PositionVector2D((x[0] + self.pos[0], x[1] + self.pos[1])), possible_moves_list)
-        return possible_moves_list
-
+    def get_possible_moves(self) -> GeneratorType:
+        for y_i in range(-1, 2):
+            for x_i in range(-1, 2):
+                if x_i == y_i == 0:
+                    continue
+                position = PositionVector2D((self.pos[0] + x_i, self.pos[1] + y_i))
+                res = self.check_if_pos_attacked(position)
+                if not res[0] and (0 <= position[0] <= 7 and 0 <= position[1] <= 7):
+                    yield position
 
     def castle(self, new_pos, side: -1 | 1) -> tuple[bool, str | None]:  # king | queen side
-#        print(f"in King.castle()\n pos_1: {self.pos + PositionVector2D((1, 0)) * side}\n pos_2 : {self.pos + PositionVector2D((2, 0)) * side}")
         pos_1 = self.check_if_pos_attacked(self.pos + PositionVector2D((1, 0)) * side)
         pos_2 = self.check_if_pos_attacked(self.pos + PositionVector2D((2, 0)) * side)
         if pos_1[0] is True or pos_2[0] is True:
             return False, "the way is attacked"
 
         return True, None
-
 
     @staticmethod
     def construct(board):

@@ -165,6 +165,8 @@ class Board:
         # identifier that helps to see methods
         piece: Piece
 
+        print("Possible moves")
+        print(list(piece.get_possible_moves()))
 
         # check if currently under check
         print(f" the king is under check: {self.check}")

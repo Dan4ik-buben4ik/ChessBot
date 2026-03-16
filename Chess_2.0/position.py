@@ -12,7 +12,7 @@ class PositionVector2D:
         elif isinstance(val, tuple):
 #            print("val is tuple[int, int]")
             self.pos = val
-            self.cord = self.pos_to_cord(val) if val[0] > 0 and val[1] > 0 else ""
+            self.cord = self.pos_to_cord(val) if val[0] >= 0 and val[1] >= 0 else ""
 #            print(self.pos, self.cord)
 
 
@@ -69,7 +69,7 @@ class PositionVector2D:
     #     self.pos[key] = value
 
     def __repr__(self):
-        return f"{self.pos}"
+        return f"{self.pos} ({self.cord})"
 
     @staticmethod
     def pos_to_cord(pos: PositionVector2D | tuple[int, int]) -> str:
@@ -119,6 +119,5 @@ class PositionVector2D:
 # print(direction)
 # print(direction.normalize())
 
-pos = PositionVector2D((2, 0))
-dir = PositionVector2D((0, 1))
-print(pos + dir * 7)
+
+print(PositionVector2D.pos_to_cord((2, 0)))
