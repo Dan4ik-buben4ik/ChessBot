@@ -22,16 +22,22 @@ class Piece:
         print(f"Moved {self.name} on {self.pos} to {new_pos}")
         self.pos = new_pos
 
-    def reach_check(self, pos: tuple[int, int]) -> tuple[bool, str | None]:
+    def reach_check(self, pos: PositionVector2D | tuple[int, int]) -> tuple[bool, str | None]:
         pass
 
-    def blocking_check(self, pos) -> tuple[bool, str | None]:
+    def blocking_check(self, pos: PositionVector2D | tuple[int, int]) -> tuple[bool, str | None]:
         pass
 
-    def king_direction_position(self, kings_pos) -> GeneratorType:
+    def get_positions_attacking_around_king(self, king_pos) -> GeneratorType:
         pass
 
-    def around_pos_attack_check(self, pos):  # used to compute if the positions around king are attacked
+    def is_attacking_king(self, king_pos: PositionVector2D) -> bool:
+        pass
+
+    def get_line_positions_towards_king(self, kings_pos: PositionVector2D | tuple[int, int]) -> GeneratorType:
+        pass
+
+    def get_possible_moves(self):
         pass
 
     @staticmethod
@@ -57,7 +63,7 @@ class Rook(Piece):
         pos_change = pos - self.pos  # == pos - self.pos
         # \/ change using class for pos \/
         direction = pos_change.normalize()
-        points = self.get_line_positions(direction, pos_change)
+        points = self.get_line_positions(direction)
         for i in points:
             piece = self.board.board[i[1]][i[0]]
 #            print(i)
@@ -72,15 +78,18 @@ class Rook(Piece):
 
         # Checks if there is a piece on the way
 
-    def get_line_positions(self, direction: PositionVector2D | tuple[int, int], pos_change: PositionVector2D | tuple[int, int]) -> GeneratorType:
+    def get_line_positions(self, direction: PositionVector2D | tuple[int, int]) -> GeneratorType:
+        # make sure it yields only right positions (aka not outside the border)
+        if not isinstance(direction, PositionVector2D):
+            direction = PositionVector2D(direction)
+        pos_boarder_change = abs(direction) * 7
 
-    #    print(f"direction: {direction} ({type(direction)})\npos_change: {pos_change}")
-
-        for i in range(0, max(abs(pos_change))+1):  # address the issue of last piece not being checked (+1) # address the issue of the rook not taking the piece
+        for i in range(0, max(abs(pos_boarder_change))+1):
             yield self.pos + direction * i
 
-    def king_direction_position(self, kings_pos: PositionVector2D | tuple[int, int]) -> GeneratorType:
-        # print("Rook.king_direction_position()")
+# king_direction_position
+    def get_line_positions_towards_king(self, kings_pos: PositionVector2D | tuple[int, int]) -> GeneratorType:
+        # yields all the points that are towards the king
         pos_change = kings_pos - self.pos
         direction = pos_change.normalize()
         # print(direction)
@@ -90,39 +99,39 @@ class Rook(Piece):
             direction = PositionVector2D((0, direction[1]))
 
         # print(direction)
+        points = self.get_line_positions(direction)
+        return points
+        # for p in points:
+        #     yield p
+        #     if p == kings_pos:
+        #         break
 
-        pos_boarder_change = abs(direction) * 7
-        points = self.get_line_positions(direction, pos_boarder_change)
-        for p in points:
-            yield p
-            if p == kings_pos:
-                break
+    def is_attacking_king(self, king_pos: PositionVector2D) -> bool:
+        if king_pos in list(self.get_line_positions_towards_king(king_pos)):
+            return True
+        return False
 
+    def get_positions_attacking_around_king(self, king_pos) -> GeneratorType:
+        for point in self.get_line_positions_towards_king(king_pos):
+            pos_change = king_pos - point
+            if pos_change[0] in (-1, 0, 1) and pos_change[1] in (-1, 0, 1):
+                yield point
 
-
-
-    def around_pos_attack_check(self, king_pos):
-        pos_change = king_pos - self.pos
-        # \/ change using class for pos \/
-        # direction = pos_change[0] // abs(pos_change[0]), 0 if abs(pos_change[0]) > abs(pos_change[1]) else 0, pos_change[1] // abs(pos_change[1])
-        direction = pos_change.normalize()
-        if abs(direction[0]) > abs(direction[1]):
-            direction = PositionVector2D((direction[0], 0))
-        else:
-            direction = PositionVector2D((0, direction[1]))
-
-        pos_boarder_change = abs(direction) * 7  # pos_change from pos to boarder in the needed direction
-
-        points = self.get_line_positions(direction, pos_boarder_change)
-
-        # print(f"around_pos_attack_check for {self.name}")
-        # print(f"points: {list(points)}")
-        for p in points:
-            delta_p = king_pos - p
-            if delta_p[0] in (-1, 0, 1) and delta_p[1] in (-1, 0, 1):
-                yield p
-
-        return []
+# add a decorator that formats the positions into the string
+    def get_possible_moves(self) -> GeneratorType:
+        for i in ((0, 1), (0, -1), (1, 0), (-1, 0)):
+            for j in self.get_line_positions(i):
+                # do this part with try/except? or not needed?
+                if not (0 <= j[0] <= 7 and 0 <= j[1] <= 7):
+                    break
+                elif j == self.pos:
+                    continue
+                piece = self.board.board[j[1]][j[0]]
+                if isinstance(piece, Piece):
+                    if piece.color != self.color:
+                        yield j
+                    break
+                yield j
 
 
     @staticmethod
@@ -133,53 +142,54 @@ class Rook(Piece):
         board.board[7][0] = Rook(board, "black", (0, 7))
         board.board[7][7] = Rook(board, "black", (7, 7))
 
-class Bishop(Piece):
-    def __init__(self, board, color: str, pos: tuple[int, int]):
-        super(Bishop, self).__init__(board, color, pos)
-        self.name = "Bishop"
-        self.sym = "B"
+        # board.board[0][0] = Rook(board, "white", (0, 0))
+        # board.board[0][3] = Rook(board, "white", (3, 0))
+        # board.board[7][0] = Rook(board, "black", (0, 7))
+        # board.board[7][7] = Rook(board, "black", (7, 7))
 
-    def reach_check(self, pos: tuple[int, int]) -> tuple[bool, str | None]:
-        # Position change. Needed to check if the movement is possible
-        pos_change = abs(self.pos[0] - pos[0]), abs(self.pos[1] - pos[1])
-        if (pos_change[0] != 0 and pos_change[1] != 0) and pos_change[0] == pos_change[1]:
-            return True, None
 
-        return False, f"{self.name} can't reach from {self.pos} to {pos}"
-
-    def blocking_check(self, pos):
-        pos_change = self.pos[0] - pos[0], self.pos[1] - pos[1]
-        direction = pos_change[0] // 1, pos_change[1] // 1
-
-        points = self.get_diagonal_positions(pos_change, direction)
-        for i in points:
-            res = self.board.board[i[0]][i[1]]
-            if res is Piece:
-                return True
-
-        # Checks if there is a piece on the way
-
-    def get_diagonal_positions(self, pos_change, direction) -> GeneratorType:  # tuple[int, int]
-        for i in range(abs(pos_change[0])):
-            yield self.pos[0] + i * direction[0], self.pos[1] + i * direction[1]
-
-    @staticmethod
-    def construct(board):
-        board.board[0][2] = Bishop(board, "white", (2, 0))
-        board.board[0][5] = Bishop(board, "white", (5, 0))
-        board.board[7][2] = Bishop(board, "black", (2, 7))
-        board.board[7][5] = Bishop(board, "black", (5, 7))
+# class Bishop(Piece):
+#     def __init__(self, board, color: str, pos: tuple[int, int]):
+#         super(Bishop, self).__init__(board, color, pos)
+#         self.name = "Bishop"
+#         self.sym = "B"
+#
+#     def reach_check(self, pos: tuple[int, int]) -> tuple[bool, str | None]:
+#         # Position change. Needed to check if the movement is possible
+#         pos_change = abs(self.pos[0] - pos[0]), abs(self.pos[1] - pos[1])
+#         if (pos_change[0] != 0 and pos_change[1] != 0) and pos_change[0] == pos_change[1]:
+#             return True, None
+#
+#         return False, f"{self.name} can't reach from {self.pos} to {pos}"
+#
+#     def blocking_check(self, pos):
+#         pos_change = self.pos[0] - pos[0], self.pos[1] - pos[1]
+#         direction = pos_change[0] // 1, pos_change[1] // 1
+#
+#         points = self.get_diagonal_positions(pos_change, direction)
+#         for i in points:
+#             res = self.board.board[i[0]][i[1]]
+#             if res is Piece:
+#                 return True
+#
+#         # Checks if there is a piece on the way
+#
+#     def get_diagonal_positions(self, pos_change, direction) -> GeneratorType:  # tuple[int, int]
+#         for i in range(abs(pos_change[0])):
+#             yield self.pos[0] + i * direction[0], self.pos[1] + i * direction[1]
+#
+#     @staticmethod
+#     def construct(board):
+#         board.board[0][2] = Bishop(board, "white", (2, 0))
+#         board.board[0][5] = Bishop(board, "white", (5, 0))
+#         board.board[7][2] = Bishop(board, "black", (2, 7))
+#         board.board[7][5] = Bishop(board, "black", (5, 7))
 
 class King(Piece):
     def __init__(self, board, color: str, pos: tuple[int, int]):
         super(King, self).__init__(board, color, pos)
         self.name = "King"
         self.sym = "K"
-        self.blocked_list = [
-            [False, False, False],
-            [False, True,  False],
-            [False, False, False]
-        ]
 
     def reach_check(self, pos: PositionVector2D | tuple[int, int]) -> tuple[bool, str | None]:
         # Position change. Needed to check if the movement is possible
@@ -191,39 +201,29 @@ class King(Piece):
 
     def blocking_check(self, pos: PositionVector2D | tuple[int, int]) -> tuple[bool, str | None]:  # need to check
         # in case of king, this will check whether the space he wants to go is free.
-        piece_in_pos = self.board.board[pos[1]][pos[1]]
+        piece_in_pos = self.board.board[pos[1]][pos[0]]
         if piece_in_pos != 0:
             if piece_in_pos.color == self.color:
                 return True, f"There is a {self.color} piece on the spot"
 
-        if self.board.check:
-            pos_change = pos - self.pos
-            if self.blocked_list[pos_change[1]+1][pos_change[0]+1] is True:
-                return True, "piece is attacking the pos"
-            return False, None
-        attacked, reason = self.check_if_pos_attacked(pos)
-        return attacked, reason
+        attacked, pos_that_attack = self.check_if_pos_attacked(pos)
+        return attacked, f"there are pieces in positions {pos_that_attack} that attack the position"
 
     def move(self, new_pos: PositionVector2D | tuple[int, int]):
         print(f"Moved {self.name} on {self.pos} to {new_pos}")
         self.pos = new_pos
-        self.update_blocked_list(self.pos)
 
-
-    def check_if_pos_attacked(self, pos: PositionVector2D | tuple[int, int]) -> tuple[bool, str | None]:
+    def check_if_pos_attacked(self, pos: PositionVector2D | tuple[int, int]) -> tuple[bool, list]:
+        # maybe needs to be separated into smaller functions???
         directions_list = [(0, 1), (1, 1), (1, 0), (1, -1), (0, -1), (-1, -1), (-1, 0), (-1, 1)]
         directions_list = list(map(lambda x: PositionVector2D(x), directions_list))
         direction_del = []
+        pos_that_attack = []
 
         # check for knight
-        knight_pos = [(1, 2), (1, -2), (-1, 2), (-1, -2), (2, 1), (-2, 1), (-2, -1), (2, -1)]
-        for i in knight_pos:
-            piece = self.board.board[i[1]][i[0]]
-            if piece == 0:
-                continue
-            elif piece.name == "Knight" and piece.color != self.color:
-                return True, f"knight is attacking the pos"
+        pos_that_attack.extend(list(self.get_pos_of_knights_attacking_pos(pos)))
 
+        # check for any other pieces
         for i in range(1, 8):
             # print("new_cycle")
             for direction in directions_list:
@@ -232,55 +232,61 @@ class King(Piece):
                 if not (0 <= piece_pos[0] <= 7 and 0 <= piece_pos[1] <= 7):
                     direction_del.append(direction)
                     continue
-                print(piece_pos, piece_pos.cord)
+                # print(piece_pos, piece_pos.cord)
                 piece = self.board.board[piece_pos[1]][piece_pos[0]]
 
                 if piece == 0:
                     pass
                 elif piece.color == self.color:
                     direction_del.append(direction)
+
                 else:
                     if piece.name in ("Rook", "Queen") and sum(abs(direction)) == 1:
-                        return True, f"{piece.name} is attacking the position"
+                        pos_that_attack.append(piece_pos)
+                        # return True, f"{piece.name} is attacking the position"
                     elif piece.name in ("Bishop", "Queen") and sum(abs(direction)) == 2:
-                        return True, None
-                    elif piece.name == "Pawn" and i == 1 and (direction[0], direction[1]) in ((-1, -1), (-1, 1)):
-                        return True, None
-                    else:
-                        direction_del.append(direction)
+                        pos_that_attack.append(piece_pos)
+                        # return True, f"{piece.name} is attacking the position"
+                    elif piece.name == "Pawn" and i == 1 and (direction[0], direction[1]) in ((-1, -1), (1, -1)):  # piece.direction somewhere
+                        pos_that_attack.append(piece_pos)
+                    elif piece.name == "King" and i == 1:
+                        pos_that_attack.append(piece_pos)
+                        # return True, f"{piece.name} is attacking the position"
+
+                    direction_del.append(direction)
 
             for d in direction_del:
                 directions_list.remove(d)
             direction_del = []
 
-        return False, None
+        return True if len(pos_that_attack) > 0 else False, pos_that_attack
 
+    def get_pos_of_knights_attacking_pos(self, pos: PositionVector2D) -> GeneratorType:
+        knight_directions = [(1, 2), (1, -2), (-1, 2), (-1, -2), (2, 1), (-2, 1), (-2, -1), (2, -1)]
+        piece = 0
+        for i in knight_directions:
+            knight_pos = pos + i
+            try:
+                piece = self.board.board[knight_pos[1]][knight_pos[0]]
+            except IndexError:
+                continue
+            finally:
+                if piece == 0:
+                    continue
+                elif piece.name == "Knight" and piece.color != self.color:
+                    yield knight_pos
 
-    def update_blocked_list(self, new_pos: PositionVector2D | tuple[int, int]):
-        self.blocked_list = [
-            [False, False, False],
-            [False, True,  False],
-            [False, False, False]
-        ]
-
-        for y, row in enumerate(self.board.board):
-            for x, piece in enumerate(row):
-                pos_change = new_pos - (x, y) if type(new_pos) is PositionVector2D else PositionVector2D((new_pos[0] - x, new_pos[1] - y))
-                if isinstance(piece, King) or piece == 0:
-                    pass
-                elif piece.color == self.color and (pos_change[0] in (-1, 0, 1) and pos_change[0] in (-1, 0, 1)):
-                    self.blocked_list[pos_change[1]+1][pos_change[0]+1] = True
-                else:  # implement a function for the pieces to find the closest path to king and check if it is near
-                    for i in piece.around_pos_attack_check(self.pos): # the function return None
-                        print(f"King.update_blocked_list()\ni: {i}")
-                        d_pos = self.pos - i
-                        print(f"King.update_blocked_list()\nd_pos: {d_pos}")
-                        self.blocked_list[d_pos[1]+1][d_pos[0]+1] = True
-        print(f"self.blocked_list = {self.blocked_list}")
-
+    def get_possible_moves(self) -> GeneratorType:
+        for y_i in range(-1, 2):
+            for x_i in range(-1, 2):
+                if x_i == y_i == 0:
+                    continue
+                position = PositionVector2D((self.pos[0] + x_i, self.pos[1] + y_i))
+                res = self.check_if_pos_attacked(position)
+                if not res[0] and (0 <= position[0] <= 7 and 0 <= position[1] <= 7):
+                    yield position
 
     def castle(self, new_pos, side: -1 | 1) -> tuple[bool, str | None]:  # king | queen side
-#        print(f"in King.castle()\n pos_1: {self.pos + PositionVector2D((1, 0)) * side}\n pos_2 : {self.pos + PositionVector2D((2, 0)) * side}")
         pos_1 = self.check_if_pos_attacked(self.pos + PositionVector2D((1, 0)) * side)
         pos_2 = self.check_if_pos_attacked(self.pos + PositionVector2D((2, 0)) * side)
         if pos_1[0] is True or pos_2[0] is True:
@@ -288,11 +294,87 @@ class King(Piece):
 
         return True, None
 
-
     @staticmethod
     def construct(board):
         board.board[0][3] = King(board, "white", (3, 0))
         board.board[7][3] = King(board, "black", (3, 7))
 
+        # board.board[1][3] = King(board, "white", (3, 1))
+        # board.board[7][3] = King(board, "black", (3, 7))
 
+
+
+# class Pawn(Piece):
+#     def __init__(self, board, color: str, pos: tuple[int, int]):
+#         super(Pawn, self).__init__(board, color, pos)
+#         self.name = "Pawn"
+#         self.sym = "P"
+#
+#         self.moving_direction = 1 if color == "white" else -1
+#         self.can_double = True
+#
+#     def reach_check(self, pos: PositionVector2D | tuple[int, int]) -> tuple[bool, str | None]:
+#         pos_change = pos - self.pos
+#         piece = self.board.board[pos[1]][pos[0]]
+#
+#         # moving normally
+#         if (pos_change[1] == self.moving_direction or (pos_change[1] == self.moving_direction * 2 and self.can_double is True)) and pos_change[0] == 0:
+#             print("passed moving")
+#             print(self.can_double)
+#             if piece == 0:
+#                 if self.can_double is True:
+#                     self.can_double = False
+#
+#                 return True, None
+#             return False, f"{piece.name} is blocking the way"
+#
+#         # capturing a piece
+#         elif pos_change[1] == self.moving_direction and abs(pos_change[0]) == 1:
+#             try:
+#                 if piece.color != self.color and isinstance(piece, Piece):
+#                     return True, None
+#             except AttributeError:
+#                 pass
+#
+#             # the en passant logic
+#             en_passant_piece_pos = PositionVector2D((pos[0], pos[1] - self.moving_direction))
+#             en_passant_piece_pos_init = PositionVector2D((pos[0], pos[1] + self.moving_direction))
+#             en_passant_piece = self.board.board[en_passant_piece_pos[1]][en_passant_piece_pos[0]]
+#
+#             if isinstance(en_passant_piece, Pawn):
+#
+#                 if self.board.last_move == (en_passant_piece, en_passant_piece_pos_init, en_passant_piece_pos):  # ***
+#                     print("had just doubled")
+#                     self.board.board[pos[1] - self.moving_direction][pos[0]] = 0
+#                     return True, None
+#                 else:
+#                     return False, f"can't capture a pawn that hadn't moved 2 squares"
+#             return False, f"Cant capture your own piece"
+#
+#         return False, f"Cant move to the {pos}"
+#
+#     def blocking_check(self, pos) -> tuple[bool, str | None]:
+#         return False, None
+#
+#     def king_direction_position(self, kings_pos) -> GeneratorType:
+#         for i in (-1, 1):
+#             yield self.pos + (i, self.moving_direction)
+#
+#     def around_pos_attack_check(self, king_pos) -> GeneratorType:
+#         king: King = self.board.board[king_pos[1]][king_pos[0]]
+#         for i in (-1, 1):
+#             attack_pos = self.pos + (i, self.moving_direction)
+#             pos_change = king_pos - attack_pos
+#             if pos_change[0] in (1, 0, -1) and pos_change[1] in (1, 0, -1):
+#                 print(attack_pos)
+#                 yield attack_pos
+#
+#
+#     @staticmethod
+#     def construct(board):
+#         # board.board[4][3] = Pawn(board, "white", (3, 4))
+#         board.board[6][4] = Pawn(board, "black", (4, 6))
+#
+#         # board.board[4][3] = Pawn(board, "white", (3, 4))
+#         board.board[3][3] = Pawn(board, "white", (3, 3))
 
