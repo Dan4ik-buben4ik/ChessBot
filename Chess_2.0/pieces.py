@@ -34,9 +34,6 @@ class Piece:
     def is_attacking_king(self, king_pos: PositionVector2D) -> bool:
         pass
 
-    def get_line_positions_towards_king(self, kings_pos: PositionVector2D | tuple[int, int]) -> GeneratorType:
-        pass
-
     def get_possible_moves(self):
         pass
 
@@ -118,6 +115,7 @@ class Rook(Piece):
                 yield point
 
 # add a decorator that formats the positions into the string
+    @PositionVector2D.move_formatting(None)
     def get_possible_moves(self) -> GeneratorType:
         for i in ((0, 1), (0, -1), (1, 0), (-1, 0)):
             for j in self.get_line_positions(i):
@@ -132,7 +130,6 @@ class Rook(Piece):
                         yield j
                     break
                 yield j
-
 
     @staticmethod
     def construct(board):
@@ -244,11 +241,15 @@ class King(Piece):
                     if piece.name in ("Rook", "Queen") and sum(abs(direction)) == 1:
                         pos_that_attack.append(piece_pos)
                         # return True, f"{piece.name} is attacking the position"
+
                     elif piece.name in ("Bishop", "Queen") and sum(abs(direction)) == 2:
                         pos_that_attack.append(piece_pos)
                         # return True, f"{piece.name} is attacking the position"
-                    elif piece.name == "Pawn" and i == 1 and (direction[0], direction[1]) in ((-1, -1), (1, -1)):  # piece.direction somewhere
-                        pos_that_attack.append(piece_pos)
+
+                    elif piece.name == "Pawn" and i == 1:  # piece.direction somewhere
+                        if (direction[0], direction[1]) in ((-1, -piece.moving_direction), (1, -piece.moving_direction)):
+                            pos_that_attack.append(piece_pos)
+
                     elif piece.name == "King" and i == 1:
                         pos_that_attack.append(piece_pos)
                         # return True, f"{piece.name} is attacking the position"
@@ -304,77 +305,83 @@ class King(Piece):
 
 
 
-# class Pawn(Piece):
-#     def __init__(self, board, color: str, pos: tuple[int, int]):
-#         super(Pawn, self).__init__(board, color, pos)
-#         self.name = "Pawn"
-#         self.sym = "P"
-#
-#         self.moving_direction = 1 if color == "white" else -1
-#         self.can_double = True
-#
-#     def reach_check(self, pos: PositionVector2D | tuple[int, int]) -> tuple[bool, str | None]:
-#         pos_change = pos - self.pos
-#         piece = self.board.board[pos[1]][pos[0]]
-#
-#         # moving normally
-#         if (pos_change[1] == self.moving_direction or (pos_change[1] == self.moving_direction * 2 and self.can_double is True)) and pos_change[0] == 0:
-#             print("passed moving")
-#             print(self.can_double)
-#             if piece == 0:
-#                 if self.can_double is True:
-#                     self.can_double = False
-#
-#                 return True, None
-#             return False, f"{piece.name} is blocking the way"
-#
-#         # capturing a piece
-#         elif pos_change[1] == self.moving_direction and abs(pos_change[0]) == 1:
-#             try:
-#                 if piece.color != self.color and isinstance(piece, Piece):
-#                     return True, None
-#             except AttributeError:
-#                 pass
-#
-#             # the en passant logic
-#             en_passant_piece_pos = PositionVector2D((pos[0], pos[1] - self.moving_direction))
-#             en_passant_piece_pos_init = PositionVector2D((pos[0], pos[1] + self.moving_direction))
-#             en_passant_piece = self.board.board[en_passant_piece_pos[1]][en_passant_piece_pos[0]]
-#
-#             if isinstance(en_passant_piece, Pawn):
-#
-#                 if self.board.last_move == (en_passant_piece, en_passant_piece_pos_init, en_passant_piece_pos):  # ***
-#                     print("had just doubled")
-#                     self.board.board[pos[1] - self.moving_direction][pos[0]] = 0
-#                     return True, None
-#                 else:
-#                     return False, f"can't capture a pawn that hadn't moved 2 squares"
-#             return False, f"Cant capture your own piece"
-#
-#         return False, f"Cant move to the {pos}"
-#
-#     def blocking_check(self, pos) -> tuple[bool, str | None]:
-#         return False, None
-#
-#     def king_direction_position(self, kings_pos) -> GeneratorType:
-#         for i in (-1, 1):
-#             yield self.pos + (i, self.moving_direction)
-#
-#     def around_pos_attack_check(self, king_pos) -> GeneratorType:
-#         king: King = self.board.board[king_pos[1]][king_pos[0]]
-#         for i in (-1, 1):
-#             attack_pos = self.pos + (i, self.moving_direction)
-#             pos_change = king_pos - attack_pos
-#             if pos_change[0] in (1, 0, -1) and pos_change[1] in (1, 0, -1):
-#                 print(attack_pos)
-#                 yield attack_pos
-#
-#
-#     @staticmethod
-#     def construct(board):
-#         # board.board[4][3] = Pawn(board, "white", (3, 4))
-#         board.board[6][4] = Pawn(board, "black", (4, 6))
-#
-#         # board.board[4][3] = Pawn(board, "white", (3, 4))
-#         board.board[3][3] = Pawn(board, "white", (3, 3))
+class Pawn(Piece):
+    def __init__(self, board, color: str, pos: tuple[int, int]):
+        super(Pawn, self).__init__(board, color, pos)
+        self.name = "Pawn"
+        self.sym = "P"
+
+        self.moving_direction = 1 if color == "white" else -1
+        self.can_double = True
+
+    def reach_check(self, pos: PositionVector2D | tuple[int, int]) -> tuple[bool, str | None]:
+        pos_change = pos - self.pos
+        piece = self.board.board[pos[1]][pos[0]]
+
+        # moving normally
+        if (pos_change[1] == self.moving_direction or (pos_change[1] == self.moving_direction * 2 and self.can_double is True)) and pos_change[0] == 0:
+            if piece == 0:
+                if self.can_double is True:
+                    self.can_double = False
+
+                return True, None
+            return False, f"{piece.name} is blocking the way"
+
+        # capturing a piece
+        elif pos_change[1] == self.moving_direction and abs(pos_change[0]) == 1:
+            try:
+                if piece.color != self.color and isinstance(piece, Piece):
+                    return True, None
+            except AttributeError:
+                pass
+
+            # the en passant logic
+            en_passant_piece_pos = PositionVector2D((pos[0], pos[1] - self.moving_direction))
+            en_passant_piece_pos_init = PositionVector2D((pos[0], pos[1] + self.moving_direction))
+            en_passant_piece = self.board.board[en_passant_piece_pos[1]][en_passant_piece_pos[0]]
+
+            if isinstance(en_passant_piece, Pawn):
+
+                if self.board.last_move == (en_passant_piece, en_passant_piece_pos_init, en_passant_piece_pos):  # ***
+                    self.board.board[pos[1] - self.moving_direction][pos[0]] = 0
+                    return True, None
+                else:
+                    return False, f"can't capture a pawn that hadn't moved 2 squares"
+            return False, f"Cant capture your own piece"
+
+        return False, f"Cant move to the {pos}"
+
+    def blocking_check(self, pos) -> tuple[bool, str | None]:
+        return False, None
+
+    # def king_direction_position(self, kings_pos) -> GeneratorType:
+    #     for i in (-1, 1):
+    #         yield self.pos + (i, self.moving_direction)
+
+    def promotion(self, new_piece):
+        pass
+
+    def get_positions_attacking_around_king(self, king_pos) -> GeneratorType:
+        for i in (-1, 1):
+            attack_pos = self.pos + (i, self.moving_direction)
+            pos_change = king_pos - attack_pos
+            if pos_change[0] in (1, 0, -1) and pos_change[1] in (1, 0, -1):
+                print(attack_pos)
+                yield attack_pos
+
+    def is_attacking_king(self, king_pos: PositionVector2D) -> bool:
+        pos_change = king_pos - self.pos
+        return abs(pos_change[0]) == 1 and pos_change[1] == self.moving_direction
+
+    def get_possible_moves(self) -> list:
+        return []
+
+
+    @staticmethod
+    def construct(board):
+        # board.board[4][3] = Pawn(board, "white", (3, 4))
+        board.board[3][4] = Pawn(board, "black", (4, 3))
+
+        # board.board[4][3] = Pawn(board, "white", (3, 4))
+        # board.board[3][3] = Pawn(board, "white", (3, 3))
 

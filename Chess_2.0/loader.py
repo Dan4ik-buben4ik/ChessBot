@@ -116,7 +116,7 @@ class Board:
         self.last_move = None
 
     @staticmethod
-    def input_move():
+    def input_move():  # check if the pawn promotes and thus can have more characters
         # Getting the move in a format of: Piece Position - New Position
         move = input("Input your move (ex. Qa2-a4): ")
 
@@ -173,7 +173,7 @@ class Board:
         if self.check:
             self.move_under_check(piece, init_pos, new_pos)
         # checks if castle
-        elif self.check_if_can_castle(piece, init_pos, new_pos):
+        elif self.check_if_castle(piece, init_pos, new_pos):
             self.castle(piece, init_pos, new_pos)
         else:  # maybe get the normal move check out?
             self.normal_move_check(piece, init_pos, new_pos)
@@ -231,7 +231,6 @@ class Board:
     def move_under_check(self, piece, init_pos, new_pos) -> None:
         print("Move Under Check")
         if isinstance(piece, King):
-            print(f"king blocked_list: {piece.blocked_list}")
             self.normal_move_check(piece, init_pos, new_pos)
             return
 
@@ -249,15 +248,13 @@ class Board:
             raise ImpossibleMoveException(piece, "Cannot block the knight checking the king", init_pos, new_pos)
 
         pos_change = king_pos - attacking_piece_pos
+        # might yield an error
         attacking_line = attacking_piece.get_line_positions_towards_king(king_pos)[:pos_change+1]
         print(f"Attacking_line: {attacking_line}")
         if new_pos not in attacking_line:
             raise ImpossibleMoveException(piece, "Cannot move piece while the king is under check", init_pos, new_pos)
 
         self.normal_move_check(piece, init_pos, new_pos)
-
-
-        pass
 
     def castle(self, piece, init_pos, new_pos) -> None:
         pos_change = new_pos - init_pos
@@ -278,7 +275,7 @@ class Board:
 
         self.update_pos(rook, rook_new_pos)
 
-    def check_if_can_castle(self, piece: Piece, new_pos, init_pos) -> bool:
+    def check_if_castle(self, piece: Piece, new_pos, init_pos) -> bool:
         # checks if castle
         pos_change = new_pos - init_pos
         if isinstance(piece, King) and self.kings_castle[self.player] == [True, True]:
