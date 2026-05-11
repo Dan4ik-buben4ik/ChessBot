@@ -92,6 +92,29 @@ class PositionVector2D:
         else:
             return 0
 
+# make so that it doesn't need any input
+    @staticmethod
+    def move_formatting(piece):
+        def decorator(func):
+            def wrapper(*args, **kwargs):
+                parent = func.__self__.__class__
+                print(parent)
+                res = func(*args, **kwargs)
+                for i in res:
+                    yield f"{parent.sym}{parent.pos.cord}-{i.cord}"
+            return wrapper
+        return decorator
+
+# @PositionVector2D.move_formatting("K", "b1")
+# def get_a():
+#     for _ in range(10):
+#         yield PositionVector2D((0, 0))
+#
+# print(list(get_a()))
+
+
+
+
 
 #         0     1     2     3     4     5     6     7
 #      |-----|-----|-----|-----|-----|-----|-----|-----|
