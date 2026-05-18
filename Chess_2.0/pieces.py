@@ -45,7 +45,7 @@ class Rook(Piece):
     def __init__(self, board, color: str, pos: tuple[int, int]):
         super(Rook, self).__init__(board, color, pos)
         self.name = "Rook"
-        self.sym = "R"
+        self.sym = "R" if color == "white" else "r"
 
     def reach_check(self, pos: PositionVector2D | tuple[int, int]) -> tuple[bool, str | None]:
         # doesn't needed
@@ -134,10 +134,10 @@ class Rook(Piece):
     @staticmethod
     def construct(board):
         # A function that adds the rooks to the board
-        board.board[0][0] = Rook(board, "white", (0, 0))
-        board.board[0][7] = Rook(board, "white", (7, 0))
-        board.board[7][0] = Rook(board, "black", (0, 7))
-        board.board[7][7] = Rook(board, "black", (7, 7))
+        board.board[0][0] = Rook(board, "black", (0, 0))
+        board.board[0][7] = Rook(board, "black", (7, 0))
+        board.board[7][0] = Rook(board, "white", (0, 7))
+        board.board[7][7] = Rook(board, "white", (7, 7))
 
         # board.board[0][0] = Rook(board, "white", (0, 0))
         # board.board[0][3] = Rook(board, "white", (3, 0))
@@ -149,7 +149,7 @@ class Rook(Piece):
 #     def __init__(self, board, color: str, pos: tuple[int, int]):
 #         super(Bishop, self).__init__(board, color, pos)
 #         self.name = "Bishop"
-#         self.sym = "B"
+#         self.sym = "B" if color == "white" else "b"
 #
 #     def reach_check(self, pos: tuple[int, int]) -> tuple[bool, str | None]:
 #         # Position change. Needed to check if the movement is possible
@@ -186,7 +186,7 @@ class King(Piece):
     def __init__(self, board, color: str, pos: tuple[int, int]):
         super(King, self).__init__(board, color, pos)
         self.name = "King"
-        self.sym = "K"
+        self.sym = "K" if color == "white" else "k"
 
     def reach_check(self, pos: PositionVector2D | tuple[int, int]) -> tuple[bool, str | None]:
         # Position change. Needed to check if the movement is possible
@@ -287,6 +287,7 @@ class King(Piece):
                 if not res[0] and (0 <= position[0] <= 7 and 0 <= position[1] <= 7):
                     yield position
 
+
     def castle(self, new_pos, side: -1 | 1) -> tuple[bool, str | None]:  # king | queen side
         pos_1 = self.check_if_pos_attacked(self.pos + PositionVector2D((1, 0)) * side)
         pos_2 = self.check_if_pos_attacked(self.pos + PositionVector2D((2, 0)) * side)
@@ -297,11 +298,9 @@ class King(Piece):
 
     @staticmethod
     def construct(board):
-        board.board[0][3] = King(board, "white", (3, 0))
-        board.board[7][3] = King(board, "black", (3, 7))
+        board.board[0][4] = King(board, "black", (4, 0))
+        board.board[7][4] = King(board, "white", (4, 7))
 
-        # board.board[1][3] = King(board, "white", (3, 1))
-        # board.board[7][3] = King(board, "black", (3, 7))
 
 
 
@@ -309,9 +308,9 @@ class Pawn(Piece):
     def __init__(self, board, color: str, pos: tuple[int, int]):
         super(Pawn, self).__init__(board, color, pos)
         self.name = "Pawn"
-        self.sym = "P"
+        self.sym = "P" if color == "white" else "p"
 
-        self.moving_direction = 1 if color == "white" else -1
+        self.moving_direction = -1 if color == "white" else 1
         self.can_double = True
 
     def reach_check(self, pos: PositionVector2D | tuple[int, int]) -> tuple[bool, str | None]:
@@ -324,6 +323,9 @@ class Pawn(Piece):
                 if self.can_double is True:
                     self.can_double = False
 
+                if pos_change[1] == self.moving_direction * 2:
+                    self.board.possible_en_passant = self.pos + (0, self.moving_direction)
+
                 return True, None
             return False, f"{piece.name} is blocking the way"
 
@@ -335,19 +337,24 @@ class Pawn(Piece):
             except AttributeError:
                 pass
 
+            # # the en passant logic
+            # en_passant_piece_pos = PositionVector2D((pos[0], pos[1] - self.moving_direction))
+            # en_passant_piece_pos_init = PositionVector2D((pos[0], pos[1] + self.moving_direction))
+            # en_passant_piece = self.board.board[en_passant_piece_pos[1]][en_passant_piece_pos[0]]
+
             # the en passant logic
-            en_passant_piece_pos = PositionVector2D((pos[0], pos[1] - self.moving_direction))
-            en_passant_piece_pos_init = PositionVector2D((pos[0], pos[1] + self.moving_direction))
-            en_passant_piece = self.board.board[en_passant_piece_pos[1]][en_passant_piece_pos[0]]
+            if pos == self.board.possible_en_passant:
+                self.board.board[pos[1] - self.moving_direction][pos[0]] = 0
+                return True, None
 
-            if isinstance(en_passant_piece, Pawn):
-
-                if self.board.last_move == (en_passant_piece, en_passant_piece_pos_init, en_passant_piece_pos):  # ***
-                    self.board.board[pos[1] - self.moving_direction][pos[0]] = 0
-                    return True, None
-                else:
-                    return False, f"can't capture a pawn that hadn't moved 2 squares"
-            return False, f"Cant capture your own piece"
+            # if isinstance(en_passant_piece, Pawn):
+            #
+            #     if self.board.last_move == (en_passant_piece, en_passant_piece_pos_init, en_passant_piece_pos):  # ***
+            #         self.board.board[pos[1] - self.moving_direction][pos[0]] = 0
+            #         return True, None
+            #     else:
+            #         return False, f"can't capture a pawn that hadn't moved 2 squares"
+            # return False, f"Cant capture your own piece"
 
         return False, f"Cant move to the {pos}"
 
@@ -358,8 +365,6 @@ class Pawn(Piece):
     #     for i in (-1, 1):
     #         yield self.pos + (i, self.moving_direction)
 
-    def promotion(self, new_piece):
-        pass
 
     def get_positions_attacking_around_king(self, king_pos) -> GeneratorType:
         for i in (-1, 1):
@@ -373,14 +378,25 @@ class Pawn(Piece):
         pos_change = king_pos - self.pos
         return abs(pos_change[0]) == 1 and pos_change[1] == self.moving_direction
 
-    def get_possible_moves(self) -> list:
-        return []
+# TODO: think about all the generator functions and about their null yield. Maybe consider making a check yield in the beginning and slicing it off
+    def get_possible_moves(self) -> GeneratorType:
+        # move forward
+        if self.board.board[self.pos[1]+self.moving_direction][self.pos[0]] == 0:
+            yield PositionVector2D((self.pos[0], self.pos[1]+self.moving_direction))
+
+        if self.board.board[self.pos[1]+self.moving_direction][self.pos[0]+1] != 0:
+            yield PositionVector2D((self.pos[0]+1, self.pos[1]+self.moving_direction))
+
+        if self.board.board[self.pos[1]+self.moving_direction][self.pos[0]-1] != 0:
+            yield PositionVector2D((self.pos[0]-1, self.pos[1]+self.moving_direction))
+
+        yield
 
 
     @staticmethod
     def construct(board):
         # board.board[4][3] = Pawn(board, "white", (3, 4))
-        board.board[3][4] = Pawn(board, "black", (4, 3))
+        board.board[3][4] = Pawn(board, "white", (4, 3))
 
         # board.board[4][3] = Pawn(board, "white", (3, 4))
         # board.board[3][3] = Pawn(board, "white", (3, 3))

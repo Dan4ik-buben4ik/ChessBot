@@ -74,14 +74,14 @@ class PositionVector2D:
     @staticmethod
     def pos_to_cord(pos: PositionVector2D | tuple[int, int]) -> str:
         # A function that changes the text position into a coordinate
-        # eg. A1 -> (0,0)
-        return "".join((chr(96 - pos[0] + 8), str(pos[1] + 1)))
+        # eg. a8 -> (0,0); h = 104 ASCII, a = 97
+        return "".join((chr(97 + pos[0]), str(8 - pos[1])))
 
     @staticmethod
     def cord_to_pos(cord: str) -> PositionVector2D | tuple[int, int]:  # eg. (0, 0)
         # A function that changes the coordinate value to the text position
-        # eg. (0,0) -> A1
-        return PositionVector2D((7 - (ord(cord[0]) - 97), int(cord[1]) - 1))
+        # eg. (0,0) -> a8 h -> 0, a -> 8
+        return PositionVector2D((ord(cord[0]) - 97, 8 - int(cord[1])))
 
     @staticmethod
     def sign(value: int):
@@ -143,4 +143,5 @@ class PositionVector2D:
 # print(direction.normalize())
 
 
-print(PositionVector2D.pos_to_cord((2, 0)))
+print(PositionVector2D.pos_to_cord((0, 0)))
+print(PositionVector2D.cord_to_pos("e1"))
