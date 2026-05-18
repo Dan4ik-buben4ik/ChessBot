@@ -166,7 +166,8 @@ class Board:
         piece: Piece
 
         print("Possible moves")
-        print(list(piece.get_possible_moves()))
+        # print(list(piece.get_possible_moves()))
+        self.get_all_possible_moves()
 
         # check if currently under check
         print(f" the king is under check: {self.check}")
@@ -242,7 +243,7 @@ class Board:
 
     def check_if_king_attacked(self, king: King) -> bool:
         res, positions_that_attack_king = king.check_if_pos_attacked(king.pos)
-        self.positions_that_attack_king = positions_that_attack_king
+        self.positions_that_attack_king = positions_that_attack_king # TODO: think about making a variable holding the pieces that attack instead
         return res
 
 # TODO: CHeck if the function is working properly
@@ -261,9 +262,9 @@ class Board:
         # here begins the real check
         attacking_piece_pos = self.positions_that_attack_king
         attacking_piece: Piece = self.board[attacking_piece_pos[1]][attacking_piece_pos[0]]
-
-        if isinstance(attacking_piece, Knight) and new_pos != attacking_piece_pos:
-            raise ImpossibleMoveException(piece, "Cannot block the knight checking the king", init_pos, new_pos)
+        # TODO: add back when implemented the knight back
+        # if isinstance(attacking_piece, Knight) and new_pos != attacking_piece_pos:
+        #     raise ImpossibleMoveException(piece, "Cannot block the knight checking the king", init_pos, new_pos)
 
         pos_change = king_pos - attacking_piece_pos
         # might yield an error
@@ -311,6 +312,32 @@ class Board:
             else:
                 self.kings_castle[self.player][PositionVector2D.sign(pos_change[0])] = False
         return False
+
+    # TODO: Change the function behaviour when under check
+    def get_all_possible_moves(self):
+        self.possible_moves = []
+        for row in self.board:
+            for piece in row:
+                if piece != 0:
+                    piece: Piece
+                    moves = piece.get_possible_moves()
+                    self.possible_moves.extend(moves)
+
+        if self.check:
+            king_pos = self.kings_pos[self.player]
+            king: King = self.board[king_pos[1]][king_pos[0]]
+            temp_moves = {}
+            temp_moves.update(king.get_possible_moves())
+            if len(self.positions_that_attack_king) == 1:
+                attacking_piece_pos = self.positions_that_attack_king
+                attacking_piece: Piece = self.board[attacking_piece_pos[1]][attacking_piece_pos[0]]
+                pos_change = king_pos - attacking_piece_pos
+                attacking_line = attacking_piece.get_line_positions_towards_king(king_pos)[:pos_change + 1]
+                for sym in ("Q", "R", "B", "N", "P"):
+                    temp_moves.add("".join())
+
+
+        print(self.possible_moves)
 
     def construct(self):
         # A function that prints the board. NOTHING TO BE CHANGED HERE

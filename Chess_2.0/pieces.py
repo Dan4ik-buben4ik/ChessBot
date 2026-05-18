@@ -117,6 +117,8 @@ class Rook(Piece):
 # add a decorator that formats the positions into the string
     @PositionVector2D.move_formatting(None)
     def get_possible_moves(self) -> GeneratorType:
+        yield None # control yield
+
         for i in ((0, 1), (0, -1), (1, 0), (-1, 0)):
             for j in self.get_line_positions(i):
                 # do this part with try/except? or not needed?
@@ -277,7 +279,10 @@ class King(Piece):
                 elif piece.name == "Knight" and piece.color != self.color:
                     yield knight_pos
 
+    @PositionVector2D.move_formatting(None)
     def get_possible_moves(self) -> GeneratorType:
+        yield None  # control yield
+
         for y_i in range(-1, 2):
             for x_i in range(-1, 2):
                 if x_i == y_i == 0:
@@ -378,8 +383,9 @@ class Pawn(Piece):
         pos_change = king_pos - self.pos
         return abs(pos_change[0]) == 1 and pos_change[1] == self.moving_direction
 
-# TODO: think about all the generator functions and about their null yield. Maybe consider making a check yield in the beginning and slicing it off
+    @PositionVector2D.move_formatting(None)
     def get_possible_moves(self) -> GeneratorType:
+        yield None # control yield
         # move forward
         if self.board.board[self.pos[1]+self.moving_direction][self.pos[0]] == 0:
             yield PositionVector2D((self.pos[0], self.pos[1]+self.moving_direction))
@@ -390,7 +396,9 @@ class Pawn(Piece):
         if self.board.board[self.pos[1]+self.moving_direction][self.pos[0]-1] != 0:
             yield PositionVector2D((self.pos[0]-1, self.pos[1]+self.moving_direction))
 
-        yield
+        # en_passant
+        if self.board.possible_en_passant == (self.pos[0]-1, self.pos[1]+self.moving_direction) or self.board.possible_en_passant == (self.pos[0]+1, self.pos[1]+self.moving_direction):
+            yield self.board.possible_en_passant
 
 
     @staticmethod

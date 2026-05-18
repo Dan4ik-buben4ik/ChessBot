@@ -97,10 +97,12 @@ class PositionVector2D:
     def move_formatting(piece):
         def decorator(func):
             def wrapper(*args, **kwargs):
-                parent = func.__self__.__class__
+                parent = args[0]
                 print(parent)
                 res = func(*args, **kwargs)
                 for i in res:
+                    if i is None:
+                        continue
                     yield f"{parent.sym}{parent.pos.cord}-{i.cord}"
             return wrapper
         return decorator
