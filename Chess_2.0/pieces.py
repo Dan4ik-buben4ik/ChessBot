@@ -3,7 +3,7 @@ from position import PositionVector2D
 
 from types import GeneratorType
 
-
+debug = False
 class Piece:
     # A class for Rook
     def __init__(self, board, color: str, pos: tuple[int, int]):
@@ -57,14 +57,13 @@ class Rook(Piece):
         return False, f"{self.name} can't reach from {self.pos} to {pos}"
 
     def blocking_check(self, pos: PositionVector2D | tuple[int, int]) -> tuple[bool, str | None]:
-        pos_change = pos - self.pos  # == pos - self.pos
-        # \/ change using class for pos \/
-        direction = pos_change.normalize()
-        points = self.get_line_positions(direction)
-        for i in points:
+        pos_change = pos - self.pos
+
+        points = self.get_line_positions(pos_change)
+        for i in list(points):
             piece = self.board.board[i[1]][i[0]]
-#            print(i)
-#            print(self.board.board[i[1]][i[0]])
+            # print(i)
+            # print(self.board.board[i[1]][i[0]])
 
             if (i == pos and piece.color != self.color if piece is Piece else True) or piece == self:
                 pass
@@ -75,28 +74,29 @@ class Rook(Piece):
 
         # Checks if there is a piece on the way
 
-    def get_line_positions(self, direction: PositionVector2D | tuple[int, int]) -> GeneratorType:
-        # make sure it yields only right positions (aka not outside the border)
-        if not isinstance(direction, PositionVector2D):
-            direction = PositionVector2D(direction)
-        pos_boarder_change = abs(direction) * 7
 
-        for i in range(0, max(abs(pos_boarder_change))+1):
+    def get_line_positions(self, pos_change: PositionVector2D | tuple[int, int]) -> GeneratorType:
+        print("Get_line_positions")
+        direction = pos_change.normalize()
+
+        # start with 0 or 1 to include/exclude self.pos
+
+        for i in range(0, max(abs(pos_change))+1):
+            print(i, self.pos + direction * i)
             yield self.pos + direction * i
 
 # king_direction_position
     def get_line_positions_towards_king(self, kings_pos: PositionVector2D | tuple[int, int]) -> GeneratorType:
         # yields all the points that are towards the king
         pos_change = kings_pos - self.pos
-        direction = pos_change.normalize()
         # print(direction)
         if abs(pos_change[0]) > abs(pos_change[1]):
-            direction = PositionVector2D((direction[0], 0))
+            pos_change = PositionVector2D((pos_change[0], 0))
         else:
-            direction = PositionVector2D((0, direction[1]))
+            pos_change = PositionVector2D((0, pos_change[1]))
 
         # print(direction)
-        points = self.get_line_positions(direction)
+        points = self.get_line_positions(pos_change)
         return points
         # for p in points:
         #     yield p
@@ -104,7 +104,7 @@ class Rook(Piece):
         #         break
 
     def is_attacking_king(self, king_pos: PositionVector2D) -> bool:
-        if king_pos in list(self.get_line_positions_towards_king(king_pos)):
+        if king_pos == list(self.get_line_positions_towards_king(king_pos))[-1]:
             return True
         return False
 
@@ -115,12 +115,12 @@ class Rook(Piece):
                 yield point
 
 # add a decorator that formats the positions into the string
-    @PositionVector2D.move_formatting(None)
+    @PositionVector2D.move_formatting(debug)
     def get_possible_moves(self) -> GeneratorType:
         yield None # control yield
 
-        for i in ((0, 1), (0, -1), (1, 0), (-1, 0)):
-            for j in self.get_line_positions(i):
+        for i in ((0, 0), (0, 7), (7, 0), (7, 7)):
+            for j in self.get_line_positions(self.pos - i):
                 # do this part with try/except? or not needed?
                 if not (0 <= j[0] <= 7 and 0 <= j[1] <= 7):
                     break
@@ -234,7 +234,7 @@ class King(Piece):
                 # print(piece_pos, piece_pos.cord)
                 piece = self.board.board[piece_pos[1]][piece_pos[0]]
 
-                if piece == 0:
+                if piece == 0 or piece == self:
                     pass
                 elif piece.color == self.color:
                     direction_del.append(direction)
@@ -279,7 +279,7 @@ class King(Piece):
                 elif piece.name == "Knight" and piece.color != self.color:
                     yield knight_pos
 
-    @PositionVector2D.move_formatting(None)
+    @PositionVector2D.move_formatting(debug)
     def get_possible_moves(self) -> GeneratorType:
         yield None  # control yield
 
@@ -372,6 +372,7 @@ class Pawn(Piece):
 
 
     def get_positions_attacking_around_king(self, king_pos) -> GeneratorType:
+        print("Pawn.get_positions_attacking_around_king")
         for i in (-1, 1):
             attack_pos = self.pos + (i, self.moving_direction)
             pos_change = king_pos - attack_pos
@@ -383,13 +384,18 @@ class Pawn(Piece):
         pos_change = king_pos - self.pos
         return abs(pos_change[0]) == 1 and pos_change[1] == self.moving_direction
 
-    @PositionVector2D.move_formatting(None)
+    @PositionVector2D.move_formatting(debug)
     def get_possible_moves(self) -> GeneratorType:
         yield None # control yield
         # move forward
         if self.board.board[self.pos[1]+self.moving_direction][self.pos[0]] == 0:
             yield PositionVector2D((self.pos[0], self.pos[1]+self.moving_direction))
 
+        # double move forward
+        if self.board.board[self.pos[1]+2*self.moving_direction][self.pos[0]] == 0 and self.can_double:
+            yield PositionVector2D((self.pos[0], self.pos[1] + 2 * self.moving_direction))
+
+        # side capture
         if self.board.board[self.pos[1]+self.moving_direction][self.pos[0]+1] != 0:
             yield PositionVector2D((self.pos[0]+1, self.pos[1]+self.moving_direction))
 

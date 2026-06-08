@@ -6,12 +6,12 @@ def board_to_FEN(board) -> str:  # board of class loader.Board
     fen = ""
 
     # --DEBUG--
-    print("\nFEN INPUT")
-    print(board.player)
-    print(board.kings_castle)
-    print(board.possible_en_passant)
-    print(board.half_moves, board.full_moves)
-    print()
+    # print("\nFEN INPUT")
+    # print(board.player)
+    # print(board.kings_castle)
+    # print(board.possible_en_passant)
+    # print(board.half_moves, board.full_moves)
+    # print()
 
     # Positions (section 1)
     for row in board.board:
@@ -119,13 +119,13 @@ def FEN_to_board(fen: str, board):
     board.half_moves = sections[4]
     board.full_moves = sections[5]
 
-    print("\nFEN OUTPUT")
-    print(board.player)
-    print(board.kings_castle)
-    print(board.possible_en_passant)
-    print(board.half_moves)
-    print(board.full_moves)
-    print()
+    # print("\nFEN OUTPUT")
+    # print(board.player)
+    # print(board.kings_castle)
+    # print(board.possible_en_passant)
+    # print(board.half_moves)
+    # print(board.full_moves)
+    # print()
 
     print(f"board: {board.board}")
 
