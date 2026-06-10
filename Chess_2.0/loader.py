@@ -345,6 +345,103 @@ class Board:
 
         print(self.possible_moves)
 
+
+    def find_san_pieces(self, symbol: str, new_pos: PositionVector2D):
+        result_pieces = []
+        for row in self.board:
+            for piece in row:
+                if piece == 0:
+                    continue
+                elif piece.sym.upper() != symbol.upper():
+                    continue
+                elif piece.color != self.player:
+                    continue
+
+                piece: Piece
+                if piece.reach_check(new_pos)[0] and not piece.blocking_check(new_pos)[0]:
+                    result_pieces.append(piece)
+        return result_pieces
+
+
+    def uci_to_san(self, move):
+        # eg. e2e4 -> e4 or g1f3 -> Nf3 or e7e8q -> e8=Q or a1d1 -> Ra1d1
+        # TODO: need testing of pawn promotion and of 3 queen situation
+        init_pos = PositionVector2D(move[:2])
+        new_pos = PositionVector2D(move[2:4])
+        try:
+            promotion = move[4]
+        except IndexError:
+            promotion = None
+
+        piece = self.board[init_pos[1]][init_pos[0]]
+        possible_pieces: list[Piece] = self.find_san_pieces(piece.sym, new_pos)
+
+        if len(possible_pieces) == 1:
+            return f"{piece.sym.capitalize()}{new_pos.cord}{promotion if promotion else ''}"
+
+        possible_prefix = []
+        for cord in possible_pieces:
+            if cord.pos == init_pos:
+                continue
+            possible_prefix.extend((cord.pos.cord[0], cord.pos.cord[1]))
+
+        prefix = ""
+        if init_pos.cord[1] in possible_prefix:
+            prefix = prefix + init_pos.cord[0]
+        if init_pos.cord[0] in possible_prefix:
+            prefix = prefix + init_pos.cord[1]
+
+        return f"{piece.sym.capitalize()}{prefix}{new_pos.cord}{promotion if promotion else ''}"
+
+    def san_to_uci(self, move):
+        #TODO: test with promotion and 3 queens
+        if move[0] not in ("Q", "K", "R", "N", "B", "P"):
+            move = "".join(("P", move))
+
+        try:
+            move, promotion = move.split("=")
+        except ValueError:
+            promotion = None
+
+        piece_sym = move[0]
+        new_pos = PositionVector2D(move[-2:])
+
+        # logic to get the initial position
+        possible_pieces = self.find_san_pieces(piece_sym, new_pos)
+
+        if len(possible_pieces) == 1:
+            return f"{possible_pieces[0].pos.cord}{new_pos.cord}{promotion if promotion else ''}"
+
+        # finding prefix
+        if len(move) == 5:
+            return f"{move[1:3]}{new_pos.cord}{promotion if promotion else ''}"
+        elif len(move) == 4:
+            prefix = move[1]
+        else:
+            raise JustError
+
+        for piece in possible_pieces:
+            if prefix in piece.pos.cord:
+                init_pos = piece.pos
+
+        return f"{init_pos.cord}{new_pos.cord}{promotion if promotion else ''}"
+
+    def uci_decoder(self, move):
+        init_pos = PositionVector2D(move[:2])
+        new_pos = PositionVector2D(move[2:4])
+
+        piece = self.board[init_pos[1]][init_pos[0]]
+
+        try:
+            promotion = move[4].upper()
+        except IndexError:
+            promotion = None
+
+        return piece, init_pos, new_pos, promotion
+
+    def uci_encoder(self, init_pos, new_pos, promotion=None):
+        return "".join((init_pos.pos, new_pos.pos, promotion.lower() if promotion else ""))
+
     def construct(self):
         # A function that prints the board. NOTHING TO BE CHANGED HERE
         print(f"{'           ' * 2}Black")

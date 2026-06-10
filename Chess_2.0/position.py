@@ -2,8 +2,8 @@ from __future__ import annotations
 
 class PositionVector2D:
     def __init__(self, val: str | tuple[int, int]):
-        self.pos: str
-        self.cord: tuple[int, int]
+        self.pos: tuple[int, int]
+        self.cord: str
         if isinstance(val, str):
 #            print("val is str")
             self.cord = val

@@ -51,7 +51,7 @@ class Rook(Piece):
         # doesn't needed
         # Position change. Needed to check if the movement is possible
         pos_change = abs(pos - self.pos)
-        if pos_change[0] != 0 or pos_change[1] != 0:
+        if pos_change[0] == 0 or pos_change[1] == 0:
             return True, None
 
         return False, f"{self.name} can't reach from {self.pos} to {pos}"
@@ -60,13 +60,12 @@ class Rook(Piece):
         pos_change = pos - self.pos
 
         points = self.get_line_positions(pos_change)
+
         for i in list(points):
             piece = self.board.board[i[1]][i[0]]
-            # print(i)
-            # print(self.board.board[i[1]][i[0]])
 
-            if (i == pos and piece.color != self.color if piece is Piece else True) or piece == self:
-                pass
+            if (i == pos and (piece.color != self.color) if isinstance(piece, Piece) else True) or piece == self:
+                continue
             elif piece:
                 return True, f"a piece ({piece} is blocking the way on {i.cord}"
 
