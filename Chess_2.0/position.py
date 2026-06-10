@@ -2,8 +2,8 @@ from __future__ import annotations
 
 class PositionVector2D:
     def __init__(self, val: str | tuple[int, int]):
-        self.pos: str
-        self.cord: tuple[int, int]
+        self.pos: tuple[int, int]
+        self.cord: str
         if isinstance(val, str):
 #            print("val is str")
             self.cord = val
@@ -54,9 +54,6 @@ class PositionVector2D:
     def normalize(self):
         return PositionVector2D((self.sign(self.pos[0]), self.sign(self.pos[1])))
 
-    def in_range(self, upper_b, lower_b):  # do we need it?
-        pass
-
 
     def __abs__(self):
         return PositionVector2D((abs(self.pos[0]), abs(self.pos[1])))
@@ -74,14 +71,14 @@ class PositionVector2D:
     @staticmethod
     def pos_to_cord(pos: PositionVector2D | tuple[int, int]) -> str:
         # A function that changes the text position into a coordinate
-        # eg. A1 -> (0,0)
-        return "".join((chr(96 - pos[0] + 8), str(pos[1] + 1)))
+        # eg. a8 -> (0,0); h = 104 ASCII, a = 97
+        return "".join((chr(97 + pos[0]), str(8 - pos[1])))
 
     @staticmethod
     def cord_to_pos(cord: str) -> PositionVector2D | tuple[int, int]:  # eg. (0, 0)
         # A function that changes the coordinate value to the text position
-        # eg. (0,0) -> A1
-        return PositionVector2D((7 - (ord(cord[0]) - 97), int(cord[1]) - 1))
+        # eg. (0,0) -> a8 h -> 0, a -> 8
+        return PositionVector2D((ord(cord[0]) - 97, 8 - int(cord[1])))
 
     @staticmethod
     def sign(value: int):
@@ -94,14 +91,18 @@ class PositionVector2D:
 
 # make so that it doesn't need any input
     @staticmethod
-    def move_formatting(piece):
+    def move_formatting(debug: bool = False):
         def decorator(func):
             def wrapper(*args, **kwargs):
-                parent = func.__self__.__class__
-                print(parent)
+                parent = args[0]
                 res = func(*args, **kwargs)
                 for i in res:
-                    yield f"{parent.sym}{parent.pos.cord}-{i.cord}"
+                    if i is None:
+                        continue
+                    if debug:
+                        yield f"{parent.sym}{parent.pos.cord}-{i.cord}"
+                    else:
+                        yield f"{parent.sym}{i.cord}"
             return wrapper
         return decorator
 
@@ -116,23 +117,24 @@ class PositionVector2D:
 
 
 
+#                       black
 #         0     1     2     3     4     5     6     7
 #      |-----|-----|-----|-----|-----|-----|-----|-----|
-#  0   | A1  | B1  | C1  | D1  | ### | F1  | G1  | ### | 7,0 - 4,0 = 3,0
+#  0   | A8  | B8  | C8  | D8  | E8  | F8  | G8  | H8  |
 #      |-----|-----|-----|-----|-----|-----|-----|-----|
-#  1   | A2  | B2  | C2  | D2  | E2  | F2  | G2  | H2  |
+#  1   | A7  | B7  | C7  | D7  | E7  | F7  | G7  | H7  |
 #      |-----|-----|-----|-----|-----|-----|-----|-----|
-#  2   | A3  | B3  | C3  | D3  | E3  | F3  | G3  | H3  |
+#  2   | A6  | B6  | C6  | D6  | E6  | F6  | G6  | H6  |
 #      |-----|-----|-----|-----|-----|-----|-----|-----|
-#  3   | A4  | B4  | C4  | D4  | E4  | F4  | G4  | H4  |
+#  3   | A5  | B5  | C5  | D5  | E5  | F5  | G5  | H5  |
 #      |-----|-----|-----|-----|-----|-----|-----|-----|
-#  4   | A5  | B5  | C5  | D5  | E5  | F5  | G5  | H5  |
+#  4   | A4  | B4  | C4  | D4  | E4  | F4  | G4  | H4  |
 #      |-----|-----|-----|-----|-----|-----|-----|-----|
-#  5   | A6  | B6  | C6  | D6  | E6  | F6  | G6  | H6  |
+#  5   | A3  | B3  | C3  | D3  | E3  | F3  | G3  | H3  |
 #      |-----|-----|-----|-----|-----|-----|-----|-----|
-#  6   | A7  | B7  | C7  | D7  | E7  | F7  | G7  | H7  |
+#  6   | A2  | B2  | C2  | D2  | E2  | F2  | G2  | H2  |
 #      |-----|-----|-----|-----|-----|-----|-----|-----|
-#  7   | A8  | B8  | C8  | D8  | E8  | F8  | G8  | H8  |
+#  7   | A1  | B1  | C1  | D1  | ### | F1  | G1  | H1  | l= 4 r= 3; dir = -1, 0
 #      |-----|-----|-----|-----|-----|-----|-----|-----|
 
 # pos = PositionVector2D((2, 0))
@@ -143,4 +145,5 @@ class PositionVector2D:
 # print(direction.normalize())
 
 
-print(PositionVector2D.pos_to_cord((2, 0)))
+print(PositionVector2D.pos_to_cord((0, 0)))
+print(PositionVector2D.cord_to_pos("e1"))

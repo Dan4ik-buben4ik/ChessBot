@@ -4,7 +4,7 @@ from position import PositionVector2D
 
 class ImpossibleMoveException(BaseException):
     def __init__(self, piece, reason, init_pos, new_pos):
-        super(ImpossibleMoveException, self).__init__(f"\nPiece: {piece.name}\nReason: {reason}\nMove from ({PositionVector2D.pos_to_cord(init_pos)}) to ({pos_to_cord(new_pos)})")
+        super(ImpossibleMoveException, self).__init__(f"\nPiece: {piece.name}\nReason: {reason}\nMove from ({PositionVector2D.pos_to_cord(init_pos)}) to ({PositionVector2D.pos_to_cord(new_pos)})")
 
 
 
