@@ -75,13 +75,11 @@ class Rook(Piece):
 
 
     def get_line_positions(self, pos_change: PositionVector2D | tuple[int, int]) -> GeneratorType:
-        print("Get_line_positions")
         direction = pos_change.normalize()
 
         # start with 0 or 1 to include/exclude self.pos
 
         for i in range(0, max(abs(pos_change))+1):
-            print(i, self.pos + direction * i)
             yield self.pos + direction * i
 
 # king_direction_position

@@ -107,31 +107,6 @@ class Board:
         self.half_moves = 0
         self.full_moves = 1
 
-    @staticmethod
-    def input_move(simulate_move):  # check if the pawn promotes and thus can have more characters
-        # Getting the move in a format of: Piece Position - New Position
-        if not simulate_move:
-            move = input("Input your move (ex. Qa2-a4): ")
-        else:
-            move = simulate_move
-
-        # checks if there are only positions given , then add P for pawn
-        # (e2-e4 is a valid move with pawn, put it doesn't have a piece symbol in front, so we add P)
-        if move[0].islower():
-            move = "".join(("P", move))
-
-        if move[-2] == "=":
-            promotion = move[-1]
-        else:
-            promotion = False
-        # Here is going to be a check for the format of the input, but it is later
-
-        # Getting new and old position
-        init_pos = PositionVector2D.cord_to_pos(move[1:3])  # gets the first (old) position eg. Qa2-a4 -> a2
-        new_pos = PositionVector2D.cord_to_pos(move[4:6])  # gets the second (new) position eg. Qa2-a4 -> a4
-        print(f"Input_move: {init_pos} -> {new_pos}")
-        return move, init_pos, new_pos, promotion
-
 
     @staticmethod
     def is_reachable_move(piece, init_pos, new_pos) -> None:
@@ -148,17 +123,16 @@ class Board:
     # ===========================================================================================================================
     # ===========================================================================================================================
 
-    def move(self, *simulate_move: str) -> None:
+    def move(self, uci_move_txt: str) -> None:
         # break down into smaller functions like check, castle
-
+        san_move_txt = self.uci_to_san(uci_move_txt)
 
         # getting the piece
-        move_txt, init_pos, new_pos, promotion = self.input_move(simulate_move)
-        piece: Piece | 0 = self.board[init_pos[1]][init_pos[0]]
+        piece, init_pos, new_pos, promotion = self.uci_decoder(uci_move_txt)
 
         # checks the symbol and colour of the piece
         if piece == 0:  # if the square is empty, raises error
-            raise UnrecognisableMove(move_txt)
+            raise UnrecognisableMove(san_move_txt)
         elif piece.color != self.player:  # if the pieces colour is not of the current players turn, raises error
             raise PieceColorException(piece)
 
@@ -215,15 +189,14 @@ class Board:
 # ===========================================================================================================================
 # ===========================================================================================================================
 # ===========================================================================================================================
-    def update_pos(self, piece: Piece, cord: tuple[int, int], promotion=False) -> None:  # !!!
+    def update_pos(self, piece: Piece, cord: PositionVector2D|tuple[int, int], promotion:None|str=None) -> None:  # !!!
         self.last_move = (piece, piece.pos, cord)
         # A function that updates the pieces position on the board
         self.board[piece.pos[1]][piece.pos[0]] = 0  # makes the old square empty
-        print(self.board[piece.pos[1]][piece.pos[0]])
         if promotion and isinstance(piece, Pawn):
             # if promotion == "Q":
             #     self.board[cord[1]][cord[0]] = Queen(self, piece.color, cord)
-            if promotion == "R":
+            if promotion.upper() == "R":
                 piece = Rook(self, piece.color, cord)
             # elif promotion == "N":
             #     piece = Knight(self, piece.color, cord)
@@ -317,7 +290,7 @@ class Board:
                 return True
         return False
 
-    # TODO: Change the function behaviour when under check
+    #TODO: Change the function behaviour when under check
     def get_all_possible_moves(self):
         self.possible_moves = []
         for row in self.board:
