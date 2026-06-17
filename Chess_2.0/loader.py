@@ -14,7 +14,7 @@ except ImportError:
 
 from Errors import UnrecognisableMove, PieceColorException, ImpossibleMoveException, UnderCheckException, JustError
 from position import PositionVector2D
-from encoder import FEN_to_board, board_to_FEN
+from fen_converter import FEN_to_board, board_to_FEN
 
 
 # board check logic
@@ -139,8 +139,7 @@ class Board:
         # identifier that helps to see methods
         piece: Piece
 
-        # print("Possible moves")
-        # # print(list(piece.get_possible_moves()))
+
         # self.get_all_possible_moves()
 
         # check if currently under check
@@ -156,8 +155,9 @@ class Board:
         if isinstance(piece, Pawn):
             if promotion and not new_pos[1] in (0, 7):
                 raise ImpossibleMoveException(piece, "Cant promote if not on the back rank", init_pos, new_pos)
-            elif new_pos[1] in (0, 7) and not promotion:  # TODO: scrape when fixed input
-                promotion = input("What piece are you promoting to? (capitalized first letter of piece): ")
+            if piece.can_double is True:
+                piece.can_double = False
+
 
         elif isinstance(piece, King):
             self.kings_castle[self.player] = [False, False]
@@ -178,6 +178,8 @@ class Board:
         if self.check_if_king_attacked(opponent_king) is True:
             self.check = True
             print(f"check on the king, by {self.positions_that_attack_king}")
+            if self.kings_castle[opponent_king.color] != [False, False]:
+                self.kings_castle[opponent_king.color] = [False, False]
             # opponent_king.update_blocked_list(opponent_king.pos)
 
         # changes the current player, aka the turn
@@ -246,11 +248,8 @@ class Board:
         #     raise ImpossibleMoveException(piece, "Cannot block the knight checking the king", init_pos, new_pos)
 
         pos_change = king_pos - attacking_piece_pos
-        # might yield an error
-        #TODO: resolve a possible error
-        attacking_line = attacking_piece.get_line_positions_towards_king(king_pos)[:pos_change+1]
-        print(f"Attacking_line: {attacking_line}")
-        if new_pos not in attacking_line:
+
+        if new_pos not in list(attacking_piece.get_line_positions_towards_king(king_pos))[:pos_change+1]:
             raise ImpossibleMoveException(piece, "Cannot move piece while the king is under check", init_pos, new_pos)
 
         self.normal_move_check(piece, init_pos, new_pos)
@@ -272,14 +271,13 @@ class Board:
         print(f"rook pos in board.castle(): {rook_pos}")
         rook: Rook = self.board[rook_pos[1]][rook_pos[0]]
 
-        rook_new_pos = (rook_pos[0] -2 if direction == 1 else rook_pos[0] + 3), rook_pos[1]
+        rook_new_pos = PositionVector2D(((rook_pos[0] -2 if direction == 1 else rook_pos[0] + 3), rook_pos[1]))
 
         self.update_pos(rook, rook_new_pos)
 
     def check_if_castle(self, piece: Piece, new_pos, init_pos) -> bool:
         # checks if castle
         if isinstance(piece, King) and self.kings_castle[self.player] == [True, True]:
-            print("checked king in board.move()")
             pos_change = new_pos - init_pos
             if abs(pos_change[0]) == 2 and pos_change[1] == 0:
                 if self.check is True:
@@ -290,33 +288,28 @@ class Board:
                 return True
         return False
 
-    #TODO: Change the function behaviour when under check
     def get_all_possible_moves(self):
-        self.possible_moves = []
-        for row in self.board:
-            for piece in row:
-                if piece != 0:
-                    piece: Piece
-                    if piece.color == self.player:
-                        moves = piece.get_possible_moves()
-                        self.possible_moves.extend(moves)
-
-        # do the union thingy
         if self.check:
-            king_pos = self.kings_pos[self.player]
-            king: King = self.board[king_pos[1]][king_pos[0]]
-            temp_moves = {}
-            temp_moves.update(king.get_possible_moves())
             if len(self.positions_that_attack_king) == 1:
+                king_pos = self.kings_pos[self.player]
                 attacking_piece_pos = self.positions_that_attack_king[0]
                 attacking_piece: Piece = self.board[attacking_piece_pos[1]][attacking_piece_pos[0]]
                 pos_change = king_pos - attacking_piece_pos
-                attacking_line = attacking_piece.get_line_positions_towards_king(king_pos)[:pos_change + 1]
-                for sym in ("Q", "R", "B", "N", "P"):
-                    temp_moves.add("".join((sym, )))
+                possible_spaces_str = list(map(lambda y: y.cord, list(attacking_piece.get_line_positions_towards_king(king_pos))[:pos_change + 1]))
 
-
-        print(self.possible_moves)
+        for row in self.board:
+            for piece in row:
+                if piece == 0:
+                    continue
+                piece: Piece
+                if piece.color != self.player:
+                    continue
+                moves = piece.get_possible_moves()
+                next(moves, None)
+                if not isinstance(piece, King) and self.check and len(self.positions_that_attack_king) == 1:
+                    # print(f"moves: {list(moves)}")
+                    moves = filter(lambda x: x[2:4] in possible_spaces_str, moves)
+                yield from moves
 
 
     def find_san_pieces(self, symbol: str, new_pos: PositionVector2D):
@@ -335,8 +328,7 @@ class Board:
                     result_pieces.append(piece)
         return result_pieces
 
-
-    def uci_to_san(self, move):
+    def uci_to_san(self, move: str):
         # eg. e2e4 -> e4 or g1f3 -> Nf3 or e7e8q -> e8=Q or a1d1 -> Ra1d1
         # TODO: need testing of pawn promotion and of 3 queen situation
         init_pos = PositionVector2D(move[:2])
@@ -348,9 +340,18 @@ class Board:
 
         piece = self.board[init_pos[1]][init_pos[0]]
         possible_pieces: list[Piece] = self.find_san_pieces(piece.sym, new_pos)
+        pos_change = new_pos - init_pos
+        # check if it is en passant
+        if len(possible_pieces) == 1 and isinstance(piece, Pawn) and abs(pos_change[0]) == 1 and pos_change[1] == piece.moving_direction:
+            return f"{init_pos.cord[0]}x{new_pos.cord}"
 
-        if len(possible_pieces) == 1:
-            return f"{piece.sym.capitalize()}{new_pos.cord}{promotion if promotion else ''}"
+        # check if its castling
+        if isinstance(piece, King) and abs(pos_change[0]) == 2:
+            return "O-O" if pos_change[0] > 0 else "O-O-O"
+
+
+        # if len(possible_pieces) == 1:
+        #     return f"{piece.sym.capitalize()}{new_pos.cord}{promotion if promotion else ''}"
 
         possible_prefix = []
         for cord in possible_pieces:
@@ -364,10 +365,20 @@ class Board:
         if init_pos.cord[0] in possible_prefix:
             prefix = prefix + init_pos.cord[1]
 
-        return f"{piece.sym.capitalize()}{prefix}{new_pos.cord}{promotion if promotion else ''}"
+        # check for captures
+        if self.board[new_pos[1]][new_pos[0]] != 0:
+            prefix = prefix + "x"
+
+        return f"{piece.sym.capitalize() if not isinstance(piece, Pawn) else ''}{prefix}{new_pos.cord}{promotion if promotion else ''}"
 
     def san_to_uci(self, move):
         #TODO: test with promotion and 3 queens
+        if move == "O-O":
+            return "e1g1" if self.player == "white" else "e8g8"
+        elif move == "O-O-O":
+            return "e1c1" if self.player == "white" else "e8c8"
+
+
         if move[0] not in ("Q", "K", "R", "N", "B", "P"):
             move = "".join(("P", move))
 
@@ -375,6 +386,12 @@ class Board:
             move, promotion = move.split("=")
         except ValueError:
             promotion = None
+
+        try:
+            move = "".join(move.split("x"))
+        except ValueError:
+            pass
+
 
         piece_sym = move[0]
         new_pos = PositionVector2D(move[-2:])
@@ -413,7 +430,7 @@ class Board:
         return piece, init_pos, new_pos, promotion
 
     def uci_encoder(self, init_pos, new_pos, promotion=None):
-        return "".join((init_pos.pos, new_pos.pos, promotion.lower() if promotion else ""))
+        return "".join((init_pos.cord, new_pos.cord, promotion.lower() if promotion else ""))
 
     def construct(self):
         # A function that prints the board. NOTHING TO BE CHANGED HERE

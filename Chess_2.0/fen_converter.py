@@ -50,7 +50,7 @@ def board_to_FEN(board) -> str:  # board of class loader.Board
 
     # en passant
     if board.possible_en_passant:
-        fen += f" {board.possible_en_passant.pos}"
+        fen += f" {board.possible_en_passant.cord}"
     else:
         fen += " -"
 
