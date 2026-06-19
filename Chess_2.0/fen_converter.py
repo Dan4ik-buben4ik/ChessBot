@@ -111,6 +111,7 @@ def FEN_to_board(fen: str, board):
     elif "q" in castles:
         board.kings_castle["black"][0] = True
 
+
     #### Havent added to the board. WIll decide later
     # en passant
     board.possible_en_passant = PositionVector2D(sections[3]) if sections[3] != "-" else None

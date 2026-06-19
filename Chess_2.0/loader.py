@@ -92,7 +92,7 @@ class Board:
         # stores king's position (useful for checks)
         # collapse in 1 dict?
         self.kings_pos = {"white": PositionVector2D((4, 7)), "black": PositionVector2D((4, 0))}
-        self.kings_castle = {"white": [True, True], "black": [True, True]}  # king, queen side
+        self.kings_castle = {"white": [False, False], "black": [False, False]}  # king, queen side
 
         if fen:
             FEN_to_board(fen, self)
@@ -263,7 +263,7 @@ class Board:
             raise ImpossibleMoveException(piece, "The king/rook had already moved", init_pos, new_pos)
 
         king: King = piece
-        can_castle, reason = king.castle(new_pos, direction)
+        can_castle, reason = king.castle(direction)
         if can_castle is False:
             raise ImpossibleMoveException(piece, reason, init_pos, new_pos)
 

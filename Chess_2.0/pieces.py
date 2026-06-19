@@ -291,13 +291,14 @@ class King(Piece):
                     yield self.board.uci_encoder(self.pos, position, None)
 
         can_castle = self.board.kings_castle[self.color]
-        if can_castle[0]:
+
+        if can_castle[0] and self.castle(-1):
             yield self.board.uci_encoder(self.pos, PositionVector2D((2, self.pos[1])), None)
-        if can_castle[1]:
+        if can_castle[1] and self.castle(1):
             yield self.board.uci_encoder(self.pos, PositionVector2D((6, self.pos[1])), None)
 
 
-    def castle(self, new_pos, side: -1 | 1) -> tuple[bool, str | None]:  # king | queen side
+    def castle(self, side: -1 | 1) -> tuple[bool, str | None]:  # king | queen side
         pos_1 = self.check_if_pos_attacked(self.pos + PositionVector2D((1, 0)) * side)
         pos_2 = self.check_if_pos_attacked(self.pos + PositionVector2D((2, 0)) * side)
         if pos_1[0] is True or pos_2[0] is True:
