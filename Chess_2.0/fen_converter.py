@@ -50,7 +50,7 @@ def board_to_FEN(board) -> str:  # board of class loader.Board
 
     # en passant
     if board.possible_en_passant:
-        fen += f" {board.possible_en_passant.pos}"
+        fen += f" {board.possible_en_passant.cord}"
     else:
         fen += " -"
 
@@ -110,6 +110,7 @@ def FEN_to_board(fen: str, board):
         board.kings_castle["black"][1] = True
     elif "q" in castles:
         board.kings_castle["black"][0] = True
+
 
     #### Havent added to the board. WIll decide later
     # en passant

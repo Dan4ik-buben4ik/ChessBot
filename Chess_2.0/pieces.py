@@ -75,13 +75,11 @@ class Rook(Piece):
 
 
     def get_line_positions(self, pos_change: PositionVector2D | tuple[int, int]) -> GeneratorType:
-        print("Get_line_positions")
         direction = pos_change.normalize()
 
         # start with 0 or 1 to include/exclude self.pos
 
         for i in range(0, max(abs(pos_change))+1):
-            print(i, self.pos + direction * i)
             yield self.pos + direction * i
 
 # king_direction_position
@@ -114,12 +112,13 @@ class Rook(Piece):
                 yield point
 
 # add a decorator that formats the positions into the string
-    @PositionVector2D.move_formatting(debug)
+
     def get_possible_moves(self) -> GeneratorType:
         yield None # control yield
 
-        for i in ((0, 0), (0, 7), (7, 0), (7, 7)):
-            for j in self.get_line_positions(self.pos - i):
+        for i in ((self.pos[0], 0), (self.pos[0], 7), (0, self.pos[1]), (7, self.pos[1])):
+            # print(f"pos_change: {-self.pos + i} | normal : {(-self.pos + i).normalize()}")
+            for j in self.get_line_positions(self.pos * -1 + i):
                 # do this part with try/except? or not needed?
                 if not (0 <= j[0] <= 7 and 0 <= j[1] <= 7):
                     break
@@ -128,9 +127,9 @@ class Rook(Piece):
                 piece = self.board.board[j[1]][j[0]]
                 if isinstance(piece, Piece):
                     if piece.color != self.color:
-                        yield j
+                        yield self.board.uci_encoder(self.pos, j, None)
                     break
-                yield j
+                yield self.board.uci_encoder(self.pos, j, None)
 
     @staticmethod
     def construct(board):
@@ -194,6 +193,7 @@ class King(Piece):
         pos_change = abs(pos - self.pos)
         if pos_change[0] == 1 or pos_change[1] == 1:  # moving
             return True, None
+
 
         return False, f"{self.name} can't reach from {self.pos} to {pos}"
 
@@ -278,7 +278,6 @@ class King(Piece):
                 elif piece.name == "Knight" and piece.color != self.color:
                     yield knight_pos
 
-    @PositionVector2D.move_formatting(debug)
     def get_possible_moves(self) -> GeneratorType:
         yield None  # control yield
 
@@ -289,10 +288,17 @@ class King(Piece):
                 position = PositionVector2D((self.pos[0] + x_i, self.pos[1] + y_i))
                 res = self.check_if_pos_attacked(position)
                 if not res[0] and (0 <= position[0] <= 7 and 0 <= position[1] <= 7):
-                    yield position
+                    yield self.board.uci_encoder(self.pos, position, None)
+
+        can_castle = self.board.kings_castle[self.color]
+
+        if can_castle[0] and self.castle(-1):
+            yield self.board.uci_encoder(self.pos, PositionVector2D((2, self.pos[1])), None)
+        if can_castle[1] and self.castle(1):
+            yield self.board.uci_encoder(self.pos, PositionVector2D((6, self.pos[1])), None)
 
 
-    def castle(self, new_pos, side: -1 | 1) -> tuple[bool, str | None]:  # king | queen side
+    def castle(self, side: -1 | 1) -> tuple[bool, str | None]:  # king | queen side
         pos_1 = self.check_if_pos_attacked(self.pos + PositionVector2D((1, 0)) * side)
         pos_2 = self.check_if_pos_attacked(self.pos + PositionVector2D((2, 0)) * side)
         if pos_1[0] is True or pos_2[0] is True:
@@ -315,7 +321,8 @@ class Pawn(Piece):
         self.sym = "P" if color == "white" else "p"
 
         self.moving_direction = -1 if color == "white" else 1
-        self.can_double = True
+        print(f"Pawn init| self.pos = {self.pos}, self.pos[1] = {self.pos[1]}")
+        self.can_double = True if (self.pos[1] == 6 and self.color == "white") or (self.pos[1] == 1 and self.color == "black") else False
 
     def reach_check(self, pos: PositionVector2D | tuple[int, int]) -> tuple[bool, str | None]:
         pos_change = pos - self.pos
@@ -324,8 +331,6 @@ class Pawn(Piece):
         # moving normally
         if (pos_change[1] == self.moving_direction or (pos_change[1] == self.moving_direction * 2 and self.can_double is True)) and pos_change[0] == 0:
             if piece == 0:
-                if self.can_double is True:
-                    self.can_double = False
 
                 if pos_change[1] == self.moving_direction * 2:
                     self.board.possible_en_passant = self.pos + (0, self.moving_direction)
@@ -383,27 +388,37 @@ class Pawn(Piece):
         pos_change = king_pos - self.pos
         return abs(pos_change[0]) == 1 and pos_change[1] == self.moving_direction
 
-    @PositionVector2D.move_formatting(debug)
     def get_possible_moves(self) -> GeneratorType:
         yield None # control yield
         # move forward
         if self.board.board[self.pos[1]+self.moving_direction][self.pos[0]] == 0:
-            yield PositionVector2D((self.pos[0], self.pos[1]+self.moving_direction))
+            new_pos = PositionVector2D((self.pos[0], self.pos[1]+self.moving_direction))
+            # promotion
+            if new_pos[1] in (0, 7):
+                for letter in ("q", "r", "b", "n"):
+                    yield self.board.uci_encoder(self.pos, new_pos, letter)
+            else:
+                yield self.board.uci_encoder(self.pos, new_pos, None)
 
         # double move forward
         if self.board.board[self.pos[1]+2*self.moving_direction][self.pos[0]] == 0 and self.can_double:
-            yield PositionVector2D((self.pos[0], self.pos[1] + 2 * self.moving_direction))
+            new_pos = PositionVector2D((self.pos[0], self.pos[1] + 2 * self.moving_direction))
+            yield self.board.uci_encoder(self.pos, new_pos, None)
 
         # side capture
         if self.board.board[self.pos[1]+self.moving_direction][self.pos[0]+1] != 0:
-            yield PositionVector2D((self.pos[0]+1, self.pos[1]+self.moving_direction))
+            new_pos = PositionVector2D((self.pos[0]+1, self.pos[1]+self.moving_direction))
+            yield self.board.uci_encoder(self.pos, new_pos, None)
 
         if self.board.board[self.pos[1]+self.moving_direction][self.pos[0]-1] != 0:
-            yield PositionVector2D((self.pos[0]-1, self.pos[1]+self.moving_direction))
+            new_pos = PositionVector2D((self.pos[0]-1, self.pos[1]+self.moving_direction))
+            yield self.board.uci_encoder(self.pos, new_pos, None)
 
         # en_passant
         if self.board.possible_en_passant == (self.pos[0]-1, self.pos[1]+self.moving_direction) or self.board.possible_en_passant == (self.pos[0]+1, self.pos[1]+self.moving_direction):
+            # TODO: rewrite for the en_passant to be in uci
             yield self.board.possible_en_passant
+
 
 
     @staticmethod

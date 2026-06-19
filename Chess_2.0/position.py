@@ -45,6 +45,9 @@ class PositionVector2D:
             return self.cord == other
         return False
 
+    def __neg__(self):
+        return PositionVector2D((-self.pos[0], -self.pos[1]))
+
     # def __getattr__(self, item):
     #     pass
     #     # print(item)
@@ -89,29 +92,7 @@ class PositionVector2D:
         else:
             return 0
 
-# make so that it doesn't need any input
-    @staticmethod
-    def move_formatting(debug: bool = False):
-        def decorator(func):
-            def wrapper(*args, **kwargs):
-                parent = args[0]
-                res = func(*args, **kwargs)
-                for i in res:
-                    if i is None:
-                        continue
-                    if debug:
-                        yield f"{parent.sym}{parent.pos.cord}-{i.cord}"
-                    else:
-                        yield f"{parent.sym}{i.cord}"
-            return wrapper
-        return decorator
 
-# @PositionVector2D.move_formatting("K", "b1")
-# def get_a():
-#     for _ in range(10):
-#         yield PositionVector2D((0, 0))
-#
-# print(list(get_a()))
 
 
 
