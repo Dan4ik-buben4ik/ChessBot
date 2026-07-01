@@ -2,9 +2,6 @@ import re
 
 
 
-'''
-move format:  f"{piece}{init_pos}-{new_pos}"
-'''
 
 class PGNEditor:
     @staticmethod
