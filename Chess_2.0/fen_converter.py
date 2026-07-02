@@ -1,4 +1,4 @@
-from pieces import Piece, Pawn, King, Rook
+from pieces import Piece, Pawn, King, Rook, Bishop
 from position import PositionVector2D
 
 
@@ -77,6 +77,7 @@ def FEN_to_board(fen: str, board):
                 temp.extend([0] * int(i))
                 x += int(i)
             else:  # modify for board
+                # TODO: modify for other pieces
                 piece_colour = "white" if i.isupper() else "black"
 
                 if i.lower() == "p":
@@ -86,6 +87,8 @@ def FEN_to_board(fen: str, board):
                     board.kings_pos[piece_colour] = PositionVector2D((x, y))
                 elif i.lower() == "r":
                     temp.append(Rook(board, piece_colour, (x, y)))
+                elif i.lower() == "b":
+                    temp.append(Bishop(board, piece_colour, (x, y)))
                 # else:
                 #     temp.append(i)
                 x += 1
@@ -130,8 +133,6 @@ def FEN_to_board(fen: str, board):
 
     print(f"board: {board.board}")
 
-
-    return
 
 def validate_FEN(fen: str) -> bool:
     # aka if castling conditions are met with rooks and king's position
