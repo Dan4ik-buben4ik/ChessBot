@@ -118,18 +118,16 @@ class Bishop(Piece):
         self.sym = "B" if color == "white" else "b"
 
     def reach_check(self, pos: PositionVector2D | tuple[int, int]) -> tuple[bool, str | None]:
-        pos_change = abs(pos - self.pos).normalize()
-        if pos_change[0] == pos_change[1] == 1:
+        pos_change = abs(pos - self.pos)
+        if pos_change[0] == pos_change[1]:
+            print("Bishop reach check: True")
             return True, None
 
         return False, f"{self.name} can't reach from {self.pos} to {pos}"
 
     def blocking_check(self, pos: PositionVector2D | tuple[int, int]) -> tuple[bool, str | None]:
-        print("bishop.blocking_check")
         pos_change = pos - self.pos
-        print(pos_change)
 
-        # TODO: error: if f1f8, yields (8, 1) as a point
         points = self.get_diagonal_positions(pos_change)
 
         for i in list(points):
@@ -147,7 +145,7 @@ class Bishop(Piece):
         direction = pos_change.normalize()
         if direction[0] == 0 or direction[1] == 0:
             direction = PositionVector2D((0, 0))
-        for i in range(0, max(abs(pos_change))+1):  # TODO: change the max to smth smaller as per out of bound yield
+        for i in range(0, max(abs(pos_change))+1):
             yield self.pos + direction * i
 
     def get_diagonal_positions_towards_king(self, kings_pos: PositionVector2D | tuple[int, int]) -> GeneratorType:
@@ -169,7 +167,6 @@ class Bishop(Piece):
 
     def get_possible_moves(self) -> GeneratorType:
         yield None # control yield
-        # TODO: modify the final points
         for i in ((7, 0), (0, 7), (0, 0), (7, 7)):
             for j in self.get_diagonal_positions(self.pos * -1 + i):
                 if not (0 <= j[0] <= 7 and 0 <= j[1] <= 7):

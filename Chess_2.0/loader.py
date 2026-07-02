@@ -1,5 +1,5 @@
 try:
-    from pieces import Piece, Rook, King, Pawn
+    from pieces import Piece, Rook, King, Pawn, Bishop
 except ImportError:
     from pieces import Piece, Rook, King
     # testing = True
@@ -202,8 +202,8 @@ class Board:
                 piece = Rook(self, piece.color, cord)
             # elif promotion == "N":
             #     piece = Knight(self, piece.color, cord)
-            # elif promotion == "B":
-            #     piece = Bishop(self, piece.color, cord)
+            elif promotion == "B":
+                piece = Bishop(self, piece.color, cord)
 
         self.board[cord[1]][cord[0]] = piece  # puts the pieces symbol on the new spot
         piece.move(cord)
@@ -324,8 +324,9 @@ class Board:
                     continue
 
                 piece: Piece
-                if piece.reach_check(new_pos)[0] and not piece.blocking_check(new_pos)[0]:
-                    result_pieces.append(piece)
+                if piece.reach_check(new_pos)[0]:
+                    if piece.blocking_check(new_pos)[0]:
+                        result_pieces.append(piece)
         return result_pieces
 
     def uci_to_san(self, move: str):
