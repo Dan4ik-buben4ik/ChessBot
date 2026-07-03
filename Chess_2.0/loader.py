@@ -1,5 +1,5 @@
 try:
-    from pieces import Piece, Rook, King, Pawn, Bishop
+    from pieces import Piece, Rook, King, Pawn, Bishop, Queen
 except ImportError:
     from pieces import Piece, Rook, King
     # testing = True
@@ -196,8 +196,8 @@ class Board:
         # A function that updates the pieces position on the board
         self.board[piece.pos[1]][piece.pos[0]] = 0  # makes the old square empty
         if promotion and isinstance(piece, Pawn):
-            # if promotion == "Q":
-            #     self.board[cord[1]][cord[0]] = Queen(self, piece.color, cord)
+            if promotion == "Q":
+                piece = Queen(self, piece.color, cord)
             if promotion.upper() == "R":
                 piece = Rook(self, piece.color, cord)
             # elif promotion == "N":

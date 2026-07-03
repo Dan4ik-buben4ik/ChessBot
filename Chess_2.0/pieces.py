@@ -181,6 +181,105 @@ class Bishop(Piece):
                 yield self.board.uci_encoder(self.pos, j, None)
 
 
+class Queen(Piece):
+    def __init__(self, board, color: str, pos: tuple[int, int]):
+        super(Queen, self).__init__(board, color, pos)
+        self.name = "Rook"
+        self.sym = "Q" if color == "white" else "q"
+
+    def reach_check(self, pos: PositionVector2D | tuple[int, int]) -> tuple[bool, str | None]:
+        pos_change = abs(pos - self.pos)
+        if (pos_change[0] == 0 or pos_change[1] == 0) or pos_change[0] == pos_change[1]:
+            return True, None
+
+        return False, f"{self.name} can't reach from {self.pos} to {pos}"
+
+    def blocking_check(self, pos: PositionVector2D | tuple[int, int]) -> tuple[bool, str | None]:
+        pos_change = pos - self.pos
+
+        if pos_change[0] == 0 or pos_change[1] == 0:
+            points = self.get_line_positions(pos_change)
+        else:
+            points = self.get_diagonal_positions(pos_change)
+
+
+        for i in list(points):
+            piece = self.board.board[i[1]][i[0]]
+
+            if (i == pos and (piece.color != self.color) if isinstance(piece, Piece) else True) or piece == self:
+                continue
+            elif piece:
+                return True, f"a piece ({piece} is blocking the way on {i.cord}"
+
+        return False, None
+
+    def get_line_positions(self, pos_change: PositionVector2D | tuple[int, int]) -> GeneratorType:
+        direction = pos_change.normalize()
+        for i in range(0, max(abs(pos_change))+1):
+            yield self.pos + direction * i
+
+    def get_diagonal_positions(self, pos_change: PositionVector2D | tuple[int, int]) -> GeneratorType:
+        direction = pos_change.normalize()
+        if direction[0] == 0 or direction[1] == 0:
+            direction = PositionVector2D((0, 0))
+        for i in range(0, max(abs(pos_change))+1):
+            yield self.pos + direction * i
+
+    def get_line_positions_towards_king(self, kings_pos: PositionVector2D | tuple[int, int]) -> GeneratorType:
+        # yields all the points that are towards the king
+        # in the case of the Queen, will yield 2 lines (vertical/horizontal and diagonal)
+        pos_change = kings_pos - self.pos
+        yield from self.get_diagonal_positions(pos_change)
+
+        if abs(pos_change[0]) > abs(pos_change[1]):
+            pos_change = PositionVector2D((pos_change[0], 0))
+        else:
+            pos_change = PositionVector2D((0, pos_change[1]))
+
+        yield from self.get_line_positions(pos_change)
+
+    def is_attacking_king(self, king_pos: PositionVector2D) -> bool:
+        if king_pos in self.get_line_positions_towards_king(king_pos):
+            return True
+        return False
+
+    def get_positions_attacking_around_king(self, king_pos) -> GeneratorType:
+        for point in self.get_line_positions_towards_king(king_pos):
+            pos_change = king_pos - point
+            if pos_change[0] in (-1, 0, 1) and pos_change[1] in (-1, 0, 1):
+                yield point
+
+
+    def get_possible_moves(self) -> GeneratorType:
+        yield None # control yield
+
+        for i in ((self.pos[0], 0), (self.pos[0], 7), (0, self.pos[1]), (7, self.pos[1])):
+            for j in self.get_line_positions(self.pos * -1 + i):
+                if not (0 <= j[0] <= 7 and 0 <= j[1] <= 7):
+                    break
+                elif j == self.pos:
+                    continue
+                piece = self.board.board[j[1]][j[0]]
+                if isinstance(piece, Piece):
+                    if piece.color != self.color:
+                        yield self.board.uci_encoder(self.pos, j, None)
+                    break
+                yield self.board.uci_encoder(self.pos, j, None)
+
+        for i in ((7, 0), (0, 7), (0, 0), (7, 7)):
+            for j in self.get_diagonal_positions(self.pos * -1 + i):
+                if not (0 <= j[0] <= 7 and 0 <= j[1] <= 7):
+                    break
+                elif j == self.pos:
+                    continue
+                piece = self.board.board[j[1]][j[0]]
+                if isinstance(piece, Piece):
+                    if piece.color != self.color:
+                        yield self.board.uci_encoder(self.pos, j, None)
+                    break
+                yield self.board.uci_encoder(self.pos, j, None)
+
+
 class King(Piece):
     def __init__(self, board, color: str, pos: tuple[int, int]):
         super(King, self).__init__(board, color, pos)
@@ -223,7 +322,7 @@ class King(Piece):
                 if not (0 <= piece_pos[0] <= 7 and 0 <= piece_pos[1] <= 7):
                     direction_del.append(direction)
                     continue
-
+                # TODO: solve teh out of index issue (try-except)
                 piece = self.board.board[piece_pos[1]][piece_pos[0]]
 
                 if piece == 0 or piece == self:
@@ -280,6 +379,13 @@ class King(Piece):
                 if x_i == y_i == 0:
                     continue
                 position = PositionVector2D((self.pos[0] + x_i, self.pos[1] + y_i))
+                try:
+                    possible_piece = self.board.board[position[1]][position[0]]
+                except IndexError:
+                    continue
+                if isinstance(possible_piece, Piece):
+                    if possible_piece.color == self.color:
+                        continue
                 res = self.check_if_pos_attacked(position)
                 if not res[0] and (0 <= position[0] <= 7 and 0 <= position[1] <= 7):
                     yield self.board.uci_encoder(self.pos, position, None)

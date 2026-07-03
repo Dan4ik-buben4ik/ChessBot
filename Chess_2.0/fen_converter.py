@@ -1,4 +1,4 @@
-from pieces import Piece, Pawn, King, Rook, Bishop
+from pieces import Piece, Pawn, King, Rook, Bishop, Queen
 from position import PositionVector2D
 
 
@@ -85,10 +85,14 @@ def FEN_to_board(fen: str, board):
                 elif i.lower() == "k":
                     temp.append(King(board, piece_colour, (x, y)))
                     board.kings_pos[piece_colour] = PositionVector2D((x, y))
+                elif i.lower() == "q":
+                    temp.append(Queen(board, piece_colour, (x, y)))
                 elif i.lower() == "r":
                     temp.append(Rook(board, piece_colour, (x, y)))
                 elif i.lower() == "b":
                     temp.append(Bishop(board, piece_colour, (x, y)))
+                # elif i.lower() == "n":
+                #     temp.append(Knight(board, piece_colour, (x, y)))
                 # else:
                 #     temp.append(i)
                 x += 1
@@ -105,13 +109,13 @@ def FEN_to_board(fen: str, board):
     if castles == "-":
         board.kings_castle["white"] = [False, False]
         board.kings_castle["black"] = [False, False]
-    elif "K" in castles:
+    if "K" in castles:
         board.kings_castle["white"][1] = True
-    elif "Q" in castles:
+    if "Q" in castles:
         board.kings_castle["white"][0] = True
-    elif "k" in castles:
+    if "k" in castles:
         board.kings_castle["black"][1] = True
-    elif "q" in castles:
+    if "q" in castles:
         board.kings_castle["black"][0] = True
 
 
