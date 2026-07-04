@@ -184,7 +184,7 @@ class Bishop(Piece):
 class Queen(Piece):
     def __init__(self, board, color: str, pos: tuple[int, int]):
         super(Queen, self).__init__(board, color, pos)
-        self.name = "Rook"
+        self.name = "Queen"
         self.sym = "Q" if color == "white" else "q"
 
     def reach_check(self, pos: PositionVector2D | tuple[int, int]) -> tuple[bool, str | None]:
@@ -322,8 +322,12 @@ class King(Piece):
                 if not (0 <= piece_pos[0] <= 7 and 0 <= piece_pos[1] <= 7):
                     direction_del.append(direction)
                     continue
-                # TODO: solve teh out of index issue (try-except)
-                piece = self.board.board[piece_pos[1]][piece_pos[0]]
+
+                try:  # second - just in case - check
+                    piece = self.board.board[piece_pos[1]][piece_pos[0]]
+                except IndexError:
+                    direction_del.append(direction)
+                    continue
 
                 if piece == 0 or piece == self:
                     pass
@@ -379,10 +383,12 @@ class King(Piece):
                 if x_i == y_i == 0:
                     continue
                 position = PositionVector2D((self.pos[0] + x_i, self.pos[1] + y_i))
-                try:
-                    possible_piece = self.board.board[position[1]][position[0]]
-                except IndexError:
+                if not (0 <= position[0] <= 7 and 0 <= position[1] <= 7):
                     continue
+
+
+                possible_piece = self.board.board[position[1]][position[0]]
+
                 if isinstance(possible_piece, Piece):
                     if possible_piece.color == self.color:
                         continue
@@ -392,16 +398,19 @@ class King(Piece):
 
         can_castle = self.board.kings_castle[self.color]
 
-        if can_castle[0] and self.castle(-1):
-            yield self.board.uci_encoder(self.pos, PositionVector2D((2, self.pos[1])), None)
-        if can_castle[1] and self.castle(1):
-            yield self.board.uci_encoder(self.pos, PositionVector2D((6, self.pos[1])), None)
+        if not self.board.check:
+            if can_castle[0] and self.can_castle(-1)[0]:
+                yield self.board.uci_encoder(self.pos, PositionVector2D((2, self.pos[1])), None)
+            if can_castle[1] and self.can_castle(1)[0]:
+                yield self.board.uci_encoder(self.pos, PositionVector2D((6, self.pos[1])), None)
 
 
-    def castle(self, side: -1 | 1) -> tuple[bool, str | None]:  # king | queen side
-        pos_1 = self.check_if_pos_attacked(self.pos + PositionVector2D((1, 0)) * side)
-        pos_2 = self.check_if_pos_attacked(self.pos + PositionVector2D((2, 0)) * side)
-        if pos_1[0] is True or pos_2[0] is True:
+    def can_castle(self, side: -1 | 1) -> tuple[bool, str | None]:  # king | queen side
+        pos_1 = self.pos + PositionVector2D((1, 0)) * side
+        pos_2 = self.pos + PositionVector2D((2, 0)) * side
+        if isinstance(self.board.board[pos_1[1]][pos_1[0]], Piece) or isinstance(self.board.board[pos_2[1]][pos_2[0]], Piece):
+            return False, "piece is blocking the way"
+        if self.check_if_pos_attacked(pos_1)[0] is True or self.check_if_pos_attacked(pos_2)[0] is True:
             return False, "the way is attacked"
 
         return True, None

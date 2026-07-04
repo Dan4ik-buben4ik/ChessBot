@@ -263,7 +263,7 @@ class Board:
             raise ImpossibleMoveException(piece, "The king/rook had already moved", init_pos, new_pos)
 
         king: King = piece
-        can_castle, reason = king.castle(direction)
+        can_castle, reason = king.can_castle(direction)
         if can_castle is False:
             raise ImpossibleMoveException(piece, reason, init_pos, new_pos)
 
