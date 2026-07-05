@@ -1,4 +1,4 @@
-from pieces import Piece, Pawn, King, Rook, Bishop
+from pieces import Piece, Pawn, King, Rook, Bishop, Queen, Knight
 from position import PositionVector2D
 
 
@@ -61,8 +61,6 @@ def board_to_FEN(board) -> str:  # board of class loader.Board
 
 
 def FEN_to_board(fen: str, board):
-    print("FEN_to_board")
-    print(board)
     board.board = []
 
 
@@ -76,8 +74,7 @@ def FEN_to_board(fen: str, board):
             if i.isnumeric():
                 temp.extend([0] * int(i))
                 x += int(i)
-            else:  # modify for board
-                # TODO: modify for other pieces
+            else:
                 piece_colour = "white" if i.isupper() else "black"
 
                 if i.lower() == "p":
@@ -85,10 +82,14 @@ def FEN_to_board(fen: str, board):
                 elif i.lower() == "k":
                     temp.append(King(board, piece_colour, (x, y)))
                     board.kings_pos[piece_colour] = PositionVector2D((x, y))
+                elif i.lower() == "q":
+                    temp.append(Queen(board, piece_colour, (x, y)))
                 elif i.lower() == "r":
                     temp.append(Rook(board, piece_colour, (x, y)))
                 elif i.lower() == "b":
                     temp.append(Bishop(board, piece_colour, (x, y)))
+                elif i.lower() == "n":
+                    temp.append(Knight(board, piece_colour, (x, y)))
                 # else:
                 #     temp.append(i)
                 x += 1
@@ -105,17 +106,15 @@ def FEN_to_board(fen: str, board):
     if castles == "-":
         board.kings_castle["white"] = [False, False]
         board.kings_castle["black"] = [False, False]
-    elif "K" in castles:
+    if "K" in castles:
         board.kings_castle["white"][1] = True
-    elif "Q" in castles:
+    if "Q" in castles:
         board.kings_castle["white"][0] = True
-    elif "k" in castles:
+    if "k" in castles:
         board.kings_castle["black"][1] = True
-    elif "q" in castles:
+    if "q" in castles:
         board.kings_castle["black"][0] = True
 
-
-    #### Havent added to the board. WIll decide later
     # en passant
     board.possible_en_passant = PositionVector2D(sections[3]) if sections[3] != "-" else None
 
@@ -131,7 +130,15 @@ def FEN_to_board(fen: str, board):
     # print(board.full_moves)
     # print()
 
-    print(f"board: {board.board}")
+    king_pos = board.kings_pos[board.player]
+    king = board.board[king_pos[1]][king_pos[0]]
+    is_check, attacking_pos = king.check_if_pos_attacked(king_pos)
+    print(is_check, attacking_pos)
+    if is_check:
+        board.check = True
+        board.positions_that_attack_king = attacking_pos
+
+
 
 
 def validate_FEN(fen: str) -> bool:
