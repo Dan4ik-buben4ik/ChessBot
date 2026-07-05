@@ -1,5 +1,5 @@
 try:
-    from pieces import Piece, Rook, King, Pawn, Bishop, Queen
+    from pieces import Piece, Rook, King, Pawn, Bishop, Queen, Knight
 except ImportError:
     from pieces import Piece, Rook, King
     # testing = True
@@ -233,6 +233,7 @@ class Board:
         if isinstance(piece, King):
             self.normal_move_check(piece, init_pos, new_pos)
             return
+        # at this point, if there is a move, it is going to be anything but king
 
         king_pos = self.kings_pos[self.player]
         king = self.board[king_pos[1]][king_pos[0]]
@@ -244,12 +245,12 @@ class Board:
         attacking_piece_pos = self.positions_that_attack_king[0]
         attacking_piece: Piece = self.board[attacking_piece_pos[1]][attacking_piece_pos[0]]
         # TODO: add back when implemented the knight back
-        # if isinstance(attacking_piece, Knight) and new_pos != attacking_piece_pos:
-        #     raise ImpossibleMoveException(piece, "Cannot block the knight checking the king", init_pos, new_pos)
+        if isinstance(attacking_piece, (Knight, Pawn)) and new_pos != attacking_piece_pos:  # add pawn
+            raise ImpossibleMoveException(piece, "Cannot block the knight/pawn checking the king", init_pos, new_pos)
 
-        pos_change = king_pos - attacking_piece_pos
 
-        if new_pos not in list(attacking_piece.get_line_positions_towards_king(king_pos))[:pos_change+1]:
+        # TODO: resolve the issue, as the method is only present in rooks
+        if new_pos not in list(attacking_piece.get_line_positions_towards_king(king_pos))[:-1]:
             raise ImpossibleMoveException(piece, "Cannot move piece while the king is under check", init_pos, new_pos)
 
         self.normal_move_check(piece, init_pos, new_pos)

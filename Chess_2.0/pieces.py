@@ -3,7 +3,7 @@ from position import PositionVector2D
 
 from types import GeneratorType
 
-debug = False
+
 class Piece:
     # A class for Rook
     def __init__(self, board, color: str, pos: tuple[int, int]):
@@ -31,11 +31,66 @@ class Piece:
     def get_positions_attacking_around_king(self, king_pos) -> GeneratorType:
         pass
 
+    def get_line_positions_towards_king(self, king_pos):
+        raise JustError
+
     def is_attacking_king(self, king_pos: PositionVector2D) -> bool:
         pass
 
     def get_possible_moves(self):
         pass
+
+
+class Knight(Piece):
+    def __init__(self, board, color: str, pos: tuple[int, int]):
+        super(Knight, self).__init__(board, color, pos)
+        self.name = "Knight"
+        self.sym = "N" if color == "white" else "n"
+
+    def reach_check(self, pos: PositionVector2D | tuple[int, int]) -> tuple[bool, str | None]:
+        pos_change = abs(pos - self.pos)
+        if pos_change[0] + pos_change[1] == 3 and pos_change[0] != 0 and pos_change[1] != 0:
+            return True, None
+
+        return False, f"{self.name} can't reach from {self.pos} to {pos}"
+
+    def blocking_check(self, pos: PositionVector2D | tuple[int, int]) -> tuple[bool, str | None]:
+        piece = self.board.board[pos[1]][pos[0]]
+        if piece == 0:
+            return False, None
+        if piece.color != self.color:
+            return False, None
+        return True, f"a piece ({piece} is blocking the way on {pos.cord}"
+
+    def get_attacking_squares(self) -> GeneratorType:
+        directions = [(1, 2), (1, -2), (-1, 2), (-1, -2), (2, 1), (-2, 1), (-2, -1), (2, -1)]
+        for i in directions:
+            position = self.pos + i
+            if 0 <= position[0] <= 7 and 0 <= position[1] <= 7:
+                yield position
+
+    def is_attacking_king(self, king_pos: PositionVector2D) -> bool:
+        if king_pos in self.get_attacking_squares():
+            return True
+        return False
+
+    def get_positions_attacking_around_king(self, king_pos) -> GeneratorType:
+        for point in self.get_attacking_squares():
+            pos_change = king_pos - point
+            if pos_change[0] in (-1, 0, 1) and pos_change[1] in (-1, 0, 1):
+                yield point
+
+
+    def get_possible_moves(self) -> GeneratorType:
+        yield None # control yield
+
+        for pos in self.get_attacking_squares():
+            piece = self.board.board[pos[1]][pos[0]]
+            if isinstance(piece, Piece):
+                if piece.color != self.color:
+                    yield self.board.uci_encoder(self.pos, pos, None)
+                continue
+            yield self.board.uci_encoder(self.pos, pos, None)
 
 
 class Rook(Piece):
@@ -148,19 +203,19 @@ class Bishop(Piece):
         for i in range(0, max(abs(pos_change))+1):
             yield self.pos + direction * i
 
-    def get_diagonal_positions_towards_king(self, kings_pos: PositionVector2D | tuple[int, int]) -> GeneratorType:
+    def get_line_positions_towards_king(self, kings_pos: PositionVector2D | tuple[int, int]) -> GeneratorType:
         # yields all the points that are towards the king
         pos_change = kings_pos - self.pos
         points = self.get_diagonal_positions(pos_change)
         return points
 
     def is_attacking_king(self, king_pos: PositionVector2D) -> bool:
-        if king_pos == list(self.get_diagonal_positions_towards_king(king_pos))[-1]:
+        if king_pos == list(self.get_line_positions_towards_king(king_pos))[-1]:
             return True
         return False
 
     def get_positions_attacking_around_king(self, king_pos) -> GeneratorType:
-        for point in self.get_diagonal_positions_towards_king(king_pos):
+        for point in self.get_line_positions_towards_king(king_pos):
             pos_change = king_pos - point
             if pos_change[0] in (-1, 0, 1) and pos_change[1] in (-1, 0, 1):
                 yield point
@@ -335,7 +390,6 @@ class King(Piece):
                     direction_del.append(direction)
 
                 else:
-                    #TODO: add other pieces (QUEEN, Bishop, Knight)
                     if piece.name in ("Rook", "Queen") and sum(abs(direction)) == 1:
                         pos_that_attack.append(piece_pos)
                         # return True, f"{piece.name} is attacking the position"
@@ -362,18 +416,18 @@ class King(Piece):
 
     def get_pos_of_knights_attacking_pos(self, pos: PositionVector2D) -> GeneratorType:
         knight_directions = [(1, 2), (1, -2), (-1, 2), (-1, -2), (2, 1), (-2, 1), (-2, -1), (2, -1)]
-        piece = 0
+
         for i in knight_directions:
             knight_pos = pos + i
             try:
                 piece = self.board.board[knight_pos[1]][knight_pos[0]]
             except IndexError:
                 continue
-            finally:
-                if piece == 0:
-                    continue
-                elif piece.name == "Knight" and piece.color != self.color:
-                    yield knight_pos
+
+            if piece == 0:
+                continue
+            elif piece.name == "Knight" and piece.color != self.color:
+                yield knight_pos
 
     def get_possible_moves(self) -> GeneratorType:
         yield None  # control yield
@@ -385,7 +439,6 @@ class King(Piece):
                 position = PositionVector2D((self.pos[0] + x_i, self.pos[1] + y_i))
                 if not (0 <= position[0] <= 7 and 0 <= position[1] <= 7):
                     continue
-
 
                 possible_piece = self.board.board[position[1]][position[0]]
 
@@ -403,7 +456,6 @@ class King(Piece):
                 yield self.board.uci_encoder(self.pos, PositionVector2D((2, self.pos[1])), None)
             if can_castle[1] and self.can_castle(1)[0]:
                 yield self.board.uci_encoder(self.pos, PositionVector2D((6, self.pos[1])), None)
-
 
     def can_castle(self, side: -1 | 1) -> tuple[bool, str | None]:  # king | queen side
         pos_1 = self.pos + PositionVector2D((1, 0)) * side

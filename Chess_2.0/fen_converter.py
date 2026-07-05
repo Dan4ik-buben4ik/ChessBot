@@ -1,4 +1,4 @@
-from pieces import Piece, Pawn, King, Rook, Bishop, Queen
+from pieces import Piece, Pawn, King, Rook, Bishop, Queen, Knight
 from position import PositionVector2D
 
 
@@ -76,8 +76,7 @@ def FEN_to_board(fen: str, board):
             if i.isnumeric():
                 temp.extend([0] * int(i))
                 x += int(i)
-            else:  # modify for board
-                # TODO: modify for other pieces
+            else:
                 piece_colour = "white" if i.isupper() else "black"
 
                 if i.lower() == "p":
@@ -91,8 +90,8 @@ def FEN_to_board(fen: str, board):
                     temp.append(Rook(board, piece_colour, (x, y)))
                 elif i.lower() == "b":
                     temp.append(Bishop(board, piece_colour, (x, y)))
-                # elif i.lower() == "n":
-                #     temp.append(Knight(board, piece_colour, (x, y)))
+                elif i.lower() == "n":
+                    temp.append(Knight(board, piece_colour, (x, y)))
                 # else:
                 #     temp.append(i)
                 x += 1
