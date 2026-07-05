@@ -94,9 +94,6 @@ class Board:
         self.kings_pos = {"white": PositionVector2D((4, 7)), "black": PositionVector2D((4, 0))}
         self.kings_castle = {"white": [False, False], "black": [False, False]}  # king, queen side
 
-        if fen:
-            FEN_to_board(fen, self)
-
         # check
         self.check = False
         self.positions_that_attack_king = []
@@ -106,6 +103,10 @@ class Board:
         self.possible_moves = []
         self.half_moves = 0
         self.full_moves = 1
+
+        if fen:
+            FEN_to_board(fen, self)
+
 
 
     @staticmethod
@@ -126,6 +127,7 @@ class Board:
     def move(self, uci_move_txt: str) -> None:
         # break down into smaller functions like check, castle
         san_move_txt = self.uci_to_san(uci_move_txt)
+        print(f"san move: {san_move_txt}")
 
         # getting the piece
         piece, init_pos, new_pos, promotion = self.uci_decoder(uci_move_txt)
@@ -180,7 +182,11 @@ class Board:
             print(f"check on the king, by {self.positions_that_attack_king}")
             if self.kings_castle[opponent_king.color] != [False, False]:
                 self.kings_castle[opponent_king.color] = [False, False]
-            # opponent_king.update_blocked_list(opponent_king.pos)
+        else:
+            self.check = False
+
+        if self.possible_en_passant:
+            self.possible_en_passant = None
 
         # changes the current player, aka the turn
         if self.player == "white":
@@ -242,14 +248,12 @@ class Board:
             raise ImpossibleMoveException(piece, "Cannot move piece while the king is under check by 2+ pieces", init_pos, new_pos)
 
         # here begins the real check
+        print(self.positions_that_attack_king)
         attacking_piece_pos = self.positions_that_attack_king[0]
         attacking_piece: Piece = self.board[attacking_piece_pos[1]][attacking_piece_pos[0]]
-        # TODO: add back when implemented the knight back
         if isinstance(attacking_piece, (Knight, Pawn)) and new_pos != attacking_piece_pos:  # add pawn
             raise ImpossibleMoveException(piece, "Cannot block the knight/pawn checking the king", init_pos, new_pos)
 
-
-        # TODO: resolve the issue, as the method is only present in rooks
         if new_pos not in list(attacking_piece.get_line_positions_towards_king(king_pos))[:-1]:
             raise ImpossibleMoveException(piece, "Cannot move piece while the king is under check", init_pos, new_pos)
 
@@ -295,8 +299,10 @@ class Board:
                 king_pos = self.kings_pos[self.player]
                 attacking_piece_pos = self.positions_that_attack_king[0]
                 attacking_piece: Piece = self.board[attacking_piece_pos[1]][attacking_piece_pos[0]]
-                pos_change = king_pos - attacking_piece_pos
-                possible_spaces_str = list(map(lambda y: y.cord, list(attacking_piece.get_line_positions_towards_king(king_pos))[:pos_change + 1]))
+                if isinstance(attacking_piece, (Knight, Pawn)):
+                    possible_spaces_str = [attacking_piece_pos]
+                else:
+                    possible_spaces_str = list(map(lambda y: y.cord, list(attacking_piece.get_line_positions_towards_king(king_pos))[:-1]))
 
         for row in self.board:
             for piece in row:
@@ -306,9 +312,9 @@ class Board:
                 if piece.color != self.player:
                     continue
                 moves = piece.get_possible_moves()
+                yield piece.name
                 next(moves, None)
                 if not isinstance(piece, King) and self.check and len(self.positions_that_attack_king) == 1:
-                    # print(f"moves: {list(moves)}")
                     moves = filter(lambda x: x[2:4] in possible_spaces_str, moves)
                 yield from moves
 
@@ -319,20 +325,19 @@ class Board:
             for piece in row:
                 if piece == 0:
                     continue
-                elif piece.sym.upper() != symbol.upper():
+                elif piece.sym.lower() != symbol.lower():
                     continue
                 elif piece.color != self.player:
                     continue
 
                 piece: Piece
                 if piece.reach_check(new_pos)[0]:
-                    if piece.blocking_check(new_pos)[0]:
+                    if not piece.blocking_check(new_pos)[0]:
                         result_pieces.append(piece)
         return result_pieces
 
     def uci_to_san(self, move: str):
         # eg. e2e4 -> e4 or g1f3 -> Nf3 or e7e8q -> e8=Q or a1d1 -> Ra1d1
-        # TODO: need testing of pawn promotion and of 3 queen situation
         init_pos = PositionVector2D(move[:2])
         new_pos = PositionVector2D(move[2:4])
         try:
@@ -374,7 +379,6 @@ class Board:
         return f"{piece.sym.capitalize() if not isinstance(piece, Pawn) else ''}{prefix}{new_pos.cord}{promotion if promotion else ''}"
 
     def san_to_uci(self, move):
-        #TODO: test with promotion and 3 queens
         if move == "O-O":
             return "e1g1" if self.player == "white" else "e8g8"
         elif move == "O-O-O":

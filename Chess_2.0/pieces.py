@@ -361,7 +361,6 @@ class King(Piece):
         return attacked, f"there are pieces in positions {pos_that_attack} that attack the position"
 
     def check_if_pos_attacked(self, pos: PositionVector2D | tuple[int, int]) -> tuple[bool, list]:
-        # maybe needs to be separated into smaller functions???
         directions_list = [(0, 1), (1, 1), (1, 0), (1, -1), (0, -1), (-1, -1), (-1, 0), (-1, 1)]
         directions_list = list(map(lambda x: PositionVector2D(x), directions_list))
         direction_del = []
@@ -419,6 +418,8 @@ class King(Piece):
 
         for i in knight_directions:
             knight_pos = pos + i
+            if not (0 <= knight_pos[0] <= 7 and 0 <= knight_pos[1] <= 7):
+                continue
             try:
                 piece = self.board.board[knight_pos[1]][knight_pos[0]]
             except IndexError:
@@ -543,17 +544,24 @@ class Pawn(Piece):
             yield self.board.uci_encoder(self.pos, new_pos, None)
 
         # side capture
-        if self.board.board[self.pos[1]+self.moving_direction][self.pos[0]+1] != 0:
-            new_pos = PositionVector2D((self.pos[0]+1, self.pos[1]+self.moving_direction))
-            yield self.board.uci_encoder(self.pos, new_pos, None)
+        try:
+            if self.board.board[self.pos[1]+self.moving_direction][self.pos[0]+1] != 0:
+                new_pos = PositionVector2D((self.pos[0]+1, self.pos[1]+self.moving_direction))
+                yield self.board.uci_encoder(self.pos, new_pos, None)
+        except IndexError:
+            pass
 
-        if self.board.board[self.pos[1]+self.moving_direction][self.pos[0]-1] != 0:
-            new_pos = PositionVector2D((self.pos[0]-1, self.pos[1]+self.moving_direction))
-            yield self.board.uci_encoder(self.pos, new_pos, None)
+        try:
+            if self.board.board[self.pos[1]+self.moving_direction][self.pos[0]-1] != 0:
+                new_pos = PositionVector2D((self.pos[0]-1, self.pos[1]+self.moving_direction))
+                yield self.board.uci_encoder(self.pos, new_pos, None)
+        except IndexError:
+            pass
 
         # en_passant
         if self.board.possible_en_passant == (self.pos[0]-1, self.pos[1]+self.moving_direction) or self.board.possible_en_passant == (self.pos[0]+1, self.pos[1]+self.moving_direction):
-            yield self.board.possible_en_passant
+            # TODO: uc iencode and change teh conditions
+            yield self.board.uci_encoder(self.pos, self.board.possible_en_passant, None)
 
 
 

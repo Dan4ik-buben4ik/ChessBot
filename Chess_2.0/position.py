@@ -124,7 +124,3 @@ class PositionVector2D:
 # direction = pos - add_v
 # print(direction)
 # print(direction.normalize())
-
-
-print(PositionVector2D.pos_to_cord((0, 0)))
-print(PositionVector2D.cord_to_pos("e1"))

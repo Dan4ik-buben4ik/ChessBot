@@ -61,8 +61,6 @@ def board_to_FEN(board) -> str:  # board of class loader.Board
 
 
 def FEN_to_board(fen: str, board):
-    print("FEN_to_board")
-    print(board)
     board.board = []
 
 
@@ -117,8 +115,6 @@ def FEN_to_board(fen: str, board):
     if "q" in castles:
         board.kings_castle["black"][0] = True
 
-
-    #### Havent added to the board. WIll decide later
     # en passant
     board.possible_en_passant = PositionVector2D(sections[3]) if sections[3] != "-" else None
 
@@ -134,7 +130,15 @@ def FEN_to_board(fen: str, board):
     # print(board.full_moves)
     # print()
 
-    print(f"board: {board.board}")
+    king_pos = board.kings_pos[board.player]
+    king = board.board[king_pos[1]][king_pos[0]]
+    is_check, attacking_pos = king.check_if_pos_attacked(king_pos)
+    print(is_check, attacking_pos)
+    if is_check:
+        board.check = True
+        board.positions_that_attack_king = attacking_pos
+
+
 
 
 def validate_FEN(fen: str) -> bool:
