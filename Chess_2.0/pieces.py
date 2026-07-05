@@ -560,7 +560,6 @@ class Pawn(Piece):
 
         # en_passant
         if self.board.possible_en_passant == (self.pos[0]-1, self.pos[1]+self.moving_direction) or self.board.possible_en_passant == (self.pos[0]+1, self.pos[1]+self.moving_direction):
-            # TODO: uc iencode and change teh conditions
             yield self.board.uci_encoder(self.pos, self.board.possible_en_passant, None)
 
 
