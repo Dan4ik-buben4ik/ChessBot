@@ -77,12 +77,8 @@ from fen_converter import FEN_to_board, board_to_FEN
 #      |-----|-----|-----|-----|-----|-----|-----|-----|
 
 class Board:
-    def __init__(self, *, fen: str | bool = False, testing=False):
-        # Create a 2d array with empty (0) squares
-        # self.board: list
-        # self.player: str
-        # self.kings_pos: dict
-        # self.kings_castle: dict
+    def __init__(self, *, fen: str | bool = False, debug=False):
+        self.debug = debug
 
         self.board = [[0 for _ in range(8)] for _ in range(8)]
 
@@ -127,7 +123,8 @@ class Board:
     def move(self, uci_move_txt: str) -> None:
         # break down into smaller functions like check, castle
         san_move_txt = self.uci_to_san(uci_move_txt)
-        print(f"san move: {san_move_txt}")
+        if self.debug:
+            print(f"san move: {san_move_txt}")
 
         # getting the piece
         piece, init_pos, new_pos, promotion = self.uci_decoder(uci_move_txt)
@@ -145,7 +142,8 @@ class Board:
         # self.get_all_possible_moves()
 
         # check if currently under check
-        print(f"The king is under check: {self.check}")
+        if self.debug:
+            print(f"The king is under check: {self.check}")
         if self.check:
             self.move_under_check(piece, init_pos, new_pos)
         # checks if castle
@@ -170,6 +168,10 @@ class Board:
             elif init_pos.cord[0] == "h" and self.kings_castle[self.player][1] is True:
                 self.kings_castle[self.player][1] = False
 
+        # we get rid of the en passant right before the next move
+        if self.possible_en_passant:
+            self.possible_en_passant = None
+
         # updates the position of the piece
         self.update_pos(piece, new_pos, promotion)
 
@@ -179,14 +181,12 @@ class Board:
 
         if self.check_if_king_attacked(opponent_king) is True:
             self.check = True
-            print(f"check on the king, by {self.positions_that_attack_king}")
+            if self.debug:
+                print(f"check on the king, by {self.positions_that_attack_king}")
             if self.kings_castle[opponent_king.color] != [False, False]:
                 self.kings_castle[opponent_king.color] = [False, False]
         else:
             self.check = False
-
-        if self.possible_en_passant:
-            self.possible_en_passant = None
 
         # changes the current player, aka the turn
         if self.player == "white":
@@ -210,6 +210,9 @@ class Board:
             #     piece = Knight(self, piece.color, cord)
             elif promotion == "B":
                 piece = Bishop(self, piece.color, cord)
+
+            if self.debug:
+                print(f"promoting to {piece.name} on {piece.cord}")
 
         self.board[cord[1]][cord[0]] = piece  # puts the pieces symbol on the new spot
         piece.move(cord)
@@ -235,20 +238,21 @@ class Board:
         return res
 
     def move_under_check(self, piece, init_pos, new_pos) -> None:
-        print("Move Under Check")
         if isinstance(piece, King):
             self.normal_move_check(piece, init_pos, new_pos)
             return
         # at this point, if there is a move, it is going to be anything but king
 
         king_pos = self.kings_pos[self.player]
-        king = self.board[king_pos[1]][king_pos[0]]
 
         if len(self.positions_that_attack_king) > 1:
             raise ImpossibleMoveException(piece, "Cannot move piece while the king is under check by 2+ pieces", init_pos, new_pos)
 
         # here begins the real check
-        print(self.positions_that_attack_king)
+        if self.debug:
+            print(f"move_under_check")
+            print(f"positions attacking the king: {self.positions_that_attack_king}")
+
         attacking_piece_pos = self.positions_that_attack_king[0]
         attacking_piece: Piece = self.board[attacking_piece_pos[1]][attacking_piece_pos[0]]
         if isinstance(attacking_piece, (Knight, Pawn)) and new_pos != attacking_piece_pos:  # add pawn
@@ -273,7 +277,6 @@ class Board:
             raise ImpossibleMoveException(piece, reason, init_pos, new_pos)
 
         rook_pos = 0 if direction == -1 else 7, new_pos[1]
-        print(f"rook pos in board.castle(): {rook_pos}")
         rook: Rook = self.board[rook_pos[1]][rook_pos[0]]
 
         rook_new_pos = PositionVector2D(((rook_pos[0] -2 if direction == 1 else rook_pos[0] + 3), rook_pos[1]))
@@ -289,7 +292,8 @@ class Board:
                     raise ImpossibleMoveException(piece, f"attacking on {self.kings_pos[self.player]} is under check",
                                                   init_pos, new_pos)
 
-                print("king is castling...")
+                if self.debug:
+                    print("king is castling...")
                 return True
         return False
 
@@ -311,12 +315,26 @@ class Board:
                 piece: Piece
                 if piece.color != self.player:
                     continue
+
                 moves = piece.get_possible_moves()
-                yield piece.name
                 next(moves, None)
                 if not isinstance(piece, King) and self.check and len(self.positions_that_attack_king) == 1:
                     moves = filter(lambda x: x[2:4] in possible_spaces_str, moves)
+
                 yield from moves
+
+
+    def game_state_check(self):
+        # returns: game_finished (True if yes and False if not), winner (str of the player or None if draw)
+        if not len(list(self.get_all_possible_moves())) == 0:
+            # check if triple move draw or 50 move draw
+            pass
+
+        if self.check:
+            return True, "white" if self.player == "black" else "black"
+        else:
+            return True, None
+
 
 
     def find_san_pieces(self, symbol: str, new_pos: PositionVector2D):
@@ -383,7 +401,6 @@ class Board:
             return "e1g1" if self.player == "white" else "e8g8"
         elif move == "O-O-O":
             return "e1c1" if self.player == "white" else "e8c8"
-
 
         if move[0] not in ("Q", "K", "R", "N", "B", "P"):
             move = "".join(("P", move))
