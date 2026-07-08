@@ -193,6 +193,9 @@ class Board:
             self.player = "black"
         else:
             self.player = "white"
+            self.full_moves += 1
+
+        self.half_moves += 1
 
 # ===========================================================================================================================
 # ===========================================================================================================================
@@ -328,6 +331,10 @@ class Board:
         # returns: game_finished (True if yes and False if not), winner (str of the player or None if draw)
         if not len(list(self.get_all_possible_moves())) == 0:
             # check if triple move draw or 50 move draw
+            # TODO: create a check for triple position draw
+            if self.half_moves >= 100:
+                return True, None
+
             pass
 
         if self.check:

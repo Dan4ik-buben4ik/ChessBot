@@ -144,6 +144,20 @@ def FEN_to_board(fen: str, board):
 def validate_FEN(fen: str) -> bool:
     # aka if castling conditions are met with rooks and king's position
     # also with the pawn positions for the en passant
+
+    sections = fen.split(" ")
+    if "k" not in sections[0] or "K" not in sections[0]:
+        return False
+
+    rows = sections[0].split("/")
+    if len(rows) != 8:
+        return False
+
+    for i in rows:
+        if len(i) != 8:
+            return False
+
+
     pass
 
 
