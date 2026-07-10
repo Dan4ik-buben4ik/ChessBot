@@ -6,7 +6,7 @@ from types import GeneratorType
 
 class Piece:
     # A class for Rook
-    def __init__(self, board, color: str, pos: tuple[int, int]):
+    def __init__(self, board, color: str, pos: tuple[int, int], *, debug=False):
         if isinstance(pos, PositionVector2D):
             self.pos = pos
         else:
@@ -18,8 +18,11 @@ class Piece:
 
         self.color = color if color in ("white", "black") else None
 
+        self.debug = debug
+
     def move(self, new_pos: PositionVector2D):
-        print(f"Moved {self.name} on {self.pos} to {new_pos}")
+        if self.debug:
+            print(f"Moved {self.name} on {self.pos} to {new_pos}")
         self.pos = new_pos
 
     def reach_check(self, pos: PositionVector2D | tuple[int, int]) -> tuple[bool, str | None]:
@@ -42,8 +45,8 @@ class Piece:
 
 
 class Knight(Piece):
-    def __init__(self, board, color: str, pos: tuple[int, int]):
-        super(Knight, self).__init__(board, color, pos)
+    def __init__(self, board, color: str, pos: tuple[int, int], *, debug=False):
+        super(Knight, self).__init__(board, color, pos, debug=debug)
         self.name = "Knight"
         self.sym = "N" if color == "white" else "n"
 
@@ -94,8 +97,8 @@ class Knight(Piece):
 
 
 class Rook(Piece):
-    def __init__(self, board, color: str, pos: tuple[int, int]):
-        super(Rook, self).__init__(board, color, pos)
+    def __init__(self, board, color: str, pos: tuple[int, int], *, debug=False):
+        super(Rook, self).__init__(board, color, pos, debug=debug)
         self.name = "Rook"
         self.sym = "R" if color == "white" else "r"
 
@@ -167,15 +170,14 @@ class Rook(Piece):
 
 
 class Bishop(Piece):
-    def __init__(self, board, color: str, pos: tuple[int, int]):
-        super(Bishop, self).__init__(board, color, pos)
+    def __init__(self, board, color: str, pos: tuple[int, int], *, debug=False):
+        super(Bishop, self).__init__(board, color, pos, debug=debug)
         self.name = "Bishop"
         self.sym = "B" if color == "white" else "b"
 
     def reach_check(self, pos: PositionVector2D | tuple[int, int]) -> tuple[bool, str | None]:
         pos_change = abs(pos - self.pos)
         if pos_change[0] == pos_change[1]:
-            print("Bishop reach check: True")
             return True, None
 
         return False, f"{self.name} can't reach from {self.pos} to {pos}"
@@ -186,7 +188,6 @@ class Bishop(Piece):
         points = self.get_diagonal_positions(pos_change)
 
         for i in list(points):
-            print(i)
             piece = self.board.board[i[1]][i[0]]
 
             if (i == pos and (piece.color != self.color) if isinstance(piece, Piece) else True) or piece == self:
@@ -237,8 +238,8 @@ class Bishop(Piece):
 
 
 class Queen(Piece):
-    def __init__(self, board, color: str, pos: tuple[int, int]):
-        super(Queen, self).__init__(board, color, pos)
+    def __init__(self, board, color: str, pos: tuple[int, int], *, debug=False):
+        super(Queen, self).__init__(board, color, pos, debug=debug)
         self.name = "Queen"
         self.sym = "Q" if color == "white" else "q"
 
@@ -336,8 +337,8 @@ class Queen(Piece):
 
 
 class King(Piece):
-    def __init__(self, board, color: str, pos: tuple[int, int]):
-        super(King, self).__init__(board, color, pos)
+    def __init__(self, board, color: str, pos: tuple[int, int], *, debug=False):
+        super(King, self).__init__(board, color, pos, debug=debug)
         self.name = "King"
         self.sym = "K" if color == "white" else "k"
 
@@ -472,13 +473,12 @@ class King(Piece):
 
 
 class Pawn(Piece):
-    def __init__(self, board, color: str, pos: tuple[int, int]):
-        super(Pawn, self).__init__(board, color, pos)
+    def __init__(self, board, color: str, pos: tuple[int, int], *, debug=False):
+        super(Pawn, self).__init__(board, color, pos, debug=debug)
         self.name = "Pawn"
         self.sym = "P" if color == "white" else "p"
 
         self.moving_direction = -1 if color == "white" else 1
-        print(f"Pawn init| self.pos = {self.pos}, self.pos[1] = {self.pos[1]}")
         self.can_double = True if (self.pos[1] == 6 and self.color == "white") or (self.pos[1] == 1 and self.color == "black") else False
 
     def reach_check(self, pos: PositionVector2D | tuple[int, int]) -> tuple[bool, str | None]:
@@ -488,9 +488,6 @@ class Pawn(Piece):
         # moving normally
         if (pos_change[1] == self.moving_direction or (pos_change[1] == self.moving_direction * 2 and self.can_double is True)) and pos_change[0] == 0:
             if piece == 0:
-
-                if pos_change[1] == self.moving_direction * 2:
-                    self.board.possible_en_passant = self.pos + (0, self.moving_direction)
 
                 return True, None
             return False, f"{piece.name} is blocking the way"
@@ -513,13 +510,18 @@ class Pawn(Piece):
     def blocking_check(self, pos) -> tuple[bool, str | None]:
         return False, None
 
+    def move(self, new_pos: PositionVector2D):
+        if (new_pos - self.pos)[1] == self.moving_direction * 2:
+            print(f"new en_passant pos: {self.pos + (0, self.moving_direction)}")
+            self.board.possible_en_passant = self.pos + (0, self.moving_direction)
+
+        super().move(new_pos)
+
     def get_positions_attacking_around_king(self, king_pos) -> GeneratorType:
-        print("Pawn.get_positions_attacking_around_king")
         for i in (-1, 1):
             attack_pos = self.pos + (i, self.moving_direction)
             pos_change = king_pos - attack_pos
             if pos_change[0] in (1, 0, -1) and pos_change[1] in (1, 0, -1):
-                print(attack_pos)
                 yield attack_pos
 
     def is_attacking_king(self, king_pos: PositionVector2D) -> bool:
