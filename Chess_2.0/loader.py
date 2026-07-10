@@ -100,6 +100,9 @@ class Board:
         self.half_moves = 0
         self.full_moves = 1
 
+        # this is the list of all positions sins last pawn movement/capture. Used for the triple-repetition-draw check
+        self.unique_positions = [fen[:-4]]
+
         if fen:
             FEN_to_board(fen, self)
 
@@ -138,8 +141,6 @@ class Board:
         # identifier that helps to see methods
         piece: Piece
 
-
-        # self.get_all_possible_moves()
 
         # check if currently under check
         if self.debug:
@@ -195,6 +196,11 @@ class Board:
             self.player = "white"
             self.full_moves += 1
 
+        if isinstance(piece, Pawn) or "x" in san_move_txt:
+            self.half_moves = 0
+            self.unique_positions = []
+
+        self.unique_positions.append(board_to_FEN(self)[:-4])
         self.half_moves += 1
 
 # ===========================================================================================================================
@@ -327,15 +333,15 @@ class Board:
                 yield from moves
 
 
-    def game_state_check(self):
+    def game_end_check(self):
         # returns: game_finished (True if yes and False if not), winner (str of the player or None if draw)
         if not len(list(self.get_all_possible_moves())) == 0:
             # check if triple move draw or 50 move draw
-            # TODO: create a check for triple position draw
-            if self.half_moves >= 100:
+            print(self.unique_positions)
+            if self.half_moves >= 100 or self.unique_positions.count(board_to_FEN(self)[:-4]) >= 3:
                 return True, None
-
-            pass
+            else:
+                return False, None
 
         if self.check:
             return True, "white" if self.player == "black" else "black"

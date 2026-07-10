@@ -8,9 +8,9 @@ from loader import *
 # double check: "8/8/8/8/4k3/5p2/4P3/K3R3 w - - 0 1"
 # all pawns on the last row: "8/PPPPPPPP/8/8/8/8/8/k6K w - - 0 1"
 # starting position: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
-board = Board(fen="4k3/8/8/8/1p6/8/P7/4K3 w KQkq - 0 1", debug=True)
+board = Board(fen="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", debug=True)
 board.construct()
-for _ in range(10):
+while True:
     print("Possible moves")
 
     print(list(board.get_all_possible_moves()))
@@ -18,5 +18,12 @@ for _ in range(10):
     move = input("Move Input (uci): ")
     board.move(move)
     board.construct()
+
+    end, winner = board.game_end_check()
+    if end:
+        print(f"winner: {winner}")
+        break
+
+
 
 

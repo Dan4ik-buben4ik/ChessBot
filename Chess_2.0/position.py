@@ -92,6 +92,10 @@ class PositionVector2D:
         else:
             return 0
 
+    @staticmethod
+    def is_cord(cord):
+        return len(cord) == 2 and cord[0].isalpha() and cord[1].isdigit()
+
 
 
 

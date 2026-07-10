@@ -119,8 +119,8 @@ def FEN_to_board(fen: str, board):
     board.possible_en_passant = PositionVector2D(sections[3]) if sections[3] != "-" else None
 
     # half moves and full moves
-    board.half_moves = sections[4]
-    board.full_moves = sections[5]
+    board.half_moves = int(sections[4])
+    board.full_moves = int(sections[5])
 
     # print("\nFEN OUTPUT")
     # print(board.player)
@@ -146,6 +146,10 @@ def validate_FEN(fen: str) -> bool:
     # also with the pawn positions for the en passant
 
     sections = fen.split(" ")
+    if len(sections) != 6:
+        return False
+
+
     if "k" not in sections[0] or "K" not in sections[0]:
         return False
 
@@ -153,12 +157,31 @@ def validate_FEN(fen: str) -> bool:
     if len(rows) != 8:
         return False
 
-    for i in rows:
-        if len(i) != 8:
+    for r in rows:
+        total = 0
+        for i in r:
+            if i.isnumeric():
+                total += int(i)
+            elif i.lower() in ("k", "q", "r", "b", "n", "p"):
+                total += 1
+            else:
+                return False
+        if total != 8:
             return False
 
+    if sections[1] not in ("b", "w"):
+        return False
 
-    pass
+    if not (sections[2] == "-" or all(c.lower() in ("k", "q") for c in sections[2])):
+        return False
+
+    if not(sections[3] == "-" or PositionVector2D.is_cord(sections[3])):
+        return False
+
+    if not sections[4].isnumeric() or not sections[5].isnumeric():
+        return False
+
+    return True
 
 
 board = [[0, 0, 0, 0, "k", 0, 0, 0],
