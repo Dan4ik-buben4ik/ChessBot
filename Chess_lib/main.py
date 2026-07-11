@@ -12,11 +12,12 @@ board = Board(fen="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", de
 board.construct()
 while True:
     print("Possible moves")
-
-    print(list(board.get_all_possible_moves()))
+    possible_moves = list(board.get_all_possible_moves())
+    print(possible_moves)
 
     move = input("Move Input (uci): ")
-    board.move(move)
+    if move in possible_moves:
+        board.move(move)
     board.construct()
 
     end, winner = board.game_end_check()

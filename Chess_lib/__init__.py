@@ -6,7 +6,7 @@ __author__ = "Daniel Rakhmatov, Peter Luo"
 
 from loader import Board
 from fen_converter import board_to_FEN, FEN_to_board, validate_FEN
-from pieces import Pawn, Bishop, King, Rook, Queen, Knight
+from pieces import Pawn, Bishop, King, Rook, Queen, Knight, Piece
 from position import PositionVector2D
 
 __all__ = [
@@ -14,6 +14,7 @@ __all__ = [
     "board_to_FEN",
     "FEN_to_board",
     "validate_FEN",
+    "Piece",
     "Pawn",
     "Knight",
     "Bishop",
