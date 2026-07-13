@@ -1,5 +1,6 @@
 from Errors import JustError
 from position import PositionVector2D
+from Move import uci_decoder, uci_encoder
 
 from types import GeneratorType
 
@@ -86,9 +87,9 @@ class Knight(Piece):
             piece = self.board.board[pos[1]][pos[0]]
             if isinstance(piece, Piece):
                 if piece.color != self.color:
-                    yield self.board.uci_encoder(self.pos, pos, None)
+                    yield uci_encoder(self.pos, pos, None)
                 continue
-            yield self.board.uci_encoder(self.pos, pos, None)
+            yield uci_encoder(self.pos, pos, None)
 
 
 class Rook(Piece):
@@ -159,9 +160,9 @@ class Rook(Piece):
                 piece = self.board.board[j[1]][j[0]]
                 if isinstance(piece, Piece):
                     if piece.color != self.color:
-                        yield self.board.uci_encoder(self.pos, j, None)
+                        yield uci_encoder(self.pos, j, None)
                     break
-                yield self.board.uci_encoder(self.pos, j, None)
+                yield uci_encoder(self.pos, j, None)
 
 
 class Bishop(Piece):
@@ -228,9 +229,9 @@ class Bishop(Piece):
                 piece = self.board.board[j[1]][j[0]]
                 if isinstance(piece, Piece):
                     if piece.color != self.color:
-                        yield self.board.uci_encoder(self.pos, j, None)
+                        yield uci_encoder(self.pos, j, None)
                     break
-                yield self.board.uci_encoder(self.pos, j, None)
+                yield uci_encoder(self.pos, j, None)
 
 
 class Queen(Piece):
@@ -314,9 +315,9 @@ class Queen(Piece):
                 piece = self.board.board[j[1]][j[0]]
                 if isinstance(piece, Piece):
                     if piece.color != self.color:
-                        yield self.board.uci_encoder(self.pos, j, None)
+                        yield uci_encoder(self.pos, j, None)
                     break
-                yield self.board.uci_encoder(self.pos, j, None)
+                yield uci_encoder(self.pos, j, None)
 
         for i in ((7, 0), (0, 7), (0, 0), (7, 7)):
             for j in self.get_diagonal_positions(self.pos * -1 + i):
@@ -327,9 +328,9 @@ class Queen(Piece):
                 piece = self.board.board[j[1]][j[0]]
                 if isinstance(piece, Piece):
                     if piece.color != self.color:
-                        yield self.board.uci_encoder(self.pos, j, None)
+                        yield uci_encoder(self.pos, j, None)
                     break
-                yield self.board.uci_encoder(self.pos, j, None)
+                yield uci_encoder(self.pos, j, None)
 
 
 class King(Piece):
@@ -375,15 +376,15 @@ class King(Piece):
                         continue
                 res = self.board.check_if_pos_attacked(position, self.color)
                 if not res[0] and (0 <= position[0] <= 7 and 0 <= position[1] <= 7):
-                    yield self.board.uci_encoder(self.pos, position, None)
+                    yield uci_encoder(self.pos, position, None)
 
-        can_castle = self.board.kings_castle[self.color]
+        can_castle = self.board.castling_rights[self.color]
 
         if not self.board.check:
             if can_castle[0] and self.can_castle(-1)[0]:
-                yield self.board.uci_encoder(self.pos, PositionVector2D((2, self.pos[1])), None)
+                yield uci_encoder(self.pos, PositionVector2D((2, self.pos[1])), None)
             if can_castle[1] and self.can_castle(1)[0]:
-                yield self.board.uci_encoder(self.pos, PositionVector2D((6, self.pos[1])), None)
+                yield uci_encoder(self.pos, PositionVector2D((6, self.pos[1])), None)
 
     def can_castle(self, side: -1 | 1) -> tuple[bool, str | None]:  # king | queen side
         pos_1 = self.pos + PositionVector2D((1, 0)) * side
@@ -427,9 +428,6 @@ class Pawn(Piece):
                 pass
 
             # the en passant logic
-            if pos == self.board.possible_en_passant:
-                self.board.board[pos[1] - self.moving_direction][pos[0]] = 0
-                return True, None
 
         return False, f"Cant move to the {pos}"
 
@@ -455,37 +453,37 @@ class Pawn(Piece):
             # promotion
             if new_pos[1] in (0, 7):
                 for letter in ("q", "r", "b", "n"):
-                    yield self.board.uci_encoder(self.pos, new_pos, letter)
+                    yield uci_encoder(self.pos, new_pos, letter)
             else:
-                yield self.board.uci_encoder(self.pos, new_pos, None)
+                yield uci_encoder(self.pos, new_pos, None)
 
         # double move forward
         square_1 = self.board.board[self.pos[1]+2*self.moving_direction][self.pos[0]]
         square_2 = self.board.board[self.pos[1] + self.moving_direction][self.pos[0]]
-        starting_pos_check = self.pos[0] == 6 if self.moving_direction == -1 else self.pos[0] == 1
+        starting_pos_check = (self.pos[1] == 6 if self.color == "white" else self.pos[1] == 1)
 
         if square_1 == 0 and square_2 == 0 and starting_pos_check:
             new_pos = PositionVector2D((self.pos[0], self.pos[1] + 2 * self.moving_direction))
-            yield self.board.uci_encoder(self.pos, new_pos, None)
+            yield uci_encoder(self.pos, new_pos, None)
 
         # side capture
         try:
             if self.board.board[self.pos[1]+self.moving_direction][self.pos[0]+1] != 0:
                 new_pos = PositionVector2D((self.pos[0]+1, self.pos[1]+self.moving_direction))
-                yield self.board.uci_encoder(self.pos, new_pos, None)
+                yield uci_encoder(self.pos, new_pos, None)
         except IndexError:
             pass
 
         try:
             if self.board.board[self.pos[1]+self.moving_direction][self.pos[0]-1] != 0:
                 new_pos = PositionVector2D((self.pos[0]-1, self.pos[1]+self.moving_direction))
-                yield self.board.uci_encoder(self.pos, new_pos, None)
+                yield uci_encoder(self.pos, new_pos, None)
         except IndexError:
             pass
 
         # en_passant
         if self.board.possible_en_passant == (self.pos[0]-1, self.pos[1]+self.moving_direction) or self.board.possible_en_passant == (self.pos[0]+1, self.pos[1]+self.moving_direction):
-            yield self.board.uci_encoder(self.pos, self.board.possible_en_passant, None)
+            yield uci_encoder(self.pos, self.board.possible_en_passant, None)
 
 
 

@@ -85,7 +85,7 @@ class Board:
         self.check = False
         self.positions_that_attack_king = []
 
-        self.possible_en_passant = None
+        self.possible_en_passant: PositionVector2D | None = None
 
         self.possible_moves = []
         self.half_moves = 0
@@ -114,47 +114,50 @@ class Board:
     # ===========================================================================================================================
 
     def move(self, uci_move_txt: str) -> None:
+        # TODO: castling and en passant
         # break down into smaller functions like check, castle
-        san_move_txt = uci_to_san(self, uci_move_txt)
+        san_move_txt = uci_to_san(self, uci_move_txt)  # removes the en_passant pawn
         if self.debug:
             print(f"san move: {san_move_txt}")
 
         # getting the piece
-        piece, init_pos, new_pos, promotion = uci_decoder(self, uci_move_txt)
+        piece, init_pos, new_pos, promotion = uci_decoder(uci_move_txt)
         # identifier that helps to see methods
         piece: Piece
 
 
         # we get rid of the en passant right before the next move
+        self.update_game_state()
 
         # updates the position of the piece
         self.push(uci_move_txt)
-
-
-        if self.check_if_king_attacked(opponent_king) is True:
-            self.check = True
-            if self.debug:
-                print(f"check on the king, by {self.positions_that_attack_king}")
-            if self.castling_rights[opponent_king.color] != [False, False]:
-                self.castling_rights[opponent_king.color] = [False, False]
-        else:
-            self.check = False
-
-        # TODO: move to the game_end_check?
-        self.unique_positions.append(board_to_FEN(self)[:-4])
 
         self.update_castling_rights(piece, init_pos)
         self.update_en_passant(piece, init_pos, new_pos)
         self.update_move_clock(piece, san_move_txt)
         self.switch_turn()
-        self.update_game_state()
+
+    def _is_castle(self, piece, init_pos, new_pos):
+        if piece.name == "King" and abs(new_pos-init_pos)[0] == 2:
+            return True
+        return False
+
+    def _is_en_passant(self, piece, init_pos, new_pos):
+        if piece.name == "Pawn" and abs(new_pos - init_pos)[0] == 1 and new_pos == self.possible_en_passant:
+            return True
+        return False
+
+
+
 
 # ===========================================================================================================================
 # ===========================================================================================================================
 # ===========================================================================================================================
-    def push(self, uci_move_txt: str) -> None:
+    def push(self, uci_move_txt: str) -> None:  # TODO: make the input a move instance
         # A function that updates the pieces position on the board
-        piece, init_pos, new_pos, promotion = uci_decoder(self, uci_move_txt)
+        init_pos, new_pos, promotion = uci_decoder(uci_move_txt)
+        # work for the en passant pawn capture and the castling
+        piece = self.board[init_pos[1]][init_pos[0]]
 
         self.board[piece.pos[1]][piece.pos[0]] = 0  # makes the old square empty
 
@@ -168,16 +171,32 @@ class Board:
             elif promotion == "B":
                 piece = Bishop(self, piece.color, new_pos)
 
+            self.board[new_pos[1]][new_pos[0]] = piece
+
             if self.debug:
                 print(f"promoting to {piece.name} on {piece.pos.cord}")
-        else:
-            piece.pos = new_pos
 
+        # TODO: finish the push function
+        elif self._is_castle(piece, init_pos, new_pos):
+            #TODO: rewrite to suit the Move class
+            direction = PositionVector2D.sign((new_pos - init_pos)[0])
+            rook_pos = PositionVector2D((0 if direction == -1 else 7, new_pos[1]))
+            new_rook_pos = init_pos + (direction, 0)
+            rook_move = f"{rook_pos.cord}{new_rook_pos.cord}"
+            self.push(rook_move)
+
+        elif self._is_en_passant(piece, init_pos, new_pos):
+            self.board[new_pos[1] - piece.moving_direction][new_pos[0]] = 0
+
+        piece.pos = new_pos
         self.board[new_pos[1]][new_pos[0]] = piece
-
 
         if self.debug:
             print(f"Moved {piece.name} on {piece.pos.cord} to {new_pos.cord}")
+
+    # ===========================================================================================================================
+    # ===========================================================================================================================
+    # ===========================================================================================================================
 
     def update_castling_rights(self, piece, old_pos) -> None:
         if isinstance(piece, King):
@@ -189,6 +208,11 @@ class Board:
             elif old_pos.cord[0] == "h" and self.castling_rights[self.turn][1] is True:
                 self.castling_rights[self.turn][1] = False
 
+        if self.check_if_king_attacked(self.turn)[0] is True:
+            opponent_color = "white" if self.turn == "black" else "black"
+            if self.castling_rights[opponent_color] != [False, False]:
+                self.castling_rights[opponent_color] = [False, False]
+
     def update_en_passant(self, piece, old_pos, new_pos) -> None:
         if self.possible_en_passant:
             self.possible_en_passant = None
@@ -197,7 +221,7 @@ class Board:
             return
 
         if (new_pos - old_pos)[1] == piece.moving_direction * 2:
-            self.board.possible_en_passant = old_pos + (0, piece.moving_direction)
+            self.possible_en_passant = old_pos + (0, piece.moving_direction)
 
     def update_move_clock(self, piece, san_move_txt):
         self.half_moves += 1
@@ -223,7 +247,7 @@ class Board:
 
     def check_if_king_attacked(self, color):
         king = self.kings[color]
-        res, positions_that_attack_king = king.check_if_pos_attacked(king.pos)
+        res, positions_that_attack_king = self.check_if_pos_attacked(king.pos, self.turn)
         self.positions_that_attack_king = positions_that_attack_king
         return res, positions_that_attack_king
 
@@ -298,18 +322,17 @@ class Board:
                 yield knight_pos
 
 
-    def game_end_check(self):
+    def game_end_check(self, move_generator):
         # returns: game_finished (True if yes and False if not), winner (str of the player or None if draw)
-        if not len(list(self.get_all_possible_moves())) == 0:
+        if not len(list(move_generator.get_all_possible_moves(self))) == 0:
             # check if triple move draw or 50 move draw
-            print(self.unique_positions)
             if self.half_moves >= 100 or self.repetition_table[board_to_FEN(self)[:-4]] >= 3:
                 return True, None
             else:
                 return False, None
 
         if self.check:
-            return True, "white" if self.player == "black" else "black"
+            return True, "white" if self.turn == "black" else "black"
         else:
             return True, None
 
