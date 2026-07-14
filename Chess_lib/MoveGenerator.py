@@ -3,9 +3,22 @@ from types import GeneratorType
 from pieces import Piece, Knight, Pawn, King
 from loader import Board
 
+
 class MoveGenerator:
+    """ A class that handles the generation of possible moves in a given position
+
+    It has no attributes
+    """
     @staticmethod
-    def get_all_possible_moves(board: Board):
+    def get_all_possible_moves(board: Board) -> GeneratorType:
+        """ The main function to generate the possible moves in a given position
+
+        :param board: the chess position in which the function generated the moves
+        :type board: loader.Board
+
+        :return: A generator that yields string moves formatted in UCI notation
+        :rtype: collections.abc.Generator[str]
+        """
         is_check, king_attackers_pos = board.check_if_king_attacked(board.turn)
         if is_check:
             if len(king_attackers_pos) == 1:

@@ -96,24 +96,11 @@ class Board:
 
         FEN_to_board(fen, self)
 
-
-
-    @staticmethod
-    def is_reachable_move(piece, init_pos, new_pos) -> None:
-
-        # checks if the move is within the board
-        if (new_pos[0] > 7 or new_pos[0] < 0) or (new_pos[1] > 7 or new_pos[1] < 0):
-            raise ImpossibleMoveException(piece, "Piece can't reach", init_pos, new_pos)
-
-        # Checks if the piece is actually moving
-        if init_pos == new_pos:
-            raise ImpossibleMoveException(piece, "Piece doesn't move", init_pos, new_pos)
-
     # ===========================================================================================================================
     # ===========================================================================================================================
     # ===========================================================================================================================
 
-    def move(self, uci_move_txt: str) -> None:
+    def move(self, uci_move_txt: str) -> None:  # maybe get the init_pos and new_pos as an input?
         # TODO: castling and en passant
         # break down into smaller functions like check, castle
         san_move_txt = uci_to_san(self, uci_move_txt)  # removes the en_passant pawn
@@ -121,9 +108,9 @@ class Board:
             print(f"san move: {san_move_txt}")
 
         # getting the piece
-        piece, init_pos, new_pos, promotion = uci_decoder(uci_move_txt)
+        init_pos, new_pos, promotion = uci_decoder(uci_move_txt)
         # identifier that helps to see methods
-        piece: Piece
+        piece = self.board[init_pos[1]][init_pos[0]]
 
 
         # we get rid of the en passant right before the next move
@@ -174,7 +161,7 @@ class Board:
             self.board[new_pos[1]][new_pos[0]] = piece
 
             if self.debug:
-                print(f"promoting to {piece.name} on {piece.pos.cord}")
+                print(f"promoting to {piece.name} on {piece.pos.algebraic}")
 
         # TODO: finish the push function
         elif self._is_castle(piece, init_pos, new_pos):
@@ -182,7 +169,7 @@ class Board:
             direction = PositionVector2D.sign((new_pos - init_pos)[0])
             rook_pos = PositionVector2D((0 if direction == -1 else 7, new_pos[1]))
             new_rook_pos = init_pos + (direction, 0)
-            rook_move = f"{rook_pos.cord}{new_rook_pos.cord}"
+            rook_move = f"{rook_pos.algebraic}{new_rook_pos.algebraic}"
             self.push(rook_move)
 
         elif self._is_en_passant(piece, init_pos, new_pos):
@@ -192,7 +179,7 @@ class Board:
         self.board[new_pos[1]][new_pos[0]] = piece
 
         if self.debug:
-            print(f"Moved {piece.name} on {piece.pos.cord} to {new_pos.cord}")
+            print(f"Moved {piece.name} on {piece.pos.algebraic} to {new_pos.algebraic}")
 
     # ===========================================================================================================================
     # ===========================================================================================================================
@@ -203,9 +190,9 @@ class Board:
             self.castling_rights[self.turn] = [False, False]
 
         elif isinstance(piece, Rook):
-            if old_pos.cord[0] == "a" and self.castling_rights[self.turn][0] is True:
+            if old_pos.algebraic[0] == "a" and self.castling_rights[self.turn][0] is True:
                 self.castling_rights[self.turn][0] = False
-            elif old_pos.cord[0] == "h" and self.castling_rights[self.turn][1] is True:
+            elif old_pos.algebraic[0] == "h" and self.castling_rights[self.turn][1] is True:
                 self.castling_rights[self.turn][1] = False
 
         if self.check_if_king_attacked(self.turn)[0] is True:
@@ -224,6 +211,7 @@ class Board:
             self.possible_en_passant = old_pos + (0, piece.moving_direction)
 
     def update_move_clock(self, piece, san_move_txt):
+        # TODO: get rid of the move txt. Shouldn't be
         self.half_moves += 1
         if isinstance(piece, Pawn) or "x" in san_move_txt:
             self.half_moves = 0
@@ -326,15 +314,19 @@ class Board:
         # returns: game_finished (True if yes and False if not), winner (str of the player or None if draw)
         if not len(list(move_generator.get_all_possible_moves(self))) == 0:
             # check if triple move draw or 50 move draw
-            if self.half_moves >= 100 or self.repetition_table[board_to_FEN(self)[:-4]] >= 3:
+            if self.repetition_table.get(board_to_FEN(self)[:-4]):
+                if self.repetition_table.get(board_to_FEN(self)[:-4]) >= 3:
+                    return True, None
+            elif self.half_moves >= 100:
                 return True, None
             else:
                 return False, None
 
-        if self.check:
-            return True, "white" if self.turn == "black" else "black"
+        opponent_color = "white" if self.turn == "black" else "black"
+        if self.check_if_king_attacked(opponent_color)[0]:
+            return True, opponent_color
         else:
-            return True, None
+            return False, None
 
     def construct(self):
         # A function that prints the board. NOTHING TO BE CHANGED HERE

@@ -4,6 +4,17 @@ from position import PositionVector2D
 
 # TODO: update the board parameters names
 def board_to_FEN(board) -> str:  # board of class loader.Board
+    """ a function to translate a chess position from the board class object into FEN string (Forsyth-Edwards Notation)
+
+    :param board: an instance of the loader.Board class
+    :type board: loader.Board
+
+    :return: a chess position formatted in FEN
+    :rtype: str
+    """
+
+
+
     fen = ""
 
     # --DEBUG--
@@ -51,7 +62,7 @@ def board_to_FEN(board) -> str:  # board of class loader.Board
 
     # en passant
     if board.possible_en_passant:
-        fen += f" {board.possible_en_passant.cord}"
+        fen += f" {board.possible_en_passant.algebraic}"
     else:
         fen += " -"
 
@@ -62,6 +73,15 @@ def board_to_FEN(board) -> str:  # board of class loader.Board
 
 
 def FEN_to_board(fen: str, board):
+    """ A function to translate a chess position in the FEN (Forsyth-Edwards Notation)
+     and transcript into an instance of a board class, modifying it in place
+
+    :param fen: the chess position in the FEN string that gets translated
+    :type fen: str
+
+    :param board: an instance of the board where the information gets written
+    :type board: loader.Board
+    """
     board.board = []
 
 
@@ -143,6 +163,16 @@ def FEN_to_board(fen: str, board):
 
 
 def validate_FEN(fen: str) -> bool:
+    """ A function to validate the FEN (Forsyth-Edwards Notation) format standards of a string fen
+
+    :param fen: a chess position in the FEN format that is getting validated
+    :type fen: str
+
+    :return: returns whether the string is a proper FEN string
+    :rtype: bool
+    """
+
+    #TODO: finish the function
     # aka if castling conditions are met with rooks and king's position
     # also with the pawn positions for the en passant
 
@@ -174,9 +204,10 @@ def validate_FEN(fen: str) -> bool:
         return False
 
     if not (sections[2] == "-" or all(c.lower() in ("k", "q") for c in sections[2])):
+        #TODO: validate with the rooks and kings for the castling
         return False
 
-    if not(sections[3] == "-" or PositionVector2D.is_cord(sections[3])):
+    if not(sections[3] == "-" or PositionVector2D.is_algebraic(sections[3])):
         return False
 
     if not sections[4].isnumeric() or not sections[5].isnumeric():
@@ -185,18 +216,3 @@ def validate_FEN(fen: str) -> bool:
     return True
 
 
-board = [[0, 0, 0, 0, "k", 0, 0, 0],
-         [0, 0, 0, 0, 0, 0, 0, 0],
-         [0, 0, 0, 0, 0, 0, 0, 0],
-         [0, 0, 0, 0, 0, 0, 0, 0],
-         [0, 0, 0, 0, 0, 0, 0, 0],
-         [0, 0, 0, 0, 0, 0, 0, 0],
-         [0, 0, 0, 0, 0, 0, 0, 0],
-         [0, 0, 0, 0, "K", 0, 0, 0]]
-# starting pos: rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
-
-# n = FEN_to_board("4k3/8/8/8/8/8/8/4K3 w KQkq - 0 1")
-# print(n)
-# f = list_to_FEN(n)
-# print(f)
-# print(f == n)

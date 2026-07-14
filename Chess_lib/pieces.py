@@ -59,7 +59,7 @@ class Knight(Piece):
             return False, None
         if piece.color != self.color:
             return False, None
-        return True, f"a piece ({piece} is blocking the way on {pos.cord}"
+        return True, f"a piece ({piece} is blocking the way on {pos.algebraic}"
 
     def get_attacking_squares(self) -> GeneratorType:
         directions = [(1, 2), (1, -2), (-1, 2), (-1, -2), (2, 1), (-2, 1), (-2, -1), (2, -1)]
@@ -67,11 +67,6 @@ class Knight(Piece):
             position = self.pos + i
             if 0 <= position[0] <= 7 and 0 <= position[1] <= 7:
                 yield position
-
-    def is_attacking_king(self, king_pos: PositionVector2D) -> bool:
-        if king_pos in self.get_attacking_squares():
-            return True
-        return False
 
     def get_positions_attacking_around_king(self, king_pos) -> GeneratorType:
         for point in self.get_attacking_squares():
@@ -116,7 +111,7 @@ class Rook(Piece):
             if (i == pos and (piece.color != self.color) if isinstance(piece, Piece) else True) or piece == self:
                 continue
             elif piece:
-                return True, f"a piece ({piece} is blocking the way on {i.cord}"
+                return True, f"a piece ({piece} is blocking the way on {i.algebraic}"
 
         return False, None
 
@@ -135,11 +130,6 @@ class Rook(Piece):
 
         points = self.get_line_positions(pos_change)
         return points
-
-    def is_attacking_king(self, king_pos: PositionVector2D) -> bool:
-        if king_pos == list(self.attacking_positions_towards_king(king_pos))[-1]:
-            return True
-        return False
 
     def get_positions_attacking_around_king(self, king_pos) -> GeneratorType:
         for point in self.attacking_positions_towards_king(king_pos):
@@ -189,7 +179,7 @@ class Bishop(Piece):
             if (i == pos and (piece.color != self.color) if isinstance(piece, Piece) else True) or piece == self:
                 continue
             elif piece:
-                return True, f"a piece ({piece} is blocking the way on {i.cord}"
+                return True, f"a piece ({piece} is blocking the way on {i.algebraic}"
 
         return False, None
 
@@ -205,12 +195,6 @@ class Bishop(Piece):
         pos_change = kings_pos - self.pos
         points = self.get_diagonal_positions(pos_change)
         return points
-
-    # TODO: do we need this method
-    def is_attacking_king(self, king_pos: PositionVector2D) -> bool:
-        if king_pos == list(self.attacking_positions_towards_king(king_pos))[-1]:
-            return True
-        return False
 
     def get_positions_attacking_around_king(self, king_pos) -> GeneratorType:
         for point in self.attacking_positions_towards_king(king_pos):
@@ -262,7 +246,7 @@ class Queen(Piece):
             if (i == pos and (piece.color != self.color) if isinstance(piece, Piece) else True) or piece == self:
                 continue
             elif piece:
-                return True, f"a piece ({piece} is blocking the way on {i.cord}"
+                return True, f"a piece ({piece} is blocking the way on {i.algebraic}"
 
         return False, None
 
@@ -290,11 +274,6 @@ class Queen(Piece):
             pos_change = PositionVector2D((0, pos_change[1]))
 
         yield from self.get_line_positions(pos_change)
-
-    def is_attacking_king(self, king_pos: PositionVector2D) -> bool:
-        if king_pos in self.attacking_positions_towards_king(king_pos):
-            return True
-        return False
 
     def get_positions_attacking_around_king(self, king_pos) -> GeneratorType:
         for point in self.attacking_positions_towards_king(king_pos):
@@ -440,10 +419,6 @@ class Pawn(Piece):
             pos_change = king_pos - attack_pos
             if pos_change[0] in (1, 0, -1) and pos_change[1] in (1, 0, -1):
                 yield attack_pos
-
-    def is_attacking_king(self, king_pos: PositionVector2D) -> bool:
-        pos_change = king_pos - self.pos
-        return abs(pos_change[0]) == 1 and pos_change[1] == self.moving_direction
 
     def get_possible_moves(self) -> GeneratorType:
         yield None # control yield

@@ -21,7 +21,7 @@ class ImpossibleMoveException(BaseException):
         :param new_pos: the final position of the piece after the move
         :type new_pos: position.PositionVector2D
         """
-        super(ImpossibleMoveException, self).__init__(f"\nPiece: {piece.name}\nReason: {reason}\nMove from ({PositionVector2D.pos_to_cord(init_pos)}) to ({PositionVector2D.pos_to_cord(new_pos)})")
+        super(ImpossibleMoveException, self).__init__(f"\nPiece: {piece.name}\nReason: {reason}\nMove from ({init_pos.algebraic}) to ({new_pos.algebraic})")
 
 
 
@@ -33,7 +33,7 @@ class PieceColorException(BaseException):
         :param piece: the piece with which the move was made
         :type piece: pieces.Piece
         """
-        super(PieceColorException, self).__init__(f"\nPiece: {piece.name}\nColor: {piece.color}\nPosition: {PositionVector2D.pos_to_cord(piece.pos)}")
+        super(PieceColorException, self).__init__(f"\nPiece: {piece.name}\nColor: {piece.color}\nPosition: {piece.pos.algebraic}")
 
 
 class UnrecognisableMove(BaseException):
@@ -58,7 +58,7 @@ class UnderCheckException(BaseException):
         :param king_pos: the position fo the king that's inder the check
         :type king_pos: position.PositionVector2D
         """
-        super(UnderCheckException, self).__init__(f"\nCant move the piece ({move}) as the king is under check on {king_pos.cord}")
+        super(UnderCheckException, self).__init__(f"\nCant move the piece ({move}) as the king is under check on {king_pos.algebraic}")
 
 
 class JustError(BaseException):

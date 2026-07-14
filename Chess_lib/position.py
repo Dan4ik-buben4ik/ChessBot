@@ -1,90 +1,191 @@
 from __future__ import annotations
 
 class PositionVector2D:
+    """ A class responsible for storing and manipulating the board squares
+
+    :ivar _position: the coordinate position of the square
+    :type _position: tuple[int, int]
+    """
+
+    # TODO: change the variables of pos and cord in the other files
     def __init__(self, val: str | tuple[int, int]):
-        self.pos: tuple[int, int]
-        self.cord: str
+        """ An initialization of the class instance """
+        self._position: tuple[int, int]
         if isinstance(val, str):
-#            print("val is str")
-            self.cord = val
-            self.pos = self.cord_to_pos(val)
-#            print(self.pos, self.cord)
+            self._position = self.from_algebraic(val)
+
         elif isinstance(val, tuple):
-#            print("val is tuple[int, int]")
-            self.pos = val
-            self.cord = self.pos_to_cord(val) if val[0] >= 0 and val[1] >= 0 else ""
-#            print(self.pos, self.cord)
+            self._position = val
+
+    @property
+    def position(self):
+        """ PositionVector2D._position
+
+        :type: tuple[int, int]
+        """
+        return self._position
+
+    @property
+    def algebraic(self):
+        """ Algebraic coordinate notation (eg. a1)
+
+        :type: str
+        """
+        return self.to_algebraic(self._position)
 
 
     def __sub__(self, other: PositionVector2D | tuple[int, int]):
+        """ Performs vector subtraction
+
+        Enables subtraction operation (PositionVector2D - PositionVector2D) or (PositionVector2D - tuple[int, int])
+
+        :param other: the vector subtracted
+        :type other: PositionVector2D | tuple[int, int]
+
+        :return: difference between 2 vectors
+        :rtype: PositionVector2D
+        """
         if isinstance(other, PositionVector2D):
-            res = (self.pos[0] - other.pos[0], self.pos[1] - other.pos[1])
+            res = (self._position[0] - other._position[0], self._position[1] - other._position[1])
 #            print(res)
-            return PositionVector2D((self.pos[0] - other.pos[0], self.pos[1] - other.pos[1]))
+            return PositionVector2D((self._position[0] - other._position[0], self._position[1] - other._position[1]))
         elif isinstance(other, tuple):   # add a check if a 1x2 int array
-            return PositionVector2D((self.pos[0] - other[0], self.pos[1] - other[1]))
+            return PositionVector2D((self._position[0] - other[0], self._position[1] - other[1]))
 
     def __add__(self, other: PositionVector2D | tuple[int, int]):
+        """ Performs vector addition
+
+        Enables subtraction operation (PositionVector2D + PositionVector2D) or (PositionVector2D + tuple[int, int])
+
+        :param other: the vector added
+        :type other: PositionVector2D | tuple[int, int]
+
+        :return: sum of the 2 vectors
+        :rtype: PositionVector2D
+        """
         if isinstance(other, PositionVector2D):
-            return PositionVector2D((self.pos[0] + other.pos[0], self.pos[1] + other.pos[1]))
+            return PositionVector2D((self._position[0] + other._position[0], self._position[1] + other._position[1]))
         elif isinstance(other, tuple):
-            return PositionVector2D((self.pos[0] + other[0], self.pos[1] + other[1]))
+            return PositionVector2D((self._position[0] + other[0], self._position[1] + other[1]))
 
     def __mul__(self, other: PositionVector2D | tuple[int, int] | int):
+        #TODO: do we need the cross product?
+        """ finds the cross product of 2 vectors or performs an enlargement by a scale factor
+
+        Enables subtraction operation (PositionVector2D * PositionVector2D) or (PositionVector2D * int)
+
+        :param other: the vector added
+        :type other: PositionVector2D | tuple[int, int]
+
+        :return: sum of the 2 vectors
+        :rtype: PositionVector2D
+        """
         if isinstance(other, int | float):
-            return PositionVector2D((self.pos[0] * other, self.pos[1] * other))
+            return PositionVector2D((self._position[0] * other, self._position[1] * other))
         elif isinstance(other, PositionVector2D | tuple):
-            return PositionVector2D((self.pos[0] * other[0], self.pos[1] * other[1]))
+            return PositionVector2D((self._position[0] * other[0], self._position[1] * other[1]))
 
     def __eq__(self, other):
+        """ performs a comparison between 2 vectors
+
+        :param other: the vector compared to
+        :type other: PositionVector2D | tuple[int, int]
+
+        :return: whether they are the same or different
+        :rtype: bool
+        """
         if isinstance(other, PositionVector2D):
-            return self.pos == other.pos
+            return self._position == other._position
         elif isinstance(other, tuple):
-            return self.pos[0] == other[0] and self.pos[1] == other[1]
+            return self._position[0] == other[0] and self._position[1] == other[1]
         elif isinstance(other, str):
-            return self.cord == other
+            return self.algebraic == other
         return False
 
     def __neg__(self):
-        return PositionVector2D((-self.pos[0], -self.pos[1]))
+        """ changes the direction of the vector
 
-    # def __getattr__(self, item):
-    #     pass
-    #     # print(item)
-    #     # if item == "pos":
-    #     #     return self.pos
+        :return: a vector with the opposite direction to the current one
+        :rtype: PositionVector2D
+        """
+        return PositionVector2D((-self._position[0], -self._position[1]))
 
     def normalize(self):
-        return PositionVector2D((self.sign(self.pos[0]), self.sign(self.pos[1])))
+        """ returns the unit vector
+
+        :return: unit vector
+        :rtype: PositionVector2D
+        """
+        return PositionVector2D((self.sign(self._position[0]), self.sign(self._position[1])))
 
 
     def __abs__(self):
-        return PositionVector2D((abs(self.pos[0]), abs(self.pos[1])))
+        """ makes the coordinate values absolute (positive)
+
+        :return: positive vector
+        :rtype: PositionVector2D
+        """
+        return PositionVector2D((abs(self._position[0]), abs(self._position[1])))
 
     def __getitem__(self, item):
-        return self.pos[item]
+        """ finds the x/y coordinate via indexing
 
-    # think
-    # def __setitem__(self, key, value):
-    #     self.pos[key] = value
+        :param item: the index for the value
+        :type: int
+
+        :return: the x/y value of the vector
+        :rtype: int
+        """
+        return self._position[item]
 
     def __repr__(self):
-        return f"{self.pos} ({self.cord})"
+        """ representation of the square/vector
+
+        :return: the representation
+        :rtype: str
+        """
+        return f"{self._position} ({self.algebraic})"
 
     @staticmethod
-    def pos_to_cord(pos: PositionVector2D | tuple[int, int]) -> str:
-        # A function that changes the text position into a coordinate
-        # eg. a8 -> (0,0); h = 104 ASCII, a = 97
+    def to_algebraic(pos: PositionVector2D | tuple[int, int]) -> str:
+        """ A function that converts the position tuple into an algebraic coordinate
+
+        It does so mathematically
+        eg. a8 -> (0,0); a = 97 ASCII
+
+        :param pos: the cartesian coordinates
+        :type pos: PositionVector2D | tuple[int, int]
+
+        :return: the algebraic coordinate
+        :rtype: str
+        """
         return "".join((chr(97 + pos[0]), str(8 - pos[1])))
 
     @staticmethod
-    def cord_to_pos(cord: str) -> PositionVector2D | tuple[int, int]:  # eg. (0, 0)
-        # A function that changes the coordinate value to the text position
-        # eg. (0,0) -> a8 h -> 0, a -> 8
-        return PositionVector2D((ord(cord[0]) - 97, 8 - int(cord[1])))
+    def from_algebraic(algebraic: str) -> PositionVector2D | tuple[int, int]:  # eg. (0, 0)  # rename to "to_algebraic"?
+        """ A function that converts an algebraic coordinate into a cartesian coordinate
+
+        It does so mathematically
+        # eg. (0,0) -> a8
+
+        :param algebraic: the algebraic coordinate
+        :type: str
+
+        :return: the new class instance
+        :rtype: PositionVector2D
+        """
+        return PositionVector2D((ord(algebraic[0]) - 97, 8 - int(algebraic[1])))
 
     @staticmethod
-    def sign(value: int):
+    def sign(value: int | float):
+        """ gives the sign of the number (aka, positive, negative or 0)
+
+        :param value: a number
+        :type: int | float
+
+        :return: positive/negative 1 or 0
+        :rtype: int
+        """
         if value < 0:
             return -1
         elif value > 0:
@@ -93,7 +194,15 @@ class PositionVector2D:
             return 0
 
     @staticmethod
-    def is_cord(cord):
+    def is_algebraic(cord):
+        """ checks if the coordinate in the algebraic chess notation
+
+        :param cord: the coordinate
+        :type: str
+
+        :return: True/False
+        :rtype: bool
+        """
         return len(cord) == 2 and cord[0].isalpha() and cord[1].isdigit()
 
 
