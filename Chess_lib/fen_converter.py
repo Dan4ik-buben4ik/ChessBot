@@ -2,7 +2,19 @@ from pieces import Piece, Pawn, King, Rook, Bishop, Queen, Knight
 from position import PositionVector2D
 
 
+# TODO: update the board parameters names
 def board_to_FEN(board) -> str:  # board of class loader.Board
+    """ a function to translate a chess position from the board class object into FEN string (Forsyth-Edwards Notation)
+
+    :param board: an instance of the loader.Board class
+    :type board: loader.Board
+
+    :return: a chess position formatted in FEN
+    :rtype: str
+    """
+
+
+
     fen = ""
 
     # --DEBUG--
@@ -30,27 +42,27 @@ def board_to_FEN(board) -> str:  # board of class loader.Board
         fen += "/"
     fen = fen[:-1]
 
-    if board.player == "white":
+    if board.turn == "white":
         fen += " w"
     else:
         fen += " b"
 
     # Castling (sections 2 and 3)
     possible_castles = ""
-    if board.kings_castle["white"][1]:
+    if board.castling_rights["white"][1]:
         possible_castles += "K"
-    if board.kings_castle["white"][0]:
+    if board.castling_rights["white"][0]:
         possible_castles += "Q"
-    if board.kings_castle["black"][1]:
+    if board.castling_rights["black"][1]:
         possible_castles += "k"
-    if board.kings_castle["black"][0]:
+    if board.castling_rights["black"][0]:
         possible_castles += "q"
 
     fen += f" {possible_castles if possible_castles else '-'}"
 
     # en passant
     if board.possible_en_passant:
-        fen += f" {board.possible_en_passant.cord}"
+        fen += f" {board.possible_en_passant.algebraic}"
     else:
         fen += " -"
 
@@ -61,6 +73,15 @@ def board_to_FEN(board) -> str:  # board of class loader.Board
 
 
 def FEN_to_board(fen: str, board):
+    """ A function to translate a chess position in the FEN (Forsyth-Edwards Notation)
+     and transcript into an instance of a board class, modifying it in place
+
+    :param fen: the chess position in the FEN string that gets translated
+    :type fen: str
+
+    :param board: an instance of the board where the information gets written
+    :type board: loader.Board
+    """
     board.board = []
 
 
@@ -80,8 +101,9 @@ def FEN_to_board(fen: str, board):
                 if i.lower() == "p":
                     temp.append(Pawn(board, piece_colour, (x, y)))
                 elif i.lower() == "k":
-                    temp.append(King(board, piece_colour, (x, y)))
-                    board.kings_pos[piece_colour] = PositionVector2D((x, y))
+                    king = King(board, piece_colour, (x, y))
+                    temp.append(king)
+                    board.kings[piece_colour] = king
                 elif i.lower() == "q":
                     temp.append(Queen(board, piece_colour, (x, y)))
                 elif i.lower() == "r":
@@ -97,23 +119,23 @@ def FEN_to_board(fen: str, board):
 
     # colour
     if sections[1] == "w":
-        board.player = "white"
+        board.turn = "white"
     if sections[1] == "b":
-        board.player = "black"
+        board.turn = "black"
 
     # castling
     castles = sections[2]
     if castles == "-":
-        board.kings_castle["white"] = [False, False]
-        board.kings_castle["black"] = [False, False]
+        board.castling_rights["white"] = [False, False]
+        board.castling_rights["black"] = [False, False]
     if "K" in castles:
-        board.kings_castle["white"][1] = True
+        board.castling_rights["white"][1] = True
     if "Q" in castles:
-        board.kings_castle["white"][0] = True
+        board.castling_rights["white"][0] = True
     if "k" in castles:
-        board.kings_castle["black"][1] = True
+        board.castling_rights["black"][1] = True
     if "q" in castles:
-        board.kings_castle["black"][0] = True
+        board.castling_rights["black"][0] = True
 
     # en passant
     board.possible_en_passant = PositionVector2D(sections[3]) if sections[3] != "-" else None
@@ -130,9 +152,8 @@ def FEN_to_board(fen: str, board):
     # print(board.full_moves)
     # print()
 
-    king_pos = board.kings_pos[board.player]
-    king = board.board[king_pos[1]][king_pos[0]]
-    is_check, attacking_pos = king.check_if_pos_attacked(king_pos)
+    king = board.kings[board.turn]
+    is_check, attacking_pos = board.check_if_pos_attacked(king.pos, board.turn)
     print(is_check, attacking_pos)
     if is_check:
         board.check = True
@@ -142,6 +163,16 @@ def FEN_to_board(fen: str, board):
 
 
 def validate_FEN(fen: str) -> bool:
+    """ A function to validate the FEN (Forsyth-Edwards Notation) format standards of a string fen
+
+    :param fen: a chess position in the FEN format that is getting validated
+    :type fen: str
+
+    :return: returns whether the string is a proper FEN string
+    :rtype: bool
+    """
+
+    #TODO: finish the function
     # aka if castling conditions are met with rooks and king's position
     # also with the pawn positions for the en passant
 
@@ -173,9 +204,10 @@ def validate_FEN(fen: str) -> bool:
         return False
 
     if not (sections[2] == "-" or all(c.lower() in ("k", "q") for c in sections[2])):
+        #TODO: validate with the rooks and kings for the castling
         return False
 
-    if not(sections[3] == "-" or PositionVector2D.is_cord(sections[3])):
+    if not(sections[3] == "-" or PositionVector2D.is_algebraic(sections[3])):
         return False
 
     if not sections[4].isnumeric() or not sections[5].isnumeric():
@@ -184,18 +216,3 @@ def validate_FEN(fen: str) -> bool:
     return True
 
 
-board = [[0, 0, 0, 0, "k", 0, 0, 0],
-         [0, 0, 0, 0, 0, 0, 0, 0],
-         [0, 0, 0, 0, 0, 0, 0, 0],
-         [0, 0, 0, 0, 0, 0, 0, 0],
-         [0, 0, 0, 0, 0, 0, 0, 0],
-         [0, 0, 0, 0, 0, 0, 0, 0],
-         [0, 0, 0, 0, 0, 0, 0, 0],
-         [0, 0, 0, 0, "K", 0, 0, 0]]
-# starting pos: rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
-
-# n = FEN_to_board("4k3/8/8/8/8/8/8/4K3 w KQkq - 0 1")
-# print(n)
-# f = list_to_FEN(n)
-# print(f)
-# print(f == n)
