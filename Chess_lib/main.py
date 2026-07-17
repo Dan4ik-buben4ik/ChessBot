@@ -1,5 +1,6 @@
 from loader import *
 from MoveGenerator import MoveGenerator
+import hashing
 # only queens and kings: "3qk3/8/8/8/8/8/8/3QK3 w KQkq - 0 1"
 # only rooks and kings: r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1
 # only bishops and kings: 2b1kb2/8/8/8/8/8/8/2B1KB2 w KQkq - 0 1
@@ -9,7 +10,10 @@ from MoveGenerator import MoveGenerator
 # double check: "8/8/8/8/4k3/5p2/4P3/K3R3 w - - 0 1"
 # all pawns on the last row: "8/PPPPPPPP/8/8/8/8/8/k6K w - - 0 1"
 # starting position: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
-board = Board(fen="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", debug=True)
+
+hasher = hashing.ZobristHasher()
+
+board = Board(fen="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", hasher=hasher, debug=True)
 board.construct()
 while True:
     print("Possible moves")

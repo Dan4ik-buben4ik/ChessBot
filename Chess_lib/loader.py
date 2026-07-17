@@ -68,7 +68,7 @@ from types import GeneratorType
 #      |-----|-----|-----|-----|-----|-----|-----|-----|
 
 class Board:
-    def __init__(self, *, fen: str, debug=False):
+    def __init__(self, fen: str, hasher, *, debug=False):
         self.debug = debug
 
         self.board = [[0 for _ in range(8)] for _ in range(8)]
@@ -92,7 +92,9 @@ class Board:
         self.full_moves = 1
 
         # this is the list of all positions sins last pawn movement/capture. Used for the triple-repetition-draw check
-        self.repetition_table = {fen[:-4]: 1}
+        self.hash = hasher.hash(self)
+        self.repetition_table = {board_to_FEN(self)[:-4]: 1}
+        #TODO: update all methods to work with the hash
 
         FEN_to_board(fen, self)
 

@@ -7,7 +7,6 @@ class PositionVector2D:
     :type _position: tuple[int, int]
     """
 
-    # TODO: change the variables of pos and cord in the other files
     def __init__(self, val: str | tuple[int, int]):
         """ An initialization of the class instance """
         self._position: tuple[int, int]
