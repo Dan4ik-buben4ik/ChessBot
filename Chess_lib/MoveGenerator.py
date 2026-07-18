@@ -19,7 +19,6 @@ class MoveGenerator:
         :return: A generator that yields string moves formatted in UCI notation
         :rtype: collections.abc.Generator[str]
         """
-        #TODO: pawn capture and promotion at the same time
         is_check, king_attackers_pos = board.check_if_king_attacked(board.turn)
         if is_check:
             if len(king_attackers_pos) == 1:

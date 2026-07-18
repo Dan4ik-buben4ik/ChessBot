@@ -12,8 +12,8 @@ def find_san_pieces(board, symbol: str, new_pos: PositionVector2D) -> list:
                 continue
             elif piece.color != board.turn:
                 continue
-            if piece.reach_check(new_pos)[0]:
-                if not piece.blocking_check(new_pos)[0]:
+            if piece.reach_check(new_pos):
+                if not piece.blocking_check(new_pos):
                     result_pieces.append(piece)
     return result_pieces
 

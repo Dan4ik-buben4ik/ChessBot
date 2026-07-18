@@ -2,7 +2,6 @@ from pieces import Piece, Pawn, King, Rook, Bishop, Queen, Knight
 from position import PositionVector2D
 
 
-# TODO: update the board parameters names
 def board_to_FEN(board) -> str:  # board of class loader.Board
     """ a function to translate a chess position from the board class object into FEN string (Forsyth-Edwards Notation)
 

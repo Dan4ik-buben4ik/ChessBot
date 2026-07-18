@@ -183,7 +183,6 @@ class Board:
             self.push(rook_move)
 
         elif self._is_en_passant(piece, init_pos, new_pos):
-            # TODO: capture logic to standard
             captured_pos = new_pos - (0, piece.moving_direction)
             captured_piece = self.board[captured_pos[1]][captured_pos[0]]
 

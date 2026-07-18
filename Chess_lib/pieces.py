@@ -41,25 +41,25 @@ class Piece:
 
         self.debug = debug
 
-    def reach_check(self, pos: PositionVector2D | tuple[int, int]) -> tuple[bool, str | None]:
+    def reach_check(self, pos: PositionVector2D | tuple[int, int]) -> bool:
         """ Checks if the position is reachable by the piece and it's move logic
 
         :param pos: target position
         :type pos: posiiton.PositionVector2D
 
-        :return: True/False and explanation
-        :rtype: tuple[bool, str | None]
+        :return: True/False
+        :rtype: bool
         """
         pass
 
-    def blocking_check(self, pos: PositionVector2D | tuple[int, int]) -> tuple[bool, str | None]:
+    def blocking_check(self, pos: PositionVector2D | tuple[int, int]) -> bool:
         """ Checks if the path to the position is blocked by another piece
 
         :param pos: target position
         :type pos: position.PositionVector2D
 
-        :return: True/False and explanation
-        :rtype: tuple[bool, str | None]
+        :return: True/False
+        :rtype: bool
         """
         pass
 
@@ -128,37 +128,37 @@ class Knight(Piece):
         self.name = "Knight"
         self.sym = "N" if color == "white" else "n"
 
-    def reach_check(self, pos: PositionVector2D | tuple[int, int]) -> tuple[bool, str | None]:
+    def reach_check(self, pos: PositionVector2D | tuple[int, int]) -> bool:
         """ Checks if the position is reachable by the Knight
 
 
         :param pos: target position
         :type pos: posiiton.PositionVector2D
 
-        :return: True/False and explanation
-        :rtype: tuple[bool, str | None]
+        :return: True/False
+        :rtype: bool
         """
         pos_change = abs(pos - self.pos)
         if pos_change[0] + pos_change[1] == 3 and pos_change[0] != 0 and pos_change[1] != 0:
-            return True, None
+            return True
 
-        return False, f"{self.name} can't reach from {self.pos} to {pos}"
+        return False
 
-    def blocking_check(self, pos: PositionVector2D | tuple[int, int]) -> tuple[bool, str | None]:
+    def blocking_check(self, pos: PositionVector2D | tuple[int, int]) -> bool:
         """ Checks if the path to the position is blocked by another piece
 
         :param pos: target position
         :type pos: position.PositionVector2D
 
-        :return: True/False and explanation
-        :rtype: tuple[bool, str | None]
+        :return: True/False
+        :rtype: bool
         """
         piece = self.board.board[pos[1]][pos[0]]
         if piece == 0:
-            return False, None
+            return False
         if piece.color != self.color:
-            return False, None
-        return True, f"a piece ({piece} is blocking the way on {pos.algebraic}"
+            return False
+        return True
 
     def _get_attacking_squares(self) -> GeneratorType:
         """ a helper function to get the sauares attacked/deffended by the Knight
@@ -231,22 +231,22 @@ class Rook(Piece):
         self.name = "Rook"
         self.sym = "R" if color == "white" else "r"
 
-    def reach_check(self, pos: PositionVector2D | tuple[int, int]) -> tuple[bool, str | None]:
+    def reach_check(self, pos: PositionVector2D | tuple[int, int]) -> bool:
         """ Checks if the position is reachable by the piece and it's move logic
 
         :param pos: target position
         :type pos: posiiton.PositionVector2D
 
-        :return: True/False and explanation
-        :rtype: tuple[bool, str | None]
+        :return: True/False
+        :rtype: bool
         """
         pos_change = abs(pos - self.pos)
         if pos_change[0] == 0 or pos_change[1] == 0:
-            return True, None
+            return True
 
-        return False, f"{self.name} can't reach from {self.pos} to {pos}"
+        return False
 
-    def blocking_check(self, pos: PositionVector2D | tuple[int, int]) -> tuple[bool, str | None]:
+    def blocking_check(self, pos: PositionVector2D | tuple[int, int]) -> bool:
         """ Checks if the path to the position is blocked by another piece
 
         This function just iterates through all the positions from hte current to the final position
@@ -255,8 +255,8 @@ class Rook(Piece):
         :param pos: target position
         :type pos: position.PositionVector2D
 
-        :return: True/False and explanation
-        :rtype: tuple[bool, str | None]
+        :return: True/False
+        :rtype: bool
         """
 
         for i in self._get_line_positions(pos - self.pos):
@@ -265,9 +265,9 @@ class Rook(Piece):
             if (i == pos and (piece.color != self.color) if isinstance(piece, Piece) else True) or piece == self:
                 continue
             elif piece:
-                return True, f"a piece ({piece} is blocking the way on {i.algebraic}"
+                return True
 
-        return False, None
+        return False
 
     def _get_line_positions(self, pos_change: PositionVector2D | tuple[int, int]) -> GeneratorType:
         """ private method that generates positions based on the pieces current position, and the change vector
@@ -369,29 +369,29 @@ class Bishop(Piece):
         self.name = "Bishop"
         self.sym = "B" if color == "white" else "b"
 
-    def reach_check(self, pos: PositionVector2D | tuple[int, int]) -> tuple[bool, str | None]:
+    def reach_check(self, pos: PositionVector2D | tuple[int, int]) -> bool:
         """ Checks if the position is reachable by the piece and it's move logic
 
         :param pos: target position
         :type pos: posiiton.PositionVector2D
 
-        :return: True/False and explanation
-        :rtype: tuple[bool, str | None]
+        :return: True/False
+        :rtype: bool
         """
         pos_change = abs(pos - self.pos)
         if pos_change[0] == pos_change[1]:
-            return True, None
+            return True
 
-        return False, f"{self.name} can't reach from {self.pos} to {pos}"
+        return False
 
-    def blocking_check(self, pos: PositionVector2D | tuple[int, int]) -> tuple[bool, str | None]:
+    def blocking_check(self, pos: PositionVector2D | tuple[int, int]) -> bool:
         """ Checks if the path to the position is blocked by another piece
 
         :param pos: target position
         :type pos: position.PositionVector2D
 
-        :return: True/False and explanation
-        :rtype: tuple[bool, str | None]
+        :return: True/False
+        :rtype: bool
         """
         pos_change = pos - self.pos
 
@@ -403,9 +403,9 @@ class Bishop(Piece):
             if (i == pos and (piece.color != self.color) if isinstance(piece, Piece) else True) or piece == self:
                 continue
             elif piece:
-                return True, f"a piece ({piece} is blocking the way on {i.algebraic}"
+                return True
 
-        return False, None
+        return False
 
     def _get_diagonal_positions(self, pos_change: PositionVector2D | tuple[int, int]) -> GeneratorType:
         direction = pos_change.normalize()
@@ -492,30 +492,30 @@ class Queen(Piece):
         self.name = "Queen"
         self.sym = "Q" if color == "white" else "q"
 
-    def reach_check(self, pos: PositionVector2D | tuple[int, int]) -> tuple[bool, str | None]:
+    def reach_check(self, pos: PositionVector2D | tuple[int, int]) -> bool:
         """ Checks if the position is reachable by the piece and it's move logic
 
                 :param pos: target position
                 :type pos: posiiton.PositionVector2D
 
-                :return: True/False and explanation
-                :rtype: tuple[bool, str | None]
+                :return: True/False
+                :rtype: bool
                 """
         pos_change = abs(pos - self.pos)
         if (pos_change[0] == 0 or pos_change[1] == 0) or pos_change[0] == pos_change[1]:
-            return True, None
+            return True
 
-        return False, f"{self.name} can't reach from {self.pos} to {pos}"
+        return False
 
-    def blocking_check(self, pos: PositionVector2D | tuple[int, int]) -> tuple[bool, str | None]:
+    def blocking_check(self, pos: PositionVector2D | tuple[int, int]) -> bool:
         """ Checks if the path to the position is blocked by another piece
 
-                :param pos: target position
-                :type pos: position.PositionVector2D
+        :param pos: target position
+        :type pos: position.PositionVector2D
 
-                :return: True/False and explanation
-                :rtype: tuple[bool, str | None]
-                """
+        :return: True/False
+        :rtype: bool
+        """
         pos_change = pos - self.pos
 
         if pos_change[0] == 0 or pos_change[1] == 0:
@@ -523,27 +523,26 @@ class Queen(Piece):
         else:
             points = self.get_diagonal_positions(pos_change)
 
-
         for i in list(points):
             piece = self.board.board[i[1]][i[0]]
 
             if (i == pos and (piece.color != self.color) if isinstance(piece, Piece) else True) or piece == self:
                 continue
             elif piece:
-                return True, f"a piece ({piece} is blocking the way on {i.algebraic}"
+                return True
 
-        return False, None
+        return False
 
     def get_line_positions(self, pos_change: PositionVector2D | tuple[int, int]) -> GeneratorType:
         direction = pos_change.normalize()
-        for i in range(0, max(abs(pos_change))+1):
+        for i in range(0, max(abs(pos_change).position)+1):
             yield self.pos + direction * i
 
     def get_diagonal_positions(self, pos_change: PositionVector2D | tuple[int, int]) -> GeneratorType:
         direction = pos_change.normalize()
         if direction[0] == 0 or direction[1] == 0:
             direction = PositionVector2D((0, 0))
-        for i in range(0, max(abs(pos_change))+1):
+        for i in range(0, max(abs(pos_change).position)+1):
             yield self.pos + direction * i
 
     def attacking_positions_towards_king(self, kings_pos: PositionVector2D | tuple[int, int]) -> GeneratorType:
@@ -648,40 +647,39 @@ class King(Piece):
         self.name = "King"
         self.sym = "K" if color == "white" else "k"
 
-    def reach_check(self, pos: PositionVector2D | tuple[int, int]) -> tuple[bool, str | None]:
+    def reach_check(self, pos: PositionVector2D | tuple[int, int]) -> bool:
         """ Checks if the position is reachable by the piece and it's move logic
 
-                :param pos: target position
-                :type pos: posiiton.PositionVector2D
+        :param pos: target position
+        :type pos: posiiton.PositionVector2D
 
-                :return: True/False and explanation
-                :rtype: tuple[bool, str | None]
-                """
+        :return: True/False
+        :rtype: bool
+        """
         # Position change. Needed to check if the movement is possible
         pos_change = abs(pos - self.pos)
         if pos_change[0] == 1 or pos_change[1] == 1:  # moving
-            return True, None
+            return True
 
+        return False
 
-        return False, f"{self.name} can't reach from {self.pos} to {pos}"
-
-    def blocking_check(self, pos: PositionVector2D | tuple[int, int]) -> tuple[bool, str | None]:  # need to check
+    def blocking_check(self, pos: PositionVector2D | tuple[int, int]) -> bool:
         """ Checks if the path to the position is blocked by another piece
 
-                :param pos: target position
-                :type pos: position.PositionVector2D
+        :param pos: target position
+        :type pos: position.PositionVector2D
 
-                :return: True/False and explanation
-                :rtype: tuple[bool, str | None]
-                """
+        :return: True/False
+        :rtype: bool
+        """
         # in case of king, this will check whether the space he wants to go is free.
         piece_in_pos = self.board.board[pos[1]][pos[0]]
         if piece_in_pos != 0:
             if piece_in_pos.color == self.color:
-                return True, f"There is a {self.color} piece on the spot"
+                return True
 
         attacked, pos_that_attack = self.board.check_if_pos_attacked(pos, self.color)
-        return attacked, f"there are pieces in positions {pos_that_attack} that attack the position"
+        return attacked
 
     def get_possible_moves(self) -> GeneratorType:
         """ generates every possible move for the piece in the current position in the board
@@ -760,15 +758,15 @@ class Pawn(Piece):
 
         self.moving_direction = -1 if color == "white" else 1
 
-    def reach_check(self, pos: PositionVector2D | tuple[int, int]) -> tuple[bool, str | None]:
+    def reach_check(self, pos: PositionVector2D | tuple[int, int]) -> bool:
         """ Checks if the position is reachable by the piece and it's move logic
 
-                :param pos: target position
-                :type pos: posiiton.PositionVector2D
+        :param pos: target position
+        :type pos: posiiton.PositionVector2D
 
-                :return: True/False and explanation
-                :rtype: tuple[bool, str | None]
-                """
+        :return: True/False
+        :rtype: bool
+        """
         pos_change = pos - self.pos
         piece = self.board.board[pos[1]][pos[0]]
 
@@ -777,31 +775,33 @@ class Pawn(Piece):
         if (pos_change[1] == self.moving_direction or (pos_change[1] == self.moving_direction * 2 and starting_pos_check)) and pos_change[0] == 0:
             if piece == 0:
 
-                return True, None
-            return False, f"{piece.name} is blocking the way"
+                return True
+            return False
 
         # capturing a piece
         elif pos_change[1] == self.moving_direction and abs(pos_change[0]) == 1:
             try:
                 if piece.color != self.color and isinstance(piece, Piece):
-                    return True, None
+                    return True
             except AttributeError:
                 pass
 
             # the en passant logic
 
-        return False, f"Cant move to the {pos}"
+        return False
 
-    def blocking_check(self, pos) -> tuple[bool, str | None]:
+    def blocking_check(self, pos) -> bool:
         """ Checks if the path to the position is blocked by another piece
 
-                :param pos: target position
-                :type pos: position.PositionVector2D
+        #TODO: should we check if there is a piece in front of it?
 
-                :return: True/False and explanation
-                :rtype: tuple[bool, str | None]
-                """
-        return False, None
+        :param pos: target position
+        :type pos: position.PositionVector2D
+
+        :return: False
+        :rtype: bool
+        """
+        return False
 
     def get_positions_attacking_around_king(self, king_pos) -> GeneratorType:
         """ finds and yields all the reachable squares around the king position
