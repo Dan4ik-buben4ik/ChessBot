@@ -46,7 +46,7 @@ def uci_to_san(board, move: str) -> str:
     for cord in possible_pieces:
         if cord.pos == init_pos:
             continue
-        possible_prefix.extend((cord.pos.cord[0], cord.pos.cord[1]))
+        possible_prefix.extend((cord.pos.algebraic[0], cord.pos.algebraic[1]))
 
     prefix = ""
     if init_pos.algebraic[1] in possible_prefix:

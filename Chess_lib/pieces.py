@@ -853,14 +853,22 @@ class Pawn(Piece):
         try:
             if self.board.board[self.pos[1]+self.moving_direction][self.pos[0]+1] != 0:
                 new_pos = PositionVector2D((self.pos[0]+1, self.pos[1]+self.moving_direction))
-                yield uci_encoder(self.pos, new_pos, None)
+                if new_pos[1] in (0, 7):
+                    for letter in ("q", "r", "b", "n"):
+                        yield uci_encoder(self.pos, new_pos, letter)
+                else:
+                    yield uci_encoder(self.pos, new_pos, None)
         except IndexError:
             pass
 
         try:
             if self.board.board[self.pos[1]+self.moving_direction][self.pos[0]-1] != 0:
                 new_pos = PositionVector2D((self.pos[0]-1, self.pos[1]+self.moving_direction))
-                yield uci_encoder(self.pos, new_pos, None)
+                if new_pos[1] in (0, 7):
+                    for letter in ("q", "r", "b", "n"):
+                        yield uci_encoder(self.pos, new_pos, letter)
+                else:
+                    yield uci_encoder(self.pos, new_pos, None)
         except IndexError:
             pass
 

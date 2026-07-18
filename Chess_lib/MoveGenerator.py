@@ -19,6 +19,7 @@ class MoveGenerator:
         :return: A generator that yields string moves formatted in UCI notation
         :rtype: collections.abc.Generator[str]
         """
+        #TODO: pawn capture and promotion at the same time
         is_check, king_attackers_pos = board.check_if_king_attacked(board.turn)
         if is_check:
             if len(king_attackers_pos) == 1:
@@ -29,7 +30,7 @@ class MoveGenerator:
                     possible_spaces_str = [attacking_piece_pos]
                 else:
                     # attacking pos method to find all the possible moves?
-                    possible_spaces_str = list(map(lambda y: y.cord, list(attacking_piece.attacking_positions_towards_king(king_pos))[:-1]))
+                    possible_spaces_str = list(map(lambda y: y.algebraic, list(attacking_piece.attacking_positions_towards_king(king_pos))[:-1]))
 
         for row in board.board:
             for piece in row:

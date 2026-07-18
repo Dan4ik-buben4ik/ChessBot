@@ -76,19 +76,32 @@ class ZobristHasher:
         i = self.pieces[f"{piece.color}_{piece.name.lower()}"]
         return self.table[i][position[0] + position[1] * 8]
 
+    def debug_values(self, val):
+        for i in self.pieces.keys():
+            print(i)
+            values = self.table[self.pieces[i]]
+            print("val in values")
+            print(val in values)
+            print(self.table[self.pieces[i]])
+            # 3237877843526964457
 
-board = loader.Board(fen="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+        print("castling rights")
+        print(self.castling_rights)
 
-hasher = ZobristHasher()
-hash = hasher.hash(board)
+        print("en passant")
+        print(self.en_passant)
 
-piece = board.board[6][4]
-print(piece.name, piece.pos)
-hash ^= hasher[piece, (4, 6)]
-hash ^= hasher[piece, (4, 4)]
-hash ^= hasher.black_turn
-hash ^= hasher.en_passant["e"]
 
-board.move("e2e4")
-
-print(hasher.hash(board) == hash)
+# board = loader.Board(fen="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", hasher = hasher)
+# hash = hasher.hash(board)
+#
+# piece = board.board[6][4]
+# print(piece.name, piece.pos)
+# hash ^= hasher[piece, (4, 6)]
+# hash ^= hasher[piece, (4, 4)]
+# hash ^= hasher.black_turn
+# hash ^= hasher.en_passant["e"]
+#
+# board.move("e2e4")
+#
+# print(hasher.hash(board) == hash)
