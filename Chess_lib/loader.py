@@ -68,7 +68,53 @@ from types import GeneratorType
 #      |-----|-----|-----|-----|-----|-----|-----|-----|
 
 class Board:
+    """ the main class that contains the board with the pieces and the game information
+
+    Attributes:
+
+    :ivar debug: adds debug mode that prints stuff into the console
+    :type debug: bool
+
+    :var board: a 8x8 array filled with either 0's (empty squares) or pieces.Piece instances
+    :type board: list[list[int | pieces.Piece]]
+
+    :var turn: the current player color
+    :type turn: str
+
+    :var kings: kings position in the board
+    :type kings: dict[str, pieces.Piece]
+
+    :var castling_rights: a dictionary that holds the castling rights for both sides
+    :type castling_rights: dict[str, [bool]]
+
+    :var possible_en_passant: the final position of the pawn after the en passant
+    :type possible_en_passant: position.PositionVector2D | None
+
+    :var half_moves: the number total moves for white + black
+    :type half_moves: int
+
+    :var full_moves: the number of moves white had made
+    :type full_moves: int
+
+    :ivar hasher: the Zobrist hasher for the board, holding the 64bit data for the board hash
+    :type hasher: hashing.ZobristHasher
+
+    :var hash: the 64bit hash value for the board
+    :type hash: int
+
+    :var repetition_table: table with the hashes of the positions and the number of times it had appeared
+    :type repetition_table: dict[int, int]
+
+
+    """
     def __init__(self, fen: str, hasher, *, debug=False):
+        """ Initializes the class instance
+
+
+        :param fen:
+        :param hasher:
+        :param debug:
+        """
         self.debug = debug
 
         self.board = [[0 for _ in range(8)] for _ in range(8)]
@@ -78,16 +124,11 @@ class Board:
 
         # stores king's position (useful for checks)
         # collapse in 1 dict?
-        self.kings = {}
+        self.kings = {}  #TODO: check if gets updated
         self.castling_rights = {"white": [False, False], "black": [False, False]}  # king, queen side
-
-        # check
-        self.check = False
-        self.positions_that_attack_king = []
 
         self.possible_en_passant: PositionVector2D | None = None
 
-        self.possible_moves = []
         self.half_moves = 0
         self.full_moves = 1
 

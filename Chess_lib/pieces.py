@@ -408,6 +408,17 @@ class Bishop(Piece):
         return False
 
     def _get_diagonal_positions(self, pos_change: PositionVector2D | tuple[int, int]) -> GeneratorType:
+        """ a private method to get the diagonal position towards a certain point
+
+        *Note: the point can be out of the reach, but the function will still yield a diagonal
+         that passes closes to the point *
+
+        :param pos_change: the difference between current position and the target point
+        :type pos_change: position.PositionVector2D
+
+        :return: generator object with the squares
+        :rtype: collections.abc.Generator[position.PositionVector2D]
+        """
         direction = pos_change.normalize()
         if direction[0] == 0 or direction[1] == 0:
             direction = PositionVector2D((0, 0))
@@ -431,12 +442,12 @@ class Bishop(Piece):
     def get_positions_attacking_around_king(self, king_pos) -> GeneratorType:
         """ finds and yields all the reachable squares around the king position
 
-                :param king_pos: the position of the king
-                :type king_pos: position.PositionVector2D
+        :param king_pos: the position of the king
+        :type king_pos: position.PositionVector2D
 
-                :return: generator object with the squares
-                :rtype: collections.abc.Generator[position.PositionVector2D]
-                """
+        :return: generator object with the squares
+        :rtype: collections.abc.Generator[position.PositionVector2D]
+        """
         for point in self.attacking_positions_towards_king(king_pos):
             pos_change = king_pos - point
             if pos_change[0] in (-1, 0, 1) and pos_change[1] in (-1, 0, 1):
@@ -495,12 +506,12 @@ class Queen(Piece):
     def reach_check(self, pos: PositionVector2D | tuple[int, int]) -> bool:
         """ Checks if the position is reachable by the piece and it's move logic
 
-                :param pos: target position
-                :type pos: posiiton.PositionVector2D
+        :param pos: target position
+        :type pos: posiiton.PositionVector2D
 
-                :return: True/False
-                :rtype: bool
-                """
+        :return: True/False
+        :rtype: bool
+        """
         pos_change = abs(pos - self.pos)
         if (pos_change[0] == 0 or pos_change[1] == 0) or pos_change[0] == pos_change[1]:
             return True
@@ -519,9 +530,9 @@ class Queen(Piece):
         pos_change = pos - self.pos
 
         if pos_change[0] == 0 or pos_change[1] == 0:
-            points = self.get_line_positions(pos_change)
+            points = self._get_line_positions(pos_change)
         else:
-            points = self.get_diagonal_positions(pos_change)
+            points = self._get_diagonal_positions(pos_change)
 
         for i in list(points):
             piece = self.board.board[i[1]][i[0]]
@@ -533,12 +544,34 @@ class Queen(Piece):
 
         return False
 
-    def get_line_positions(self, pos_change: PositionVector2D | tuple[int, int]) -> GeneratorType:
+    def _get_line_positions(self, pos_change: PositionVector2D | tuple[int, int]) -> GeneratorType:
+        """ a private method used to get the closest vertical/horizontal line positions towards the target
+
+        *Note: despite the similarity with the _get_diagonal_positions() function, here, the pos_change should
+         have either the x/y equal to 0 *
+
+        :param pos_change: the difference vector between the target point and the current position
+        :type pos_change: position.PositionVector2D
+
+        :return: generator object with the squares
+        :rtype: collections.abc.Generator[position.PositionVector2D]
+        """
         direction = pos_change.normalize()
         for i in range(0, max(abs(pos_change).position)+1):
             yield self.pos + direction * i
 
-    def get_diagonal_positions(self, pos_change: PositionVector2D | tuple[int, int]) -> GeneratorType:
+    def _get_diagonal_positions(self, pos_change: PositionVector2D | tuple[int, int]) -> GeneratorType:
+        """ a private method used to get the closest vertical/horizontal line positions towards the target
+
+        *Note: the point can be out of the reach, but the function will still yield a diagonal
+         that passes closes to the point *
+
+        :param pos_change: the difference vector between the target point and the current position
+        :type pos_change: position.PositionVector2D
+
+        :return: generator object with the squares
+        :rtype: collections.abc.Generator[position.PositionVector2D]
+        """
         direction = pos_change.normalize()
         if direction[0] == 0 or direction[1] == 0:
             direction = PositionVector2D((0, 0))
@@ -548,35 +581,33 @@ class Queen(Piece):
     def attacking_positions_towards_king(self, kings_pos: PositionVector2D | tuple[int, int]) -> GeneratorType:
         """ a method to ge the attacking line towards the king, stopping at the king
 
-                *Note: this is an optional method and is only modified in classes (Bishop, Rook, Queen)*
+        *Note: this is an optional method and is only modified in classes (Bishop, Rook, Queen)*
 
-                :param king_pos: the king position
-                :type king_pos: position.PositionVector2D
+        :param king_pos: the king position
+        :type king_pos: position.PositionVector2D
 
-                :return: generator object with the squares
-                :rtype: collections.abc.Generator[position.PositionVector2D]
-                """
-        # yields all the points that are towards the king
-        # in the case of the Queen, will yield 2 lines (vertical/horizontal and diagonal)
+        :return: generator object with the squares
+        :rtype: collections.abc.Generator[position.PositionVector2D]
+        """
         pos_change = kings_pos - self.pos
-        yield from self.get_diagonal_positions(pos_change)
+        yield from self._get_diagonal_positions(pos_change)
 
         if abs(pos_change[0]) > abs(pos_change[1]):
             pos_change = PositionVector2D((pos_change[0], 0))
         else:
             pos_change = PositionVector2D((0, pos_change[1]))
 
-        yield from self.get_line_positions(pos_change)
+        yield from self._get_line_positions(pos_change)
 
     def get_positions_attacking_around_king(self, king_pos) -> GeneratorType:
         """ finds and yields all the reachable squares around the king position
 
-                :param king_pos: the position of the king
-                :type king_pos: position.PositionVector2D
+        :param king_pos: the position of the king
+        :type king_pos: position.PositionVector2D
 
-                :return: generator object with the squares
-                :rtype: collections.abc.Generator[position.PositionVector2D]
-                """
+        :return: generator object with the squares
+        :rtype: collections.abc.Generator[position.PositionVector2D]
+        """
         for point in self.attacking_positions_towards_king(king_pos):
             pos_change = king_pos - point
             if pos_change[0] in (-1, 0, 1) and pos_change[1] in (-1, 0, 1):
@@ -597,7 +628,7 @@ class Queen(Piece):
         yield None # control yield
 
         for i in ((self.pos[0], 0), (self.pos[0], 7), (0, self.pos[1]), (7, self.pos[1])):
-            for j in self.get_line_positions(self.pos * -1 + i):
+            for j in self._get_line_positions(self.pos * -1 + i):
                 if not (0 <= j[0] <= 7 and 0 <= j[1] <= 7):
                     break
                 elif j == self.pos:
@@ -610,7 +641,7 @@ class Queen(Piece):
                 yield uci_encoder(self.pos, j, None)
 
         for i in ((7, 0), (0, 7), (0, 0), (7, 7)):
-            for j in self.get_diagonal_positions(self.pos * -1 + i):
+            for j in self._get_diagonal_positions(self.pos * -1 + i):
                 if not (0 <= j[0] <= 7 and 0 <= j[1] <= 7):
                     break
                 elif j == self.pos:
@@ -714,20 +745,31 @@ class King(Piece):
         can_castle = self.board.castling_rights[self.color]
 
         if not self.board.check:
-            if can_castle[0] and self.can_castle(-1)[0]:
+            if can_castle[0] and self._can_castle(-1):
                 yield uci_encoder(self.pos, PositionVector2D((2, self.pos[1])), None)
-            if can_castle[1] and self.can_castle(1)[0]:
+            if can_castle[1] and self._can_castle(1):
                 yield uci_encoder(self.pos, PositionVector2D((6, self.pos[1])), None)
 
-    def can_castle(self, side: -1 | 1) -> tuple[bool, str | None]:  # king | queen side
+    def _can_castle(self, side: -1 | 1) -> bool:  # king | queen side
+        """ a private method that determines whether the king can castle to a particular side
+
+        *Note: the side is the x sign value of the difference between the position after castling
+         and the kings current position *
+
+        :param side: the side the king castles
+        :type side: int
+
+        :return: if there are any pieces blocking the way or attacking the way
+        :rtype: bool
+        """
         pos_1 = self.pos + PositionVector2D((1, 0)) * side
         pos_2 = self.pos + PositionVector2D((2, 0)) * side
         if isinstance(self.board.board[pos_1[1]][pos_1[0]], Piece) or isinstance(self.board.board[pos_2[1]][pos_2[0]], Piece):
-            return False, "piece is blocking the way"
+            return False
         if self.board.check_if_pos_attacked(pos_1, self.color)[0] is True or self.board.check_if_pos_attacked(pos_2, self.color)[0] is True:
-            return False, "the way is attacked"
+            return False
 
-        return True, None
+        return True
 
 
 
@@ -761,6 +803,8 @@ class Pawn(Piece):
     def reach_check(self, pos: PositionVector2D | tuple[int, int]) -> bool:
         """ Checks if the position is reachable by the piece and it's move logic
 
+        *Note: the function is split in 3 sections, checking capture, en passant and normal movement separately
+
         :param pos: target position
         :type pos: posiiton.PositionVector2D
 
@@ -793,7 +837,6 @@ class Pawn(Piece):
     def blocking_check(self, pos) -> bool:
         """ Checks if the path to the position is blocked by another piece
 
-        #TODO: should we check if there is a piece in front of it?
 
         :param pos: target position
         :type pos: position.PositionVector2D
@@ -801,17 +844,20 @@ class Pawn(Piece):
         :return: False
         :rtype: bool
         """
+        piece = self.board.board[pos[1]][pos[0]]
+        if isinstance(piece, Piece):
+            return True
         return False
 
     def get_positions_attacking_around_king(self, king_pos) -> GeneratorType:
         """ finds and yields all the reachable squares around the king position
 
-                :param king_pos: the position of the king
-                :type king_pos: position.PositionVector2D
+        :param king_pos: the position of the king
+        :type king_pos: position.PositionVector2D
 
-                :return: generator object with the squares
-                :rtype: collections.abc.Generator[position.PositionVector2D]
-                """
+        :return: generator object with the squares
+        :rtype: collections.abc.Generator[position.PositionVector2D]
+        """
         for i in (-1, 1):
             attack_pos = self.pos + (i, self.moving_direction)
             pos_change = king_pos - attack_pos
