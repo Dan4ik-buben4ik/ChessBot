@@ -1,8 +1,8 @@
 from pieces import Piece, Pawn, King, Rook, Bishop, Queen, Knight
 from position import PositionVector2D
+from util import TurnColor
 
 
-# TODO: update the board parameters names
 def board_to_FEN(board) -> str:  # board of class loader.Board
     """ a function to translate a chess position from the board class object into FEN string (Forsyth-Edwards Notation)
 
@@ -42,20 +42,20 @@ def board_to_FEN(board) -> str:  # board of class loader.Board
         fen += "/"
     fen = fen[:-1]
 
-    if board.turn == "white":
+    if board.turn == TurnColor.WHITE:
         fen += " w"
     else:
         fen += " b"
 
     # Castling (sections 2 and 3)
     possible_castles = ""
-    if board.castling_rights["white"][1]:
+    if board.castling_rights[TurnColor.WHITE][1]:
         possible_castles += "K"
-    if board.castling_rights["white"][0]:
+    if board.castling_rights[TurnColor.WHITE][0]:
         possible_castles += "Q"
-    if board.castling_rights["black"][1]:
+    if board.castling_rights[TurnColor.BLACK][1]:
         possible_castles += "k"
-    if board.castling_rights["black"][0]:
+    if board.castling_rights[TurnColor.BLACK][0]:
         possible_castles += "q"
 
     fen += f" {possible_castles if possible_castles else '-'}"
@@ -84,7 +84,6 @@ def FEN_to_board(fen: str, board):
     """
     board.board = []
 
-
     sections = fen.split(" ")
 
     # position (section 1)
@@ -96,7 +95,7 @@ def FEN_to_board(fen: str, board):
                 temp.extend([0] * int(i))
                 x += int(i)
             else:
-                piece_colour = "white" if i.isupper() else "black"
+                piece_colour = TurnColor.WHITE if i.isupper() else TurnColor.BLACK
 
                 if i.lower() == "p":
                     temp.append(Pawn(board, piece_colour, (x, y)))
@@ -119,23 +118,23 @@ def FEN_to_board(fen: str, board):
 
     # colour
     if sections[1] == "w":
-        board.turn = "white"
+        board.turn = TurnColor.WHITE
     if sections[1] == "b":
-        board.turn = "black"
+        board.turn = TurnColor.BLACK
 
     # castling
     castles = sections[2]
     if castles == "-":
-        board.castling_rights["white"] = [False, False]
-        board.castling_rights["black"] = [False, False]
+        board.castling_rights[TurnColor.WHITE] = [False, False]
+        board.castling_rights[TurnColor.BLACK] = [False, False]
     if "K" in castles:
-        board.castling_rights["white"][1] = True
+        board.castling_rights[TurnColor.WHITE][1] = True
     if "Q" in castles:
-        board.castling_rights["white"][0] = True
+        board.castling_rights[TurnColor.WHITE][0] = True
     if "k" in castles:
-        board.castling_rights["black"][1] = True
+        board.castling_rights[TurnColor.BLACK][1] = True
     if "q" in castles:
-        board.castling_rights["black"][0] = True
+        board.castling_rights[TurnColor.BLACK][0] = True
 
     # en passant
     board.possible_en_passant = PositionVector2D(sections[3]) if sections[3] != "-" else None

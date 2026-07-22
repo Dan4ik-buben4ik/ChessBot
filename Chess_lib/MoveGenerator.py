@@ -29,7 +29,7 @@ class MoveGenerator:
                     possible_spaces_str = [attacking_piece_pos]
                 else:
                     # attacking pos method to find all the possible moves?
-                    possible_spaces_str = list(map(lambda y: y.cord, list(attacking_piece.attacking_positions_towards_king(king_pos))[:-1]))
+                    possible_spaces_str = list(map(lambda y: y.algebraic, list(attacking_piece.attacking_positions_towards_king(king_pos))[:-1]))
 
         for row in board.board:
             for piece in row:

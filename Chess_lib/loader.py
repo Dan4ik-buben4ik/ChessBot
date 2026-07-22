@@ -3,6 +3,7 @@ from Errors import UnrecognisableMove, PieceColorException, ImpossibleMoveExcept
 from position import PositionVector2D
 from fen_converter import FEN_to_board, board_to_FEN
 from Move import uci_to_san, san_to_uci, uci_encoder, uci_decoder
+from util import TurnColor
 
 from types import GeneratorType
 
@@ -68,40 +69,82 @@ from types import GeneratorType
 #      |-----|-----|-----|-----|-----|-----|-----|-----|
 
 class Board:
-    def __init__(self, *, fen: str, debug=False):
+    """ the main class that contains the board with the pieces and the game information
+
+    Attributes:
+
+    :ivar debug: adds debug mode that prints stuff into the console
+    :type debug: bool
+
+    :var board: a 8x8 array filled with either 0's (empty squares) or pieces.Piece instances
+    :type board: list[list[int | pieces.Piece]]
+
+    :var turn: the current player color
+    :type turn: util.TurnColor
+
+    :var kings: kings position in the board
+    :type kings: dict[str, pieces.Piece]
+
+    :var castling_rights: a dictionary that holds the castling rights for both sides
+    :type castling_rights: dict[str, [bool]]
+
+    :var possible_en_passant: the final position of the pawn after the en passant
+    :type possible_en_passant: position.PositionVector2D | None
+
+    :var half_moves: the number total moves for white + black
+    :type half_moves: int
+
+    :var full_moves: the number of moves white had made
+    :type full_moves: int
+
+    :ivar hasher: the Zobrist hasher for the board, holding the 64bit data for the board hash
+    :type hasher: hashing.ZobristHasher
+
+    :var hash: the 64bit hash value for the board
+    :type hash: int
+
+    :var repetition_table: table with the hashes of the positions and the number of times it had appeared
+    :type repetition_table: dict[int, int]
+
+
+    """
+    def __init__(self, fen: str, hasher, *, debug=False):
+        """ Initializes the class instance
+
+
+        :param fen:
+        :param hasher:
+        :param debug:
+        """
         self.debug = debug
 
         self.board = [[0 for _ in range(8)] for _ in range(8)]
 
         # establishes whose move it is currently
-        self.turn = "white"  # "white"
+        self.turn = TurnColor.WHITE
 
         # stores king's position (useful for checks)
         # collapse in 1 dict?
-        self.kings = {}
-        self.castling_rights = {"white": [False, False], "black": [False, False]}  # king, queen side
-
-        # check
-        self.check = False
-        self.positions_that_attack_king = []
+        self.kings = {}  #TODO: check if gets updated
+        self.castling_rights = {TurnColor.WHITE: [False, False], TurnColor.BLACK: [False, False]}  # king, queen side
 
         self.possible_en_passant: PositionVector2D | None = None
 
-        self.possible_moves = []
         self.half_moves = 0
         self.full_moves = 1
 
-        # this is the list of all positions sins last pawn movement/capture. Used for the triple-repetition-draw check
-        self.repetition_table = {fen[:-4]: 1}
-
         FEN_to_board(fen, self)
+
+        # this is the list of all positions sins last pawn movement/capture. Used for the triple-repetition-draw check
+        self.hasher = hasher
+        self.hash = hasher.hash(self)
+        self.repetition_table = {self.hash: 1}
 
     # ===========================================================================================================================
     # ===========================================================================================================================
     # ===========================================================================================================================
 
     def move(self, uci_move_txt: str) -> None:  # maybe get the init_pos and new_pos as an input?
-        # TODO: castling and en passant
         # break down into smaller functions like check, castle
         san_move_txt = uci_to_san(self, uci_move_txt)  # removes the en_passant pawn
         if self.debug:
@@ -113,16 +156,26 @@ class Board:
         piece = self.board[init_pos[1]][init_pos[0]]
 
 
-        # we get rid of the en passant right before the next move
-        self.update_game_state()
 
         # updates the position of the piece
         self.push(uci_move_txt)
 
+        self.update_game_state()  # should be before or after push?
         self.update_castling_rights(piece, init_pos)
         self.update_en_passant(piece, init_pos, new_pos)
         self.update_move_clock(piece, san_move_txt)
         self.switch_turn()
+
+        # print(board_to_FEN(self))
+        # target = self.hasher.hash(self)
+        # print(f"target {target}")
+        #
+        # print(self.hash)
+        # diff = self.hash ^ target
+        # print(diff)
+        # self.hasher.debug_values(diff)
+
+        assert self.hash == self.hasher.hash(self)
 
     def _is_castle(self, piece, init_pos, new_pos):
         if piece.name == "King" and abs(new_pos-init_pos)[0] == 2:
@@ -147,6 +200,7 @@ class Board:
         piece = self.board[init_pos[1]][init_pos[0]]
 
         self.board[piece.pos[1]][piece.pos[0]] = 0  # makes the old square empty
+        self.hash ^= self.hasher[piece]
 
         if promotion:
             if promotion == "Q":
@@ -158,12 +212,10 @@ class Board:
             elif promotion == "B":
                 piece = Bishop(self, piece.color, new_pos)
 
-            self.board[new_pos[1]][new_pos[0]] = piece
 
             if self.debug:
                 print(f"promoting to {piece.name} on {piece.pos.algebraic}")
 
-        # TODO: finish the push function
         elif self._is_castle(piece, init_pos, new_pos):
             #TODO: rewrite to suit the Move class
             direction = PositionVector2D.sign((new_pos - init_pos)[0])
@@ -173,13 +225,24 @@ class Board:
             self.push(rook_move)
 
         elif self._is_en_passant(piece, init_pos, new_pos):
-            self.board[new_pos[1] - piece.moving_direction][new_pos[0]] = 0
+            captured_pos = new_pos - (0, piece.moving_direction)
+            captured_piece = self.board[captured_pos[1]][captured_pos[0]]
 
+            self.board[captured_pos[1]][captured_pos[0]] = 0
+            self.hash ^= self.hasher[captured_piece]
+
+        # checks if the new space is occupied and performs a needed hash operations
+        captured_piece = self.board[new_pos[1]][new_pos[0]]
+        if captured_piece != 0:
+            self.hash ^= self.hasher[captured_piece]
+
+        # update the table and its hash
         piece.pos = new_pos
         self.board[new_pos[1]][new_pos[0]] = piece
+        self.hash ^= self.hasher[piece]
 
         if self.debug:
-            print(f"Moved {piece.name} on {piece.pos.algebraic} to {new_pos.algebraic}")
+            print(f"Moved {piece.name} from {init_pos.algebraic} to {new_pos.algebraic}")
 
     # ===========================================================================================================================
     # ===========================================================================================================================
@@ -187,21 +250,29 @@ class Board:
 
     def update_castling_rights(self, piece, old_pos) -> None:
         if isinstance(piece, King):
-            self.castling_rights[self.turn] = [False, False]
+            if self.castling_rights[self.turn] != [False, False]:
+                self.castling_rights[self.turn] = [False, False]
+                self.hash ^= self.hasher.castling_rights[self.turn][0]
+                self.hash ^= self.hasher.castling_rights[self.turn][1]
 
         elif isinstance(piece, Rook):
             if old_pos.algebraic[0] == "a" and self.castling_rights[self.turn][0] is True:
                 self.castling_rights[self.turn][0] = False
+                self.hash ^= self.hasher.castling_rights[self.turn][0]
             elif old_pos.algebraic[0] == "h" and self.castling_rights[self.turn][1] is True:
                 self.castling_rights[self.turn][1] = False
+                self.hash ^= self.hasher.castling_rights[self.turn][1]
 
         if self.check_if_king_attacked(self.turn)[0] is True:
-            opponent_color = "white" if self.turn == "black" else "black"
+            opponent_color = self.turn.next()
             if self.castling_rights[opponent_color] != [False, False]:
                 self.castling_rights[opponent_color] = [False, False]
+                self.hash ^= self.hasher.castling_rights[opponent_color][0]
+                self.hash ^= self.hasher.castling_rights[opponent_color][1]
 
     def update_en_passant(self, piece, old_pos, new_pos) -> None:
         if self.possible_en_passant:
+            self.hash ^= self.hasher.en_passant[self.possible_en_passant.algebraic[0]]
             self.possible_en_passant = None
 
         if not isinstance(piece, Pawn):
@@ -209,6 +280,7 @@ class Board:
 
         if (new_pos - old_pos)[1] == piece.moving_direction * 2:
             self.possible_en_passant = old_pos + (0, piece.moving_direction)
+            self.hash ^= self.hasher.en_passant[self.possible_en_passant.algebraic[0]]
 
     def update_move_clock(self, piece, san_move_txt):
         # TODO: get rid of the move txt. Shouldn't be
@@ -216,22 +288,19 @@ class Board:
         if isinstance(piece, Pawn) or "x" in san_move_txt:
             self.half_moves = 0
 
-        if self.turn == "black":
+        if self.turn == TurnColor.BLACK:
             self.full_moves += 1
 
     def switch_turn(self):
         # changes the current player, aka the turn
-        if self.turn == "white":
-            self.turn = "black"
-        else:
-            self.turn = "white"
+        self.hash ^= self.hasher.black_turn
+        self.turn = self.turn.next()
 
     def update_game_state(self):
-        fen_short = board_to_FEN(self)[:-4]
-        if self.repetition_table.get(fen_short):
-            self.repetition_table[fen_short] += 1
+        if self.repetition_table.get(self.hash):
+            self.repetition_table[self.hash] += 1
         else:
-            self.repetition_table[fen_short] = 1
+            self.repetition_table[self.hash] = 1
 
     def check_if_king_attacked(self, color):
         king = self.kings[color]
@@ -239,7 +308,7 @@ class Board:
         self.positions_that_attack_king = positions_that_attack_king
         return res, positions_that_attack_king
 
-    def check_if_pos_attacked(self, pos: PositionVector2D | tuple[int, int], turn_color: str) -> tuple[bool, list]:
+    def check_if_pos_attacked(self, pos: PositionVector2D | tuple[int, int], turn_color: TurnColor) -> tuple[bool, list]:
         directions_list = [(0, 1), (1, 1), (1, 0), (1, -1), (0, -1), (-1, -1), (-1, 0), (-1, 1)]
         directions_list = list(map(lambda x: PositionVector2D(x), directions_list))
         direction_del = []
@@ -268,11 +337,11 @@ class Board:
                     direction_del.append(direction)
 
                 else:
-                    if isinstance(piece, (Rook, Queen)) and sum(abs(direction)) == 1:
+                    if isinstance(piece, (Rook, Queen)) and sum(abs(direction).position) == 1:
                         pos_that_attack.append(piece_pos)
                         # return True, f"{piece.name} is attacking the position"
 
-                    elif isinstance(piece, (Bishop, Queen)) and sum(abs(direction)) == 2:
+                    elif isinstance(piece, (Bishop, Queen)) and sum(abs(direction).position) == 2:
                         pos_that_attack.append(piece_pos)
                         # return True, f"{piece.name} is attacking the position"
 
@@ -292,7 +361,7 @@ class Board:
 
         return True if len(pos_that_attack) > 0 else False, pos_that_attack
 
-    def _knights_attacking_pos(self, pos: PositionVector2D, turn_color: str) -> GeneratorType:
+    def _knights_attacking_pos(self, pos: PositionVector2D, turn_color: TurnColor) -> GeneratorType:
         knight_directions = [(1, 2), (1, -2), (-1, 2), (-1, -2), (2, 1), (-2, 1), (-2, -1), (2, -1)]
 
         for i in knight_directions:
@@ -314,15 +383,15 @@ class Board:
         # returns: game_finished (True if yes and False if not), winner (str of the player or None if draw)
         if not len(list(move_generator.get_all_possible_moves(self))) == 0:
             # check if triple move draw or 50 move draw
-            if self.repetition_table.get(board_to_FEN(self)[:-4]):
-                if self.repetition_table.get(board_to_FEN(self)[:-4]) >= 3:
+            if self.repetition_table.get(self.hash):
+                if self.repetition_table.get(self.hash) >= 3:
                     return True, None
             elif self.half_moves >= 100:
                 return True, None
             else:
                 return False, None
 
-        opponent_color = "white" if self.turn == "black" else "black"
+        opponent_color = self.turn.next()
         if self.check_if_king_attacked(opponent_color)[0]:
             return True, opponent_color
         else:

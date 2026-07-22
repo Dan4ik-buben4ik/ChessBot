@@ -7,7 +7,6 @@ class PositionVector2D:
     :type _position: tuple[int, int]
     """
 
-    # TODO: change the variables of pos and cord in the other files
     def __init__(self, val: str | tuple[int, int]):
         """ An initialization of the class instance """
         self._position: tuple[int, int]
@@ -68,22 +67,19 @@ class PositionVector2D:
         elif isinstance(other, tuple):
             return PositionVector2D((self._position[0] + other[0], self._position[1] + other[1]))
 
-    def __mul__(self, other: PositionVector2D | tuple[int, int] | int):
-        #TODO: do we need the cross product?
-        """ finds the cross product of 2 vectors or performs an enlargement by a scale factor
+    def __mul__(self, other: int):
+        """ performs an enlargement by a scale factor
 
         Enables subtraction operation (PositionVector2D * PositionVector2D) or (PositionVector2D * int)
 
-        :param other: the vector added
-        :type other: PositionVector2D | tuple[int, int]
+        :param other: the scale factor
+        :type other: int
 
-        :return: sum of the 2 vectors
+        :return: the enlarged vector
         :rtype: PositionVector2D
         """
-        if isinstance(other, int | float):
+        if isinstance(other, int):
             return PositionVector2D((self._position[0] * other, self._position[1] * other))
-        elif isinstance(other, PositionVector2D | tuple):
-            return PositionVector2D((self._position[0] * other[0], self._position[1] * other[1]))
 
     def __eq__(self, other):
         """ performs a comparison between 2 vectors

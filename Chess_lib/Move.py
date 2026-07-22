@@ -12,8 +12,8 @@ def find_san_pieces(board, symbol: str, new_pos: PositionVector2D) -> list:
                 continue
             elif piece.color != board.turn:
                 continue
-            if piece.reach_check(new_pos)[0]:
-                if not piece.blocking_check(new_pos)[0]:
+            if piece.reach_check(new_pos):
+                if not piece.blocking_check(new_pos):
                     result_pieces.append(piece)
     return result_pieces
 
@@ -33,7 +33,7 @@ def uci_to_san(board, move: str) -> str:
     # check if it is en passant
     if len(possible_pieces) == 1 and piece.name == "Pawn" and abs(pos_change[0]) == 1 and pos_change[
         1] == piece.moving_direction:
-        return f"{init_pos.cord[0]}x{new_pos.cord}"
+        return f"{init_pos.algebraic[0]}x{new_pos.algebraic}"
 
     # check if its castling
     if piece.name == "King" and abs(pos_change[0]) == 2:
@@ -46,19 +46,19 @@ def uci_to_san(board, move: str) -> str:
     for cord in possible_pieces:
         if cord.pos == init_pos:
             continue
-        possible_prefix.extend((cord.pos.cord[0], cord.pos.cord[1]))
+        possible_prefix.extend((cord.pos.algebraic[0], cord.pos.algebraic[1]))
 
     prefix = ""
-    if init_pos.cord[1] in possible_prefix:
-        prefix = prefix + init_pos.cord[0]
-    if init_pos.cord[0] in possible_prefix:
-        prefix = prefix + init_pos.cord[1]
+    if init_pos.algebraic[1] in possible_prefix:
+        prefix = prefix + init_pos.algebraic[0]
+    if init_pos.algebraic[0] in possible_prefix:
+        prefix = prefix + init_pos.algebraic[1]
 
     # check for captures
     if board.board[new_pos[1]][new_pos[0]] != 0:
         prefix = prefix + "x"
 
-    return f"{piece.sym.capitalize() if not piece.name == 'Pawn' else ''}{prefix}{new_pos.cord}{promotion if promotion else ''}"
+    return f"{piece.sym.capitalize() if not piece.name == 'Pawn' else ''}{prefix}{new_pos.algebraic}{promotion if promotion else ''}"
 
 
 def san_to_uci(board, move: str) -> str:
@@ -87,11 +87,11 @@ def san_to_uci(board, move: str) -> str:
     possible_pieces = find_san_pieces(board, piece_sym, new_pos)
 
     if len(possible_pieces) == 1:
-        return f"{possible_pieces[0].pos.cord}{new_pos.cord}{promotion if promotion else ''}"
+        return f"{possible_pieces[0].pos.cord}{new_pos.algebraic}{promotion if promotion else ''}"
 
     # finding prefix
     if len(move) == 5:
-        return f"{move[1:3]}{new_pos.cord}{promotion if promotion else ''}"
+        return f"{move[1:3]}{new_pos.algebraic}{promotion if promotion else ''}"
     elif len(move) == 4:
         prefix = move[1]
     else:
@@ -101,7 +101,7 @@ def san_to_uci(board, move: str) -> str:
         if prefix in piece.pos.cord:
             init_pos = piece.pos
 
-    return f"{init_pos.cord}{new_pos.cord}{promotion if promotion else ''}"
+    return f"{init_pos.algebraic}{new_pos.algebraic}{promotion if promotion else ''}"
 
 
 def uci_decoder(uci_move: str):
@@ -117,12 +117,16 @@ def uci_decoder(uci_move: str):
 
 
 def uci_encoder(init_pos: PositionVector2D, new_pos: PositionVector2D, promotion=None) -> str:
-    return "".join((init_pos.cord, new_pos.cord, promotion.lower() if promotion else ""))
+    return "".join((init_pos.algebraic, new_pos.algebraic, promotion.lower() if promotion else ""))
+
 
 # TODO: A move class that has properties like promotion, en_passant and castling
 class Move:
-    def __init__(self, uci_move_txt):
-        self.init_pos, self.new_pos, self._promotion = uci_decoder(uci_move_txt)
+    def __init__(self, init_pos, new_pos, promotion):
+        self.init_pos = init_pos
+        self.new_pos = new_pos
+        self._promotion = promotion
+        self.move_type
 
     @property
     def is_capture(self):
@@ -134,7 +138,9 @@ class Move:
 
     @property
     def is_en_passant(self):
-        return
+        if self.piece.name == "Pawn" and abs(self.new_pos - self.init_pos)[0] == 1 and self.new_pos == self.board.possible_en_passant:
+            return True
+        return False
 
     @property
     def promotion(self):
@@ -142,6 +148,14 @@ class Move:
             return self._promotion
         return False
 
+    @staticmethod
+    def from_uci(board, uci_move_txt):
+        init_pos, new_pos, promotion = uci_decoder(uci_move_txt)
+        return Move(board, init_pos, new_pos, promotion)
+
+    # @staticmethod
+    # def from_san(san_move_txt):
+    #     init_pos, new_pos, promotion = uci_decoder(uci_move_txt)
 
 
 
