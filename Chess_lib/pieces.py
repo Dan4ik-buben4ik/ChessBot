@@ -1,6 +1,7 @@
 from Errors import JustError
 from position import PositionVector2D
 from Move import uci_decoder, uci_encoder
+from util import TurnColor
 
 from types import GeneratorType
 
@@ -20,13 +21,16 @@ class Piece:
     :ivar debug: enables cmd state outputs
     :type debug: bool
 
-    :cvar name: the name of the piece (allways titled)
+    :ivar color: the piece's color
+    :type color: utils.TurnColor
+
+    :var name: the name of the piece (allways titled)
     :type name: str
 
-    :cvar sym: symbol of the piece (upper if white, lower if black)
+    :var sym: symbol of the piece (upper if white, lower if black)
     :type sym: str
     """
-    def __init__(self, board, color: str, pos: tuple[int, int], *, debug=False):
+    def __init__(self, board, color: TurnColor, pos: tuple[int, int], *, debug=False):
         """ Initializes the basic class instance variables """
         if isinstance(pos, PositionVector2D):
             self.pos = pos
@@ -34,10 +38,10 @@ class Piece:
             self.pos = PositionVector2D(pos)
 
         self.board = board
-        self.name: str
-        self.sym: str
+        self.name: str = ""
+        self.sym: str = ""
 
-        self.color = color if color in ("white", "black") else None
+        self.color = color
 
         self.debug = debug
 
@@ -122,11 +126,11 @@ class Knight(Piece):
     :cvar sym: symbol of the piece (upper if white, lower if black)
     :type sym: str
     """
-    def __init__(self, board, color: str, pos: tuple[int, int], *, debug=False):
+    def __init__(self, board, color: TurnColor, pos: tuple[int, int], *, debug=False):
         """ Initializes the basic class instance variables """
         super(Knight, self).__init__(board, color, pos, debug=debug)
         self.name = "Knight"
-        self.sym = "N" if color == "white" else "n"
+        self.sym = "N" if color == TurnColor.WHITE else "n"
 
     def reach_check(self, pos: PositionVector2D | tuple[int, int]) -> bool:
         """ Checks if the position is reachable by the Knight
@@ -225,11 +229,11 @@ class Rook(Piece):
     :cvar sym: symbol of the piece (upper if white, lower if black)
     :type sym: str
     """
-    def __init__(self, board, color: str, pos: tuple[int, int], *, debug=False):
+    def __init__(self, board, color: TurnColor, pos: tuple[int, int], *, debug=False):
         """ Initializes the basic class instance variables """
         super(Rook, self).__init__(board, color, pos, debug=debug)
         self.name = "Rook"
-        self.sym = "R" if color == "white" else "r"
+        self.sym = "R" if color == TurnColor.WHITE else "r"
 
     def reach_check(self, pos: PositionVector2D | tuple[int, int]) -> bool:
         """ Checks if the position is reachable by the piece and it's move logic
@@ -357,17 +361,17 @@ class Bishop(Piece):
     :ivar debug: enables cmd state outputs
     :type debug: bool
 
-    :cvar name: the name of the piece (allways titled)
+    :var name: the name of the piece (allways titled)
     :type name: str
 
-    :cvar sym: symbol of the piece (upper if white, lower if black)
+    :var sym: symbol of the piece (upper if white, lower if black)
     :type sym: str
     """
-    def __init__(self, board, color: str, pos: tuple[int, int], *, debug=False):
+    def __init__(self, board, color: TurnColor, pos: tuple[int, int], *, debug=False):
         """ Initializes the basic class instance variables """
         super(Bishop, self).__init__(board, color, pos, debug=debug)
         self.name = "Bishop"
-        self.sym = "B" if color == "white" else "b"
+        self.sym = "B" if color == TurnColor.WHITE else "b"
 
     def reach_check(self, pos: PositionVector2D | tuple[int, int]) -> bool:
         """ Checks if the position is reachable by the piece and it's move logic
@@ -491,17 +495,17 @@ class Queen(Piece):
     :ivar debug: enables cmd state outputs
     :type debug: bool
 
-    :cvar name: the name of the piece (allways titled)
+    :var name: the name of the piece (allways titled)
     :type name: str
 
-    :cvar sym: symbol of the piece (upper if white, lower if black)
+    :var sym: symbol of the piece (upper if white, lower if black)
     :type sym: str
     """
-    def __init__(self, board, color: str, pos: tuple[int, int], *, debug=False):
+    def __init__(self, board, color: TurnColor, pos: tuple[int, int], *, debug=False):
         """ Initializes the basic class instance variables """
         super(Queen, self).__init__(board, color, pos, debug=debug)
         self.name = "Queen"
-        self.sym = "Q" if color == "white" else "q"
+        self.sym = "Q" if color == TurnColor.WHITE else "q"
 
     def reach_check(self, pos: PositionVector2D | tuple[int, int]) -> bool:
         """ Checks if the position is reachable by the piece and it's move logic
@@ -666,17 +670,17 @@ class King(Piece):
     :ivar debug: enables cmd state outputs
     :type debug: bool
 
-    :cvar name: the name of the piece (allways titled)
+    :var name: the name of the piece (allways titled)
     :type name: str
 
-    :cvar sym: symbol of the piece (upper if white, lower if black)
+    :var sym: symbol of the piece (upper if white, lower if black)
     :type sym: str
     """
-    def __init__(self, board, color: str, pos: tuple[int, int], *, debug=False):
+    def __init__(self, board, color: TurnColor, pos: tuple[int, int], *, debug=False):
         """ Initializes the basic class instance variables """
         super(King, self).__init__(board, color, pos, debug=debug)
         self.name = "King"
-        self.sym = "K" if color == "white" else "k"
+        self.sym = "K" if color == TurnColor.WHITE else "k"
 
     def reach_check(self, pos: PositionVector2D | tuple[int, int]) -> bool:
         """ Checks if the position is reachable by the piece and it's move logic
@@ -744,7 +748,7 @@ class King(Piece):
 
         can_castle = self.board.castling_rights[self.color]
 
-        if not self.board.check:
+        if not self.board.check_if_king_attacked(self.color):
             if can_castle[0] and self._can_castle(-1):
                 yield uci_encoder(self.pos, PositionVector2D((2, self.pos[1])), None)
             if can_castle[1] and self._can_castle(1):
@@ -786,19 +790,19 @@ class Pawn(Piece):
     :ivar debug: enables cmd state outputs
     :type debug: bool
 
-    :cvar name: the name of the piece (allways titled)
+    :var name: the name of the piece (allways titled)
     :type name: str
 
-    :cvar sym: symbol of the piece (upper if white, lower if black)
+    :var sym: symbol of the piece (upper if white, lower if black)
     :type sym: str
     """
-    def __init__(self, board, color: str, pos: tuple[int, int], *, debug=False):
+    def __init__(self, board, color: TurnColor, pos: tuple[int, int], *, debug=False):
         """ Initializes the basic class instance variables """
         super(Pawn, self).__init__(board, color, pos, debug=debug)
         self.name = "Pawn"
-        self.sym = "P" if color == "white" else "p"
+        self.sym = "P" if color == TurnColor.WHITE else "p"
 
-        self.moving_direction = -1 if color == "white" else 1
+        self.moving_direction = -1 if color == TurnColor.WHITE else 1
 
     def reach_check(self, pos: PositionVector2D | tuple[int, int]) -> bool:
         """ Checks if the position is reachable by the piece and it's move logic
@@ -889,7 +893,7 @@ class Pawn(Piece):
         # double move forward
         square_1 = self.board.board[self.pos[1]+2*self.moving_direction][self.pos[0]]
         square_2 = self.board.board[self.pos[1] + self.moving_direction][self.pos[0]]
-        starting_pos_check = (self.pos[1] == 6 if self.color == "white" else self.pos[1] == 1)
+        starting_pos_check = (self.pos[1] == 6 if self.color == TurnColor.WHITE else self.pos[1] == 1)
 
         if square_1 == 0 and square_2 == 0 and starting_pos_check:
             new_pos = PositionVector2D((self.pos[0], self.pos[1] + 2 * self.moving_direction))

@@ -1,6 +1,6 @@
 import random
 import loader
-
+from util import TurnColor
 
 class ZobristHasher:
     """ A hashing class designed to use Zobrist hashing
@@ -26,7 +26,7 @@ class ZobristHasher:
     :type black_turn: int
 
     :var castling_rights: a dictionary that mimics the board attribute castling_rights, holding the bool values for possible castling
-    :type castling_rights: dict[str, list[int]]
+    :type castling_rights: dict[util.TurnColor, list[int]]
 
     :var en_passant: holds the en passant values for the columns (aka. a->h)
     :type en_passant: dict[str, int]
@@ -36,18 +36,18 @@ class ZobristHasher:
     rng = random.Random(0)
 
     pieces = {
-            "white_pawn": 0,
-            "white_knight": 1,
-            "white_bishop": 2,
-            "white_rook": 3,
-            "white_queen": 4,
-            "white_king": 5,
-            "black_pawn": 6,
-            "black_knight": 7,
-            "black_bishop": 8,
-            "black_rook": 9,
-            "black_queen": 10,
-            "black_king": 11,
+            "WHITE_Pawn": 0,
+            "WHITE_Knight": 1,
+            "WHITE_Bishop": 2,
+            "WHITE_Rook": 3,
+            "WHITE_Queen": 4,
+            "WHITE_King": 5,
+            "BLACK_Pawn": 6,
+            "BLACK_Knight": 7,
+            "BLACK_Bishop": 8,
+            "BLACK_Rook": 9,
+            "BLACK_Queen": 10,
+            "BLACK_King": 11,
 
         }
 
@@ -71,8 +71,8 @@ class ZobristHasher:
 
         self.black_turn = self.rng.getrandbits(64)
 
-        self.castling_rights["white"] = [self.rng.getrandbits(64), self.rng.getrandbits(64)]
-        self.castling_rights["black"] = [self.rng.getrandbits(64), self.rng.getrandbits(64)]
+        self.castling_rights[TurnColor.WHITE] = [self.rng.getrandbits(64), self.rng.getrandbits(64)]
+        self.castling_rights[TurnColor.BLACK] = [self.rng.getrandbits(64), self.rng.getrandbits(64)]
 
         for i in range(8):
             self.en_passant[chr(97 + i)] = self.rng.getrandbits(64)
@@ -93,38 +93,39 @@ class ZobristHasher:
         for row in board.board:
             for piece in row:
                 if piece != 0:
-                    i = self.pieces[f"{piece.color}_{piece.name.lower()}"]
+                    i = self.pieces[f"{piece.color.name}_{piece.name}"]
                     h ^= self.table[i][piece.pos[0] + piece.pos[1] * 8]
 
-        if board.castling_rights["white"][0]:
-            h ^= self.castling_rights["white"][0]
-        if board.castling_rights["white"][1]:
-            h ^= self.castling_rights["white"][1]
-        if board.castling_rights["black"][0]:
-            h ^= self.castling_rights["black"][0]
-        if board.castling_rights["black"][1]:
-            h ^= self.castling_rights["black"][1]
+        if board.castling_rights[TurnColor.WHITE][0]:
+            h ^= self.castling_rights[TurnColor.WHITE][0]
+        if board.castling_rights[TurnColor.WHITE][1]:
+            h ^= self.castling_rights[TurnColor.WHITE][1]
+        if board.castling_rights[TurnColor.BLACK][0]:
+            h ^= self.castling_rights[TurnColor.BLACK][0]
+        if board.castling_rights[TurnColor.BLACK][1]:
+            h ^= self.castling_rights[TurnColor.BLACK][1]
 
         if board.possible_en_passant:
             h ^= self.en_passant[board.possible_en_passant.algebraic[0]]
 
-        if board.turn == "black":
+        if board.turn == TurnColor.BLACK:
             h ^= self.black_turn
 
         return h
 
     def __getitem__(self, item): # keep like this or change?
+        #TODO make just the piece instance?
         """ gets the unique 64bit value from the table
 
-        :param item: should contain a pieces.Piece instance and a position.PositionVector2D instance
-        :type item: tuple[pieces.Piece, position.PositionVector2D]
+        :param item: should contain a pieces.Piece instance
+        :type item: pieces.Piece
 
         :return: the unique 64bit value
         :rtype: int
         """
-        piece, position = item
-        i = self.pieces[f"{piece.color}_{piece.name.lower()}"]
-        return self.table[i][position[0] + position[1] * 8]
+        piece = item
+        i = self.pieces[f"{piece.color.name}_{piece.name}"]
+        return self.table[i][piece.pos[0] + piece.pos[1] * 8]
 
     def debug_values(self, val):
         """ a debug method to view the table and compare a value in it

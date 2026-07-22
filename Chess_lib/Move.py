@@ -119,10 +119,14 @@ def uci_decoder(uci_move: str):
 def uci_encoder(init_pos: PositionVector2D, new_pos: PositionVector2D, promotion=None) -> str:
     return "".join((init_pos.algebraic, new_pos.algebraic, promotion.lower() if promotion else ""))
 
+
 # TODO: A move class that has properties like promotion, en_passant and castling
 class Move:
-    def __init__(self, uci_move_txt):
-        self.init_pos, self.new_pos, self._promotion = uci_decoder(uci_move_txt)
+    def __init__(self, init_pos, new_pos, promotion):
+        self.init_pos = init_pos
+        self.new_pos = new_pos
+        self._promotion = promotion
+        self.move_type
 
     @property
     def is_capture(self):
@@ -134,7 +138,9 @@ class Move:
 
     @property
     def is_en_passant(self):
-        return
+        if self.piece.name == "Pawn" and abs(self.new_pos - self.init_pos)[0] == 1 and self.new_pos == self.board.possible_en_passant:
+            return True
+        return False
 
     @property
     def promotion(self):
@@ -142,6 +148,14 @@ class Move:
             return self._promotion
         return False
 
+    @staticmethod
+    def from_uci(board, uci_move_txt):
+        init_pos, new_pos, promotion = uci_decoder(uci_move_txt)
+        return Move(board, init_pos, new_pos, promotion)
+
+    # @staticmethod
+    # def from_san(san_move_txt):
+    #     init_pos, new_pos, promotion = uci_decoder(uci_move_txt)
 
 
 
