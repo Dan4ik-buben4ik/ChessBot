@@ -1,5 +1,6 @@
 from position import PositionVector2D
 from Errors import JustError
+from util import TurnColor
 
 
 def find_san_pieces(board, symbol: str, new_pos: PositionVector2D) -> list:
@@ -124,38 +125,131 @@ def uci_encoder(init_pos: PositionVector2D, new_pos: PositionVector2D, promotion
 class Move:
     def __init__(self, init_pos, new_pos, promotion):
         self.init_pos = init_pos
-        self.new_pos = new_pos
+        self.final_pos = new_pos
         self._promotion = promotion
-        self.move_type
+        # self.move_type
 
-    @property
-    def is_capture(self):
-        return
-
-    @property
-    def is_castle(self):
-        return
-
-    @property
-    def is_en_passant(self):
-        if self.piece.name == "Pawn" and abs(self.new_pos - self.init_pos)[0] == 1 and self.new_pos == self.board.possible_en_passant:
-            return True
-        return False
-
+    # @property
+    # def is_capture(self):
+    #     return
+    #
+    # @property
+    # def is_castle(self):
+    #     return
+    #
+    # @property
+    # def is_en_passant(self):
+    #     if self.piece.name == "Pawn" and abs(self.final_pos - self.init_pos)[0] == 1 and self.final_pos == self.board.possible_en_passant:
+    #         return True
+    #     return False
+    #
     @property
     def promotion(self):
         if self._promotion:
             return self._promotion
         return False
 
-    @staticmethod
-    def from_uci(board, uci_move_txt):
-        init_pos, new_pos, promotion = uci_decoder(uci_move_txt)
-        return Move(board, init_pos, new_pos, promotion)
+    @classmethod
+    def from_uci(cls, uci_move_txt):
+        init_pos = PositionVector2D(uci_move_txt[:2])
+        final_pos = PositionVector2D(uci_move_txt[2:4])
 
-    # @staticmethod
-    # def from_san(san_move_txt):
-    #     init_pos, new_pos, promotion = uci_decoder(uci_move_txt)
+        if len(uci_move_txt) == 5:
+            promotion = uci_move_txt[4]
+        else:
+            promotion = None
+
+        return cls(init_pos, final_pos, promotion)
+
+    def to_uci(self):
+        #TODO: change the promotion everywhere to be lower() and change new_pos to final_pos
+        return "".join((self.init_pos.algebraic, self.final_pos.algebraic, self.promotion if self.promotion else ""))
+
+    @classmethod
+    def from_san(cls, board, san_move_txt):
+        if san_move_txt == "O-O":
+            uci = "e1g1" if board.player == TurnColor.WHITE else "e8g8"
+            init_pos = PositionVector2D(uci[:2])
+            final_pos = PositionVector2D(uci[2:4])
+            return cls(init_pos, final_pos, None)
+        elif san_move_txt == "O-O-O":
+            uci = "e1c1" if board.player == TurnColor.WHITE else "e8c8"
+            init_pos = PositionVector2D(uci[:2])
+            final_pos = PositionVector2D(uci[2:4])
+            return cls(init_pos, final_pos, None)
+
+        if san_move_txt[0] not in ("Q", "K", "R", "N", "B", "P"):
+            san_move_txt = "".join(("P", san_move_txt))
+
+        try:
+            san_move_txt, promotion = san_move_txt.split("=")
+            promotion = promotion.lower()
+        except ValueError:
+            promotion = None
+
+        try:
+            san_move_txt = "".join(san_move_txt.split("x"))
+        except ValueError:
+            pass
+
+        piece_sym = san_move_txt[0]
+        final_pos = PositionVector2D(san_move_txt[-2:])
+        possible_pieces = find_san_pieces(board, piece_sym, final_pos)
+
+        if len(possible_pieces) == 1:
+            return cls(possible_pieces[0].pos, final_pos, promotion)
+
+        # finding prefix
+        if len(san_move_txt) == 5:
+            prefix = san_move_txt[1:3]
+        elif len(san_move_txt) == 4:
+            prefix = san_move_txt[1]
+        else:
+            raise JustError
+
+        for piece in possible_pieces:
+            if prefix in piece.pos.cord:
+                init_pos = piece.pos
+
+        return cls(init_pos, final_pos, promotion)
+
+
+    def to_san(self, board):
+        """
+        IN docs write how it is a board dependant function, thus after the move is made, it cant be used
+        """
+
+
+        piece = board.board[self.init_pos[1]][self.init_pos[0]]
+        possible_pieces = find_san_pieces(board, piece.sym, self.final_pos)
+        pos_change = self.final_pos - self.init_pos
+        # check if it is en passant
+        if len(possible_pieces) == 1 and piece.name == "Pawn" and abs(pos_change[0]) == 1 and pos_change[1] == piece.moving_direction:
+            return f"{self.init_pos.algebraic[0]}x{self.final_pos.algebraic}"
+
+        # check if its castling
+        if piece.name == "King" and abs(pos_change[0]) == 2:
+            return "O-O" if pos_change[0] > 0 else "O-O-O"
+
+
+        possible_prefix = []
+        for cord in possible_pieces:
+            if cord.pos == self.init_pos:
+                continue
+            possible_prefix.extend((cord.pos.algebraic[0], cord.pos.algebraic[1]))
+
+        prefix = ""
+        if self.init_pos.algebraic[1] in possible_prefix:
+            prefix = prefix + self.init_pos.algebraic[0]
+        if self.init_pos.algebraic[0] in possible_prefix:
+            prefix = prefix + self.init_pos.algebraic[1]
+
+        # check for captures
+        if board.board[self.final_pos[1]][self.final_pos[0]] != 0:
+            prefix = prefix + "x"
+
+        return f"{piece.sym.capitalize() if not piece.name == 'Pawn' else ''}{prefix}{self.final_pos.algebraic}{self._promotion if self._promotion else ''}"
+
 
 
 

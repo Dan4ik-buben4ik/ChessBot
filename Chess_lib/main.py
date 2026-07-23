@@ -22,7 +22,7 @@ while True:
 
     move = input("Move Input (uci): ")
     if move in possible_moves:
-        board.move(move)
+        board.push(move)
         board.construct()
 
 

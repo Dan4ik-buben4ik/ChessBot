@@ -4,6 +4,7 @@ from position import PositionVector2D
 from fen_converter import FEN_to_board, board_to_FEN
 from Move import uci_to_san, san_to_uci, uci_encoder, uci_decoder
 from util import TurnColor
+from Move import Move
 
 from types import GeneratorType
 
@@ -125,7 +126,7 @@ class Board:
 
         # stores king's position (useful for checks)
         # collapse in 1 dict?
-        self.kings = {}  #TODO: check if gets updated
+        self.kings = {}
         self.castling_rights = {TurnColor.WHITE: [False, False], TurnColor.BLACK: [False, False]}  # king, queen side
 
         self.possible_en_passant: PositionVector2D | None = None
@@ -140,63 +141,25 @@ class Board:
         self.hash = hasher.hash(self)
         self.repetition_table = {self.hash: 1}
 
+        #TODO: add this to docs
+        self.history = []
+
     # ===========================================================================================================================
     # ===========================================================================================================================
     # ===========================================================================================================================
-
-    def move(self, uci_move_txt: str) -> None:  # maybe get the init_pos and new_pos as an input?
-        # break down into smaller functions like check, castle
-        san_move_txt = uci_to_san(self, uci_move_txt)  # removes the en_passant pawn
-        if self.debug:
-            print(f"san move: {san_move_txt}")
-
-        # getting the piece
-        init_pos, new_pos, promotion = uci_decoder(uci_move_txt)
-        # identifier that helps to see methods
-        piece = self.board[init_pos[1]][init_pos[0]]
-
-
-
-        # updates the position of the piece
-        self.push(uci_move_txt)
-
-        self.update_game_state()  # should be before or after push?
-        self.update_castling_rights(piece, init_pos)
-        self.update_en_passant(piece, init_pos, new_pos)
-        self.update_move_clock(piece, san_move_txt)
-        self.switch_turn()
-
-        # print(board_to_FEN(self))
-        # target = self.hasher.hash(self)
-        # print(f"target {target}")
-        #
-        # print(self.hash)
-        # diff = self.hash ^ target
-        # print(diff)
-        # self.hasher.debug_values(diff)
-
-        assert self.hash == self.hasher.hash(self)
-
-    def _is_castle(self, piece, init_pos, new_pos):
-        if piece.name == "King" and abs(new_pos-init_pos)[0] == 2:
-            return True
-        return False
-
-    def _is_en_passant(self, piece, init_pos, new_pos):
-        if piece.name == "Pawn" and abs(new_pos - init_pos)[0] == 1 and new_pos == self.possible_en_passant:
-            return True
-        return False
-
-
 
 
 # ===========================================================================================================================
 # ===========================================================================================================================
 # ===========================================================================================================================
     def push(self, uci_move_txt: str) -> None:  # TODO: make the input a move instance
-        # A function that updates the pieces position on the board
+
+        san_move_txt = uci_to_san(self, uci_move_txt)  # removes the en_passant pawn
+        if self.debug:
+            print(f"san move: {san_move_txt}")
+
         init_pos, new_pos, promotion = uci_decoder(uci_move_txt)
-        # work for the en passant pawn capture and the castling
+
         piece = self.board[init_pos[1]][init_pos[0]]
 
         self.board[piece.pos[1]][piece.pos[0]] = 0  # makes the old square empty
@@ -212,17 +175,21 @@ class Board:
             elif promotion == "B":
                 piece = Bishop(self, piece.color, new_pos)
 
-
             if self.debug:
                 print(f"promoting to {piece.name} on {piece.pos.algebraic}")
 
         elif self._is_castle(piece, init_pos, new_pos):
             #TODO: rewrite to suit the Move class
             direction = PositionVector2D.sign((new_pos - init_pos)[0])
-            rook_pos = PositionVector2D((0 if direction == -1 else 7, new_pos[1]))
+            rook = self.board[init_pos[1]][0 if direction == -1 else 7]
+            self.board[rook.pos[1]][rook.pos[0]] = 0  # makes the old square empty
+            self.hash ^= self.hasher[rook]
+
             new_rook_pos = init_pos + (direction, 0)
-            rook_move = f"{rook_pos.algebraic}{new_rook_pos.algebraic}"
-            self.push(rook_move)
+            rook.pos = new_rook_pos
+
+            self.board[new_rook_pos[1]][new_rook_pos[0]] = rook
+            self.hash ^= self.hasher[rook]
 
         elif self._is_en_passant(piece, init_pos, new_pos):
             captured_pos = new_pos - (0, piece.moving_direction)
@@ -244,9 +211,28 @@ class Board:
         if self.debug:
             print(f"Moved {piece.name} from {init_pos.algebraic} to {new_pos.algebraic}")
 
+        self.history.append(HistoryEntree(uci_move_txt, captured_piece, self.possible_en_passant, self.castling_rights, self.half_moves, self.full_moves))
+
+        # update the game state
+        self.update_game_state()  # should be before or after push?
+        self.update_castling_rights(piece, init_pos)
+        self.update_en_passant(piece, init_pos, new_pos)
+        self.update_move_clock(piece, san_move_txt)
+        self.switch_turn()
+
     # ===========================================================================================================================
     # ===========================================================================================================================
     # ===========================================================================================================================
+
+    def _is_castle(self, piece, init_pos, new_pos):
+        if piece.name == "King" and abs(new_pos-init_pos)[0] == 2:
+            return True
+        return False
+
+    def _is_en_passant(self, piece, init_pos, new_pos):
+        if piece.name == "Pawn" and abs(new_pos - init_pos)[0] == 1 and new_pos == self.possible_en_passant:
+            return True
+        return False
 
     def update_castling_rights(self, piece, old_pos) -> None:
         if isinstance(piece, King):
@@ -423,3 +409,11 @@ class Board:
         print(f"\nFEN: {board_to_FEN(self)}")
 
 
+class HistoryEntree:
+    def __init__(self, move, captured_piece: Piece, previous_en_passant: PositionVector2D, previous_castling_rights, previous_half_moves, previous_full_moves):
+        self.move = move
+        self.captured_piece = captured_piece
+        self.previous_en_passant = previous_en_passant
+        self.previous_castling_rights = previous_castling_rights
+        self.previous_half_moves = previous_half_moves
+        self.previous_full_moves = previous_full_moves

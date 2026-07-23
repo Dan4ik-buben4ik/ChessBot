@@ -114,7 +114,6 @@ class ZobristHasher:
         return h
 
     def __getitem__(self, item): # keep like this or change?
-        #TODO make just the piece instance?
         """ gets the unique 64bit value from the table
 
         :param item: should contain a pieces.Piece instance
