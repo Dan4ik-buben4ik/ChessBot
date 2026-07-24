@@ -149,10 +149,14 @@ class Move:
             return self._promotion
         return False
 
+    def __eq__(self, other):
+        if isinstance(other, Move):
+            return self.init_pos == other.init_pos and self.final_pos == other.final_pos and self.promotion == other.promotion
+
     @classmethod
     def from_uci(cls, uci_move_txt):
-        init_pos = PositionVector2D(uci_move_txt[:2])
-        final_pos = PositionVector2D(uci_move_txt[2:4])
+        init_pos = PositionVector2D.from_algebraic(uci_move_txt[:2])
+        final_pos = PositionVector2D.from_algebraic(uci_move_txt[2:4])
 
         if len(uci_move_txt) == 5:
             promotion = uci_move_txt[4]
@@ -169,13 +173,13 @@ class Move:
     def from_san(cls, board, san_move_txt):
         if san_move_txt == "O-O":
             uci = "e1g1" if board.player == TurnColor.WHITE else "e8g8"
-            init_pos = PositionVector2D(uci[:2])
-            final_pos = PositionVector2D(uci[2:4])
+            init_pos = PositionVector2D.from_algebraic(uci[:2])
+            final_pos = PositionVector2D.from_algebraic(uci[2:4])
             return cls(init_pos, final_pos, None)
         elif san_move_txt == "O-O-O":
             uci = "e1c1" if board.player == TurnColor.WHITE else "e8c8"
-            init_pos = PositionVector2D(uci[:2])
-            final_pos = PositionVector2D(uci[2:4])
+            init_pos = PositionVector2D.from_algebraic(uci[:2])
+            final_pos = PositionVector2D.from_algebraic(uci[2:4])
             return cls(init_pos, final_pos, None)
 
         if san_move_txt[0] not in ("Q", "K", "R", "N", "B", "P"):
@@ -193,7 +197,7 @@ class Move:
             pass
 
         piece_sym = san_move_txt[0]
-        final_pos = PositionVector2D(san_move_txt[-2:])
+        final_pos = PositionVector2D.from_algebraic(san_move_txt[-2:])
         possible_pieces = find_san_pieces(board, piece_sym, final_pos)
 
         if len(possible_pieces) == 1:
@@ -249,7 +253,6 @@ class Move:
             prefix = prefix + "x"
 
         return f"{piece.sym.capitalize() if not piece.name == 'Pawn' else ''}{prefix}{self.final_pos.algebraic}{self._promotion if self._promotion else ''}"
-
 
 
 

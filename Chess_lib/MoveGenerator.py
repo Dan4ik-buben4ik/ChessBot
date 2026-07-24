@@ -2,7 +2,7 @@ from types import GeneratorType
 
 from pieces import Piece, Knight, Pawn, King
 from loader import Board
-
+from Move import Move
 
 class MoveGenerator:
     """ A class that handles the generation of possible moves in a given position
@@ -17,7 +17,7 @@ class MoveGenerator:
         :type board: loader.Board
 
         :return: A generator that yields string moves formatted in UCI notation
-        :rtype: collections.abc.Generator[str]
+        :rtype: collections.abc.Generator[move.Move]
         """
         is_check, king_attackers_pos = board.check_if_king_attacked(board.turn)
         if is_check:
@@ -29,7 +29,7 @@ class MoveGenerator:
                     possible_spaces_str = [attacking_piece_pos]
                 else:
                     # attacking pos method to find all the possible moves?
-                    possible_spaces_str = list(map(lambda y: y.algebraic, list(attacking_piece.attacking_positions_towards_king(king_pos))[:-1]))
+                    possible_spaces_str = list(attacking_piece.attacking_positions_towards_king(king_pos))[:-1]
 
         for row in board.board:
             for piece in row:
@@ -42,6 +42,6 @@ class MoveGenerator:
                 moves = piece.get_possible_moves()
                 next(moves, None)
                 if is_check and len(king_attackers_pos) == 1 and not isinstance(piece, King):
-                    moves = filter(lambda x: x[2:4] in possible_spaces_str, moves)
+                    moves = filter(lambda x: x.final_pos in possible_spaces_str, moves)
 
                 yield from moves
