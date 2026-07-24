@@ -1,7 +1,7 @@
 from Errors import JustError
 from position import PositionVector2D
-from Move import uci_decoder, uci_encoder
 from util import TurnColor
+from Move import Move
 
 from types import GeneratorType
 
@@ -103,7 +103,7 @@ class Piece:
 
 
         :return: a generator object with uci encoded moves
-        :rtype: collections.abc.Generator[str]
+        :rtype: collections.abc.Generator[Move.Move]
         """
         pass
 
@@ -120,10 +120,10 @@ class Knight(Piece):
     :ivar debug: enables cmd state outputs
     :type debug: bool
 
-    :cvar name: the name of the piece (allways titled)
+    :var name: the name of the piece (allways titled)
     :type name: str
 
-    :cvar sym: symbol of the piece (upper if white, lower if black)
+    :var sym: symbol of the piece (upper if white, lower if black)
     :type sym: str
     """
     def __init__(self, board, color: TurnColor, pos: tuple[int, int], *, debug=False):
@@ -198,7 +198,7 @@ class Knight(Piece):
         Basically, allways write next(generated_obj) before handling it *
 
         :return: a generator object with uci encoded moves
-        :rtype: collections.abc.Generator[str]
+        :rtype: collections.abc.Generator[Move.Move]
         """
         yield None # control yield
 
@@ -206,9 +206,9 @@ class Knight(Piece):
             piece = self.board.board[pos[1]][pos[0]]
             if isinstance(piece, Piece):
                 if piece.color != self.color:
-                    yield uci_encoder(self.pos, pos, None)
+                    yield Move(self.pos, pos, None)
                 continue
-            yield uci_encoder(self.pos, pos, None)
+            yield Move(self.pos, pos, None)
 
 
 class Rook(Piece):
@@ -223,10 +223,10 @@ class Rook(Piece):
     :ivar debug: enables cmd state outputs
     :type debug: bool
 
-    :cvar name: the name of the piece (allways titled)
+    :var name: the name of the piece (allways titled)
     :type name: str
 
-    :cvar sym: symbol of the piece (upper if white, lower if black)
+    :var sym: symbol of the piece (upper if white, lower if black)
     :type sym: str
     """
     def __init__(self, board, color: TurnColor, pos: tuple[int, int], *, debug=False):
@@ -331,7 +331,7 @@ class Rook(Piece):
         Basically, allways write next(generated_obj) before handling it *
 
         :return: a generator object with uci encoded moves
-        :rtype: collections.abc.Generator[str]
+        :rtype: collections.abc.Generator[Move.Move]
         """
         yield None # control yield
 
@@ -344,9 +344,9 @@ class Rook(Piece):
                 piece = self.board.board[j[1]][j[0]]
                 if isinstance(piece, Piece):
                     if piece.color != self.color:
-                        yield uci_encoder(self.pos, j, None)
+                        yield Move(self.pos, j, None)
                     break
-                yield uci_encoder(self.pos, j, None)
+                yield Move(self.pos, j, None)
 
 
 class Bishop(Piece):
@@ -466,7 +466,7 @@ class Bishop(Piece):
         Basically, allways write next(generated_obj) before handling it *
 
         :return: a generator object with uci encoded moves
-        :rtype: collections.abc.Generator[str]
+        :rtype: collections.abc.Generator[Move.Move]
         """
         yield None # control yield
         for i in ((7, 0), (0, 7), (0, 0), (7, 7)):
@@ -478,9 +478,9 @@ class Bishop(Piece):
                 piece = self.board.board[j[1]][j[0]]
                 if isinstance(piece, Piece):
                     if piece.color != self.color:
-                        yield uci_encoder(self.pos, j, None)
+                        yield Move(self.pos, j, None)
                     break
-                yield uci_encoder(self.pos, j, None)
+                yield Move(self.pos, j, None)
 
 
 class Queen(Piece):
@@ -582,7 +582,7 @@ class Queen(Piece):
         for i in range(0, max(abs(pos_change).position)+1):
             yield self.pos + direction * i
 
-    def attacking_positions_towards_king(self, kings_pos: PositionVector2D | tuple[int, int]) -> GeneratorType:
+    def attacking_positions_towards_king(self, king_pos: PositionVector2D | tuple[int, int]) -> GeneratorType:
         """ a method to ge the attacking line towards the king, stopping at the king
 
         *Note: this is an optional method and is only modified in classes (Bishop, Rook, Queen)*
@@ -593,7 +593,7 @@ class Queen(Piece):
         :return: generator object with the squares
         :rtype: collections.abc.Generator[position.PositionVector2D]
         """
-        pos_change = kings_pos - self.pos
+        pos_change = king_pos - self.pos
         yield from self._get_diagonal_positions(pos_change)
 
         if abs(pos_change[0]) > abs(pos_change[1]):
@@ -617,7 +617,6 @@ class Queen(Piece):
             if pos_change[0] in (-1, 0, 1) and pos_change[1] in (-1, 0, 1):
                 yield point
 
-
     def get_possible_moves(self) -> GeneratorType:
         """ generates every possible move for the piece in the current position in the board
 
@@ -627,7 +626,7 @@ class Queen(Piece):
         Basically, allways write next(generated_obj) before handling it *
 
         :return: a generator object with uci encoded moves
-        :rtype: collections.abc.Generator[str]
+        :rtype: collections.abc.Generator[Move.Move]
         """
         yield None # control yield
 
@@ -640,9 +639,9 @@ class Queen(Piece):
                 piece = self.board.board[j[1]][j[0]]
                 if isinstance(piece, Piece):
                     if piece.color != self.color:
-                        yield uci_encoder(self.pos, j, None)
+                        yield Move(self.pos, j, None)
                     break
-                yield uci_encoder(self.pos, j, None)
+                yield Move(self.pos, j, None)
 
         for i in ((7, 0), (0, 7), (0, 0), (7, 7)):
             for j in self._get_diagonal_positions(self.pos * -1 + i):
@@ -653,9 +652,9 @@ class Queen(Piece):
                 piece = self.board.board[j[1]][j[0]]
                 if isinstance(piece, Piece):
                     if piece.color != self.color:
-                        yield uci_encoder(self.pos, j, None)
+                        yield Move(self.pos, j, None)
                     break
-                yield uci_encoder(self.pos, j, None)
+                yield Move(self.pos, j, None)
 
 
 class King(Piece):
@@ -725,7 +724,7 @@ class King(Piece):
         Basically, allways write next(generated_obj) before handling it *
 
         :return: a generator object with uci encoded moves
-        :rtype: collections.abc.Generator[str]
+        :rtype: collections.abc.Generator[MOve.Move]
         """
         yield None  # control yield
 
@@ -744,15 +743,15 @@ class King(Piece):
                         continue
                 res = self.board.check_if_pos_attacked(position, self.color)
                 if not res[0] and (0 <= position[0] <= 7 and 0 <= position[1] <= 7):
-                    yield uci_encoder(self.pos, position, None)
+                    yield Move(self.pos, position, None)
 
         can_castle = self.board.castling_rights[self.color]
 
         if not self.board.check_if_king_attacked(self.color):
             if can_castle[0] and self._can_castle(-1):
-                yield uci_encoder(self.pos, PositionVector2D((2, self.pos[1])), None)
+                yield Move(self.pos, PositionVector2D((2, self.pos[1])), None)
             if can_castle[1] and self._can_castle(1):
-                yield uci_encoder(self.pos, PositionVector2D((6, self.pos[1])), None)
+                yield Move(self.pos, PositionVector2D((6, self.pos[1])), None)
 
     def _can_castle(self, side: -1 | 1) -> bool:  # king | queen side
         """ a private method that determines whether the king can castle to a particular side
@@ -877,7 +876,7 @@ class Pawn(Piece):
         Basically, allways write next(generated_obj) before handling it *
 
         :return: a generator object with uci encoded moves
-        :rtype: collections.abc.Generator[str]
+        :rtype: collections.abc.Generator[Move.Move]
         """
         yield None # control yield
         # move forward
@@ -886,9 +885,9 @@ class Pawn(Piece):
             # promotion
             if new_pos[1] in (0, 7):
                 for letter in ("q", "r", "b", "n"):
-                    yield uci_encoder(self.pos, new_pos, letter)
+                    yield Move(self.pos, new_pos, letter)
             else:
-                yield uci_encoder(self.pos, new_pos, None)
+                yield Move(self.pos, new_pos, None)
 
         # double move forward
         square_1 = self.board.board[self.pos[1]+2*self.moving_direction][self.pos[0]]
@@ -897,7 +896,7 @@ class Pawn(Piece):
 
         if square_1 == 0 and square_2 == 0 and starting_pos_check:
             new_pos = PositionVector2D((self.pos[0], self.pos[1] + 2 * self.moving_direction))
-            yield uci_encoder(self.pos, new_pos, None)
+            yield Move(self.pos, new_pos, None)
 
         # side capture
         try:
@@ -905,9 +904,9 @@ class Pawn(Piece):
                 new_pos = PositionVector2D((self.pos[0]+1, self.pos[1]+self.moving_direction))
                 if new_pos[1] in (0, 7):
                     for letter in ("q", "r", "b", "n"):
-                        yield uci_encoder(self.pos, new_pos, letter)
+                        yield Move(self.pos, new_pos, letter)
                 else:
-                    yield uci_encoder(self.pos, new_pos, None)
+                    yield Move(self.pos, new_pos, None)
         except IndexError:
             pass
 
@@ -916,15 +915,15 @@ class Pawn(Piece):
                 new_pos = PositionVector2D((self.pos[0]-1, self.pos[1]+self.moving_direction))
                 if new_pos[1] in (0, 7):
                     for letter in ("q", "r", "b", "n"):
-                        yield uci_encoder(self.pos, new_pos, letter)
+                        yield Move(self.pos, new_pos, letter)
                 else:
-                    yield uci_encoder(self.pos, new_pos, None)
+                    yield Move(self.pos, new_pos, None)
         except IndexError:
             pass
 
         # en_passant
         if self.board.possible_en_passant == (self.pos[0]-1, self.pos[1]+self.moving_direction) or self.board.possible_en_passant == (self.pos[0]+1, self.pos[1]+self.moving_direction):
-            yield uci_encoder(self.pos, self.board.possible_en_passant, None)
+            yield Move(self.pos, self.board.possible_en_passant, None)
 
 
 

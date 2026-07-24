@@ -157,8 +157,8 @@ class PositionVector2D:
         """
         return "".join((chr(97 + pos[0]), str(8 - pos[1])))
 
-    @staticmethod
-    def from_algebraic(algebraic: str) -> PositionVector2D | tuple[int, int]:  # eg. (0, 0)  # rename to "to_algebraic"?
+    @classmethod
+    def from_algebraic(cls, algebraic: str) -> PositionVector2D | tuple[int, int]:  # eg. (0, 0)  # rename to "to_algebraic"?
         """ A function that converts an algebraic coordinate into a cartesian coordinate
 
         It does so mathematically
@@ -170,7 +170,7 @@ class PositionVector2D:
         :return: the new class instance
         :rtype: PositionVector2D
         """
-        return PositionVector2D((ord(algebraic[0]) - 97, 8 - int(algebraic[1])))
+        return cls((ord(algebraic[0]) - 97, 8 - int(algebraic[1])))
 
     @staticmethod
     def sign(value: int | float):
@@ -224,12 +224,5 @@ class PositionVector2D:
 #      |-----|-----|-----|-----|-----|-----|-----|-----|
 #  6   | A2  | B2  | C2  | D2  | E2  | F2  | G2  | H2  |
 #      |-----|-----|-----|-----|-----|-----|-----|-----|
-#  7   | A1  | B1  | C1  | D1  | ### | F1  | G1  | H1  | l= 4 r= 3; dir = -1, 0
+#  7   | A1  | B1  | C1  | D1  | E1 | F1  | G1  | H1  |
 #      |-----|-----|-----|-----|-----|-----|-----|-----|
-
-# pos = PositionVector2D((2, 0))
-# print(pos.pos, pos.cord)
-# add_v = PositionVector2D((4, 5))
-# direction = pos - add_v
-# print(direction)
-# print(direction.normalize())

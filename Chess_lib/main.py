@@ -1,6 +1,7 @@
 from loader import *
 from MoveGenerator import MoveGenerator
 import hashing
+from Move import Move
 # only queens and kings: "3qk3/8/8/8/8/8/8/3QK3 w - - 0 1"
 # only rooks and kings: r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1
 # only bishops and kings: 2b1kb2/8/8/8/8/8/8/2B1KB2 w - - 0 1
@@ -13,16 +14,17 @@ import hashing
 
 hasher = hashing.ZobristHasher()
 
-board = Board(fen="2r5/PPPPPPPP/8/8/8/8/8/k6K w - - 0 1", hasher=hasher, debug=True)
+board = Board(fen="r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1", hasher=hasher, debug=True)
 board.construct()
 while True:
     print("Possible moves")
     possible_moves = list(MoveGenerator.get_all_possible_moves(board))
     print(possible_moves)
 
-    move = input("Move Input (uci): ")
+    move = Move.from_uci(input("Move Input (uci): "))
+    print(move)
     if move in possible_moves:
-        board.move(move)
+        board.push(move)
         board.construct()
 
 
