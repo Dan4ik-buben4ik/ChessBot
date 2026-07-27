@@ -178,9 +178,8 @@ class Board:
             if self.debug:
                 print(f"promoting to {piece.name} on {piece.pos.algebraic}")
 
-        elif self._is_castle(piece, move.init_pos, move.final_pos):
-            #TODO: rewrite to suit the Move class
-            direction = PositionVector2D.sign((move.final_pos - move.init_pos)[0])
+        elif self._is_castle(piece, move):
+            direction = PositionVector2D.sign(move.pos_change[0])
             rook = self.board[move.init_pos[1]][0 if direction == -1 else 7]
             self.board[rook.pos[1]][rook.pos[0]] = 0  # makes the old square empty
             self.hash ^= self.hasher[rook]
@@ -211,7 +210,7 @@ class Board:
         if self.debug:
             print(f"Moved {piece.name} from {move.init_pos.algebraic} to {move.final_pos.algebraic}")
 
-        self.history.append(HistoryEntree(move, captured_piece, self.possible_en_passant, self.castling_rights, self.half_moves, self.full_moves))
+        self.history.append(HistoryEntree(move, captured_piece, self.possible_en_passant, self.castling_rights, self.half_moves, self.full_moves, self.hash))
 
         # update the game state
         self.update_game_state()  # should be before or after push?
@@ -224,12 +223,12 @@ class Board:
     # ===========================================================================================================================
     # ===========================================================================================================================
 
-    def _is_castle(self, piece, init_pos, new_pos):
-        if piece.name == "King" and abs(new_pos-init_pos)[0] == 2:
+    def _is_castle(self, piece, move):
+        if piece.name == "King" and abs(move.pos_change)[0] == 2:
             return True
         return False
 
-    def _is_en_passant(self, piece, init_pos, new_pos):
+    def _is_en_passant(self, piece, init_pos, new_pos): #TODO: make Move class as input
         if piece.name == "Pawn" and abs(new_pos - init_pos)[0] == 1 and new_pos == self.possible_en_passant:
             return True
         return False
@@ -290,12 +289,48 @@ class Board:
 
     def pop(self):
         """removes last move"""
-        pass
+        history: HistoryEntree = self.history.pop()
+        self.possible_en_passant = history.previous_en_passant
+        self.castling_rights = history.previous_castling_rights
+        self.half_moves = history.previous_half_moves
+        self.full_moves = history.previous_full_moves
+        self.hash = history.previous_hash
+        self.turn = self.turn.previous()
+
+        # self.move = move
+        # self.captured_piece = captured_piece
+        move = history.move
+        piece = self.board[move.final_pos[1]][move.final_pos[0]]
+        self.board[move.final_pos[1]][move.final_pos[0]] = 0
+
+        # bringing back the captured piece
+        captured_piece = history.captured_piece
+        if captured_piece != 0:
+            self.board[captured_piece.pos[1]][captured_piece.pos[0]] = captured_piece
+
+        if move.promotion:
+            piece = Pawn(self, piece.color, move.init_pos, debug=self.debug)
+
+        if self._is_castle(piece, move):
+            direction = PositionVector2D.sign(move.pos_change[0])
+            new_rook_pos = move.init_pos + (direction, 0)
+            rook_init_pos = PositionVector2D((move.init_pos[1], 0 if direction == -1 else 7))
+
+            rook = self.board[new_rook_pos[1]][new_rook_pos[0]]
+            self.board[new_rook_pos[1]][new_rook_pos[0]] = 0
+
+            self.board[move.init_pos[1]][0 if direction == -1 else 7] = rook
+            rook.pos = rook_init_pos
+
+        piece.pos = move.init_pos
+        self.board[move.init_pos[1]][move.init_pos[0]] = piece
+
+
+
 
     def check_if_king_attacked(self, color):
         king = self.kings[color]
         res, positions_that_attack_king = self.check_if_pos_attacked(king.pos, self.turn)
-        self.positions_that_attack_king = positions_that_attack_king
         return res, positions_that_attack_king
 
     def check_if_pos_attacked(self, pos: PositionVector2D | tuple[int, int], turn_color: TurnColor) -> tuple[bool, list]:
@@ -414,10 +449,11 @@ class Board:
 
 
 class HistoryEntree:
-    def __init__(self, move, captured_piece: Piece, previous_en_passant: PositionVector2D, previous_castling_rights, previous_half_moves, previous_full_moves):
+    def __init__(self, move, captured_piece, previous_en_passant: PositionVector2D, previous_castling_rights, previous_half_moves, previous_full_moves, previous_hash):
         self.move = move
         self.captured_piece = captured_piece
         self.previous_en_passant = previous_en_passant
         self.previous_castling_rights = previous_castling_rights
         self.previous_half_moves = previous_half_moves
         self.previous_full_moves = previous_full_moves
+        self.previous_hash = previous_hash

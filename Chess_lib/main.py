@@ -14,7 +14,7 @@ from Move import Move
 
 hasher = hashing.ZobristHasher()
 
-board = Board(fen="r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1", hasher=hasher, debug=True)
+board = Board(fen="4k3/8/8/8/1p6/8/P7/4K3 w - - 0 1", hasher=hasher, debug=True)
 board.construct()
 while True:
     print("Possible moves")
@@ -25,6 +25,8 @@ while True:
     print(move)
     if move in possible_moves:
         board.push(move)
+        board.construct()
+        board.pop()
         board.construct()
 
 

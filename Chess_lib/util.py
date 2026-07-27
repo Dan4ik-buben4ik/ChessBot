@@ -15,6 +15,14 @@ class TurnColor(enum.Enum):
         next_index = (index + 1) % len(members)
         return members[next_index]
 
+    def previous(self):
+        members = list(self.__class__)
+        index = members.index(self)
+
+        next_index = (index - 1) % len(members)
+        return members[next_index]
+
+
 
 class MoveType(enum.Enum):
     NORMAL = 0

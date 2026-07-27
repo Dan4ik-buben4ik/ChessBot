@@ -149,6 +149,10 @@ class Move:
             return self._promotion
         return False
 
+    @property
+    def pos_change(self):
+        return self.final_pos - self.init_pos
+
     def __eq__(self, other):
         if isinstance(other, Move):
             return self.init_pos == other.init_pos and self.final_pos == other.final_pos and self.promotion == other.promotion
@@ -166,7 +170,6 @@ class Move:
         return cls(init_pos, final_pos, promotion)
 
     def to_uci(self):
-        #TODO: change the promotion everywhere to be lower() and change new_pos to final_pos
         return "".join((self.init_pos.algebraic, self.final_pos.algebraic, self.promotion if self.promotion else ""))
 
     @classmethod
@@ -253,6 +256,9 @@ class Move:
             prefix = prefix + "x"
 
         return f"{piece.sym.capitalize() if not piece.name == 'Pawn' else ''}{prefix}{self.final_pos.algebraic}{self._promotion if self._promotion else ''}"
+
+    def __repr__(self):
+        return self.to_uci()
 
 
 
