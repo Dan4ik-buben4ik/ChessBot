@@ -2,7 +2,7 @@ from pieces import Piece, Rook, King, Pawn, Bishop, Queen, Knight
 from Errors import UnrecognisableMove, PieceColorException, ImpossibleMoveException, UnderCheckException, JustError
 from position import PositionVector2D
 from fen_converter import FEN_to_board, board_to_FEN
-from Move import uci_to_san, san_to_uci, uci_encoder, uci_decoder
+from hashing import ZobristHasher
 from util import TurnColor
 from Move import Move
 
@@ -107,14 +107,18 @@ class Board:
     :var repetition_table: table with the hashes of the positions and the number of times it had appeared
     :type repetition_table: dict[int, int]
 
+    :var history: a list with previous moves and game states
+    :type history: list[loader.HistoryEntree]
+
 
     """
-    def __init__(self, fen: str, hasher, *, debug=False):
+    def __init__(self, fen: str, *, debug=False):
         """ Initializes the class instance
 
 
-        :param fen:
-        :param hasher:
+        :param fen: the FEN string of the position
+        :type fen: str
+
         :param debug:
         """
         self.debug = debug
@@ -137,11 +141,10 @@ class Board:
         FEN_to_board(fen, self)
 
         # this is the list of all positions sins last pawn movement/capture. Used for the triple-repetition-draw check
-        self.hasher = hasher
-        self.hash = hasher.hash(self)
+        self.hasher = ZobristHasher
+        self.hash = self.hasher.hash(self)
         self.repetition_table = {self.hash: 1}
 
-        #TODO: add this to docs
         self.history = []
 
     # ===========================================================================================================================
@@ -152,7 +155,7 @@ class Board:
 # ===========================================================================================================================
 # ===========================================================================================================================
 # ===========================================================================================================================
-    def push(self, move: Move) -> None:  # TODO: make the input a move instance
+    def push(self, move: Move) -> None:
 
         # san_move_txt = uci_to_san(self, uci_move_txt)  # removes the en_passant pawn
         # if self.debug:
@@ -163,7 +166,7 @@ class Board:
         piece = self.board[move.init_pos[1]][move.init_pos[0]]
 
         self.board[piece.pos[1]][piece.pos[0]] = 0  # makes the old square empty
-        self.hash ^= self.hasher[piece]
+        self.hash ^= self.hasher.get_table_value(piece.name, piece.color, piece.pos)
 
         if move.promotion:
             if move.promotion == "q":
@@ -182,30 +185,30 @@ class Board:
             direction = PositionVector2D.sign(move.pos_change[0])
             rook = self.board[move.init_pos[1]][0 if direction == -1 else 7]
             self.board[rook.pos[1]][rook.pos[0]] = 0  # makes the old square empty
-            self.hash ^= self.hasher[rook]
+            self.hash ^= self.hasher.get_table_value(rook.name, rook.color, rook.pos)
 
             new_rook_pos = move.init_pos + (direction, 0)
             rook.pos = new_rook_pos
 
             self.board[new_rook_pos[1]][new_rook_pos[0]] = rook
-            self.hash ^= self.hasher[rook]
+            self.hash ^= self.hasher.get_table_value(rook.name, rook.color, rook.pos)
 
-        elif self._is_en_passant(piece, move.init_pos, move.final_pos):
+        elif self._is_en_passant(piece, move):
             captured_pos = move.final_pos - (0, piece.moving_direction)
             captured_piece = self.board[captured_pos[1]][captured_pos[0]]
 
             self.board[captured_pos[1]][captured_pos[0]] = 0
-            self.hash ^= self.hasher[captured_piece]
+            self.hash ^= self.hasher.get_table_value(captured_piece.name, captured_piece.color, captured_piece.pos)
 
         # checks if the new space is occupied and performs a needed hash operations
         captured_piece = self.board[move.final_pos[1]][move.final_pos[0]]
         if captured_piece != 0:
-            self.hash ^= self.hasher[captured_piece]
+            self.hash ^= self.hasher.get_table_value(captured_piece.name, captured_piece.color, captured_piece.pos)
 
         # update the table and its hash
         piece.pos = move.final_pos
         self.board[move.final_pos[1]][move.final_pos[0]] = piece
-        self.hash ^= self.hasher[piece]
+        self.hash ^= self.hasher.get_table_value(piece.name, piece.color, piece.pos)
 
         if self.debug:
             print(f"Moved {piece.name} from {move.init_pos.algebraic} to {move.final_pos.algebraic}")
@@ -216,7 +219,7 @@ class Board:
         self.update_game_state()  # should be before or after push?
         self.update_castling_rights(piece, move)
         self.update_en_passant(piece, move)
-        self.update_move_clock(piece, move)
+        self.update_move_clock(piece, captured_piece)
         self.switch_turn()
 
     # ===========================================================================================================================
@@ -228,8 +231,8 @@ class Board:
             return True
         return False
 
-    def _is_en_passant(self, piece, init_pos, new_pos): #TODO: make Move class as input
-        if piece.name == "Pawn" and abs(new_pos - init_pos)[0] == 1 and new_pos == self.possible_en_passant:
+    def _is_en_passant(self, piece, move):
+        if piece.name == "Pawn" and abs(move.pos_change)[0] == 1 and move.final_pos == self.possible_en_passant:
             return True
         return False
 
@@ -267,10 +270,9 @@ class Board:
             self.possible_en_passant = move.init_pos + (0, piece.moving_direction)
             self.hash ^= self.hasher.en_passant[self.possible_en_passant.algebraic[0]]
 
-    def update_move_clock(self, piece, move):
-        # TODO: get rid of the move txt. Shouldn't be
+    def update_move_clock(self, piece, captured_piece):
         self.half_moves += 1
-        if isinstance(piece, Pawn):
+        if isinstance(piece, Pawn) or captured_piece != 0:
             self.half_moves = 0
 
         if self.turn == TurnColor.BLACK:
@@ -324,9 +326,6 @@ class Board:
 
         piece.pos = move.init_pos
         self.board[move.init_pos[1]][move.init_pos[0]] = piece
-
-
-
 
     def check_if_king_attacked(self, color):
         king = self.kings[color]
@@ -402,7 +401,6 @@ class Board:
                 continue
             elif piece.name == "Knight" and piece.color != turn_color:
                 yield knight_pos
-
 
     def game_end_check(self, move_generator):
         # returns: game_finished (True if yes and False if not), winner (str of the player or None if draw)

@@ -12,9 +12,8 @@ from Move import Move
 # all pawns on the last row: "2R5/PPPPPPPP/8/8/8/8/8/k6K w - - 0 1"
 # starting position: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 
-hasher = hashing.ZobristHasher()
 
-board = Board(fen="4k3/8/8/8/1p6/8/P7/4K3 w - - 0 1", hasher=hasher, debug=True)
+board = Board(fen="4k3/8/8/8/1p6/8/P7/4K3 w - - 0 1", debug=True)
 board.construct()
 while True:
     print("Possible moves")
@@ -26,8 +25,8 @@ while True:
     if move in possible_moves:
         board.push(move)
         board.construct()
-        board.pop()
-        board.construct()
+        # board.pop()
+        # board.construct()
 
 
         # end, winner = board.game_end_check(MoveGenerator)

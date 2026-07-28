@@ -121,7 +121,6 @@ def uci_encoder(init_pos: PositionVector2D, new_pos: PositionVector2D, promotion
     return "".join((init_pos.algebraic, new_pos.algebraic, promotion.lower() if promotion else ""))
 
 
-# TODO: A move class that has properties like promotion, en_passant and castling
 class Move:
     def __init__(self, init_pos, new_pos, promotion):
         self.init_pos = init_pos

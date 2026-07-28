@@ -4,7 +4,6 @@ import enum
 
 
 class TurnColor(enum.Enum):
-    #TODO: change all color attributes to this. fen, piece, loader
     WHITE = 0
     BLACK = 1
 

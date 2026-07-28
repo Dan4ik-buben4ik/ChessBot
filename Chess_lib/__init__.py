@@ -3,6 +3,7 @@
 # metadata
 __version__ = "1.0.0"
 __author__ = "Daniel Rakhmatov, Peter Luo"
+#TODO: add new stuff
 
 from loader import Board
 from fen_converter import board_to_FEN, FEN_to_board, validate_FEN
