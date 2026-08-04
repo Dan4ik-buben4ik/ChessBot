@@ -22,10 +22,3 @@ class TurnColor(enum.Enum):
         return members[next_index]
 
 
-
-class MoveType(enum.Enum):
-    NORMAL = 0
-    CAPTURE = 1
-    EN_PASSANT = 2
-    CASTLE = 3
-

@@ -1,10 +1,11 @@
 from pieces import Piece, Rook, King, Pawn, Bishop, Queen, Knight
-from Errors import UnrecognisableMove, PieceColorException, ImpossibleMoveException, UnderCheckException, JustError
 from position import PositionVector2D
 from fen_converter import FEN_to_board, board_to_FEN
 from hashing import ZobristHasher
 from util import TurnColor
 from Move import Move
+from Errors import ImpossibleMoveException
+import MoveGenerator
 
 from types import GeneratorType
 
@@ -150,6 +151,11 @@ class Board:
     # ===========================================================================================================================
     # ===========================================================================================================================
     # ===========================================================================================================================
+    def play(self, move: Move):
+        if move in MoveGenerator.generate_legal_moves(self):
+            self.push(move)
+        else:
+            raise ImpossibleMoveException
 
 
 # ===========================================================================================================================
@@ -181,7 +187,7 @@ class Board:
             if self.debug:
                 print(f"promoting to {piece.name} on {piece.pos.algebraic}")
 
-        elif self._is_castle(piece, move):
+        elif self._is_move_castle(piece, move):
             direction = PositionVector2D.sign(move.pos_change[0])
             rook = self.board[move.init_pos[1]][0 if direction == -1 else 7]
             self.board[rook.pos[1]][rook.pos[0]] = 0  # makes the old square empty
@@ -193,7 +199,7 @@ class Board:
             self.board[new_rook_pos[1]][new_rook_pos[0]] = rook
             self.hash ^= self.hasher.get_table_value(rook.name, rook.color, rook.pos)
 
-        elif self._is_en_passant(piece, move):
+        elif self._is_move_en_passant(piece, move):
             captured_pos = move.final_pos - (0, piece.moving_direction)
             captured_piece = self.board[captured_pos[1]][captured_pos[0]]
 
@@ -226,15 +232,25 @@ class Board:
     # ===========================================================================================================================
     # ===========================================================================================================================
 
-    def _is_castle(self, piece, move):
+    def _is_move_castle(self, piece, move):
         if piece.name == "King" and abs(move.pos_change)[0] == 2:
             return True
         return False
 
-    def _is_en_passant(self, piece, move):
+    def _is_move_en_passant(self, piece, move):
         if piece.name == "Pawn" and abs(move.pos_change)[0] == 1 and move.final_pos == self.possible_en_passant:
             return True
         return False
+
+    def is_move_capture(self, move):
+        piece = self.board[move.init_pos[1]][move.init_pos[0]]
+        return self.board[move.final_pos[1]][move.final_pos[0]] != 0 or self._is_move_en_passant(piece, move)
+
+    def is_move_check(self, move):
+        self.push(move)
+        check, attackers = self.check_if_king_attacked(self.turn)
+        self.pop()
+        return check
 
     def update_castling_rights(self, piece, move) -> None:
         if isinstance(piece, King):
@@ -313,7 +329,7 @@ class Board:
         if move.promotion:
             piece = Pawn(self, piece.color, move.init_pos, debug=self.debug)
 
-        if self._is_castle(piece, move):
+        if self._is_move_castle(piece, move):
             direction = PositionVector2D.sign(move.pos_change[0])
             new_rook_pos = move.init_pos + (direction, 0)
             rook_init_pos = PositionVector2D((move.init_pos[1], 0 if direction == -1 else 7))
@@ -402,9 +418,9 @@ class Board:
             elif piece.name == "Knight" and piece.color != turn_color:
                 yield knight_pos
 
-    def game_end_check(self, move_generator):
+    def game_end_check(self):
         # returns: game_finished (True if yes and False if not), winner (str of the player or None if draw)
-        if not len(list(move_generator.get_all_possible_moves(self))) == 0:
+        if not len(list(MoveGenerator.generate_legal_moves(self))) == 0:
             # check if triple move draw or 50 move draw
             if self.repetition_table.get(self.hash):
                 if self.repetition_table.get(self.hash) >= 3:
@@ -419,6 +435,9 @@ class Board:
             return True, opponent_color
         else:
             return False, None
+
+    def to_fen(self):
+        return board_to_FEN(self)
 
     def construct(self):
         # A function that prints the board. NOTHING TO BE CHANGED HERE

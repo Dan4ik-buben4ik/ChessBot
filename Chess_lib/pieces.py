@@ -1,4 +1,3 @@
-from Errors import JustError
 from position import PositionVector2D
 from util import TurnColor
 from Move import Move
