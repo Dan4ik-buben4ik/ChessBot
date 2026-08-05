@@ -1,7 +1,7 @@
 from loader import *
 import MoveGenerator
-import hashing
 from Move import Move
+import evaluation
 # only queens and kings: "3qk3/8/8/8/8/8/8/3QK3 w - - 0 1"
 # only rooks and kings: r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1
 # only bishops and kings: 2b1kb2/8/8/8/8/8/8/2B1KB2 w - - 0 1
@@ -13,14 +13,14 @@ from Move import Move
 # starting position: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 
 
-board = Board(fen="r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1")
+board = Board(fen="4k3/8/8/8/1p6/8/P7/4K3 w - - 0 1") # 4k3/8/8/8/8/p7/8/4K3 w - - 0 2
 board.construct()
 while True:
     print("Possible moves")
     possible_moves = list(MoveGenerator.generate_legal_moves(board))
     print(possible_moves)
-    print("quiescence moves")
-    print(list(MoveGenerator.generate_quiescence_legal_moves(board)))
+    print(evaluation.StaticEvaluation.evaluate(board))
+
 
     move = Move.from_uci(input("Move Input (uci): "))
     print(move)

@@ -2,7 +2,7 @@ from pieces import Piece, Rook, King, Pawn, Bishop, Queen, Knight
 from position import PositionVector2D
 from fen_converter import FEN_to_board, board_to_FEN
 from hashing import ZobristHasher
-from util import TurnColor
+from util import TurnColor, EvalTable
 from Move import Move
 from Errors import ImpossibleMoveException
 import MoveGenerator
@@ -85,7 +85,7 @@ class Board:
     :type turn: util.TurnColor
 
     :var kings: kings position in the board
-    :type kings: dict[str, pieces.Piece]
+    :type kings: dict[util.TurnColor, pieces.Piece]
 
     :var castling_rights: a dictionary that holds the castling rights for both sides
     :type castling_rights: dict[str, [bool]]
@@ -99,7 +99,7 @@ class Board:
     :var full_moves: the number of moves white had made
     :type full_moves: int
 
-    :ivar hasher: the Zobrist hasher for the board, holding the 64bit data for the board hash
+    :var hasher: the Zobrist hasher for the board, holding the 64bit data for the board hash
     :type hasher: hashing.ZobristHasher
 
     :var hash: the 64bit hash value for the board
@@ -148,19 +148,52 @@ class Board:
 
         self.history = []
 
-    # ===========================================================================================================================
-    # ===========================================================================================================================
-    # ===========================================================================================================================
+    @property
+    def is_endgame(self):
+        white_material = 0
+        black_material = 0
+        queens = True
+        for row in self.board:
+            for piece in row:
+                if piece == 0:
+                    continue
+                if piece.name != "Pawn" and piece.name != "King":
+                    if piece.color == TurnColor.WHITE:
+                        white_material += EvalTable.piece_value[piece.name]
+                    else:
+                        black_material += EvalTable.piece_value[piece.name]
+
+                if piece.name == "Queen":
+                    queens = True
+
+        if queens:
+            if black_material <= 1300 and white_material <= 1300:
+                return True
+        elif black_material <= 1600 and white_material <= 1600:
+            return True
+
+        return False
+
+    @property
+    def open_files(self):
+        column = [True for _ in range(8)]
+        for row_i in range(8):
+            for column_i in range(8):
+                piece = self.board[column_i][row_i]
+                if piece == 0:
+                    continue
+                if piece.name == "Pawn":
+                    column[row_i] = False
+                    break
+
+        return column
+
     def play(self, move: Move):
         if move in MoveGenerator.generate_legal_moves(self):
             self.push(move)
         else:
             raise ImpossibleMoveException
 
-
-# ===========================================================================================================================
-# ===========================================================================================================================
-# ===========================================================================================================================
     def push(self, move: Move) -> None:
 
         # san_move_txt = uci_to_san(self, uci_move_txt)  # removes the en_passant pawn
