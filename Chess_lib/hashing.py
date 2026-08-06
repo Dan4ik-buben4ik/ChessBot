@@ -36,18 +36,18 @@ class ZobristHasher:
     rng = random.Random(0)
 
     pieces = {
-            "WHITE_Pawn": 0,
-            "WHITE_Knight": 1,
-            "WHITE_Bishop": 2,
-            "WHITE_Rook": 3,
-            "WHITE_Queen": 4,
-            "WHITE_King": 5,
-            "BLACK_Pawn": 6,
-            "BLACK_Knight": 7,
-            "BLACK_Bishop": 8,
-            "BLACK_Rook": 9,
-            "BLACK_Queen": 10,
-            "BLACK_King": 11,
+            "WHITE_PAWN": 0,
+            "WHITE_KNIGHT": 1,
+            "WHITE_BISHOP": 2,
+            "WHITE_ROOK": 3,
+            "WHITE_QUEEN": 4,
+            "WHITE_KING": 5,
+            "BLACK_PAWN": 6,
+            "BLACK_KNIGHT": 7,
+            "BLACK_BISHOP": 8,
+            "BLACK_ROOK": 9,
+            "BLACK_QUEEN": 10,
+            "BLACK_KING": 11,
 
         }
 
@@ -56,28 +56,27 @@ class ZobristHasher:
     castling_rights = {}
     en_passant = {}
 
-    def __init__(self):
-        """ an initialization function that sets up all unique values in the attributes """
-        used = set()
-        for i in range(12):
-            for j in range(64):
-                # ensures that there are no repeats in teh hashing
-                while True:
-                    random_bits = self.rng.getrandbits(64)
-                    if random_bits not in used:
-                        used.add(random_bits)
-                        self.table[i][j] = self.rng.getrandbits(64)
-                        break
+    used = set()
+    for i in range(12):
+        for j in range(64):
+            # ensures that there are no repeats in teh hashing
+            while True:
+                random_bits = rng.getrandbits(64)
+                if random_bits not in used:
+                    used.add(random_bits)
+                    table[i][j] = rng.getrandbits(64)
+                    break
 
-        self.black_turn = self.rng.getrandbits(64)
+    black_turn = rng.getrandbits(64)
 
-        self.castling_rights[TurnColor.WHITE] = [self.rng.getrandbits(64), self.rng.getrandbits(64)]
-        self.castling_rights[TurnColor.BLACK] = [self.rng.getrandbits(64), self.rng.getrandbits(64)]
+    castling_rights[TurnColor.WHITE] = [rng.getrandbits(64), rng.getrandbits(64)]
+    castling_rights[TurnColor.BLACK] = [rng.getrandbits(64), rng.getrandbits(64)]
 
-        for i in range(8):
-            self.en_passant[chr(97 + i)] = self.rng.getrandbits(64)
+    for i in range(8):
+        en_passant[chr(97 + i)] = rng.getrandbits(64)
 
-    def hash(self, board):
+    @classmethod
+    def hash(cls, board):
         """ the main function that hashes the board
 
         This function only encodes the board. Then, the board must be updated manually
@@ -93,59 +92,68 @@ class ZobristHasher:
         for row in board.board:
             for piece in row:
                 if piece != 0:
-                    i = self.pieces[f"{piece.color.name}_{piece.name}"]
-                    h ^= self.table[i][piece.pos[0] + piece.pos[1] * 8]
+                    i = cls.pieces[f"{piece.color.name}_{piece.name.upper()}"]
+                    h ^= cls.table[i][piece.pos[0] + piece.pos[1] * 8]
 
         if board.castling_rights[TurnColor.WHITE][0]:
-            h ^= self.castling_rights[TurnColor.WHITE][0]
+            h ^= cls.castling_rights[TurnColor.WHITE][0]
         if board.castling_rights[TurnColor.WHITE][1]:
-            h ^= self.castling_rights[TurnColor.WHITE][1]
+            h ^= cls.castling_rights[TurnColor.WHITE][1]
         if board.castling_rights[TurnColor.BLACK][0]:
-            h ^= self.castling_rights[TurnColor.BLACK][0]
+            h ^= cls.castling_rights[TurnColor.BLACK][0]
         if board.castling_rights[TurnColor.BLACK][1]:
-            h ^= self.castling_rights[TurnColor.BLACK][1]
+            h ^= cls.castling_rights[TurnColor.BLACK][1]
 
         if board.possible_en_passant:
-            h ^= self.en_passant[board.possible_en_passant.algebraic[0]]
+            h ^= cls.en_passant[board.possible_en_passant.algebraic[0]]
 
         if board.turn == TurnColor.BLACK:
-            h ^= self.black_turn
+            h ^= cls.black_turn
 
         return h
 
-    def __getitem__(self, item): # keep like this or change?
-        """ gets the unique 64bit value from the table
+    # def __getitem__(self, item): # keep like this or change?
+    #     """ gets the unique 64bit value of the piece on a position from the table
+    #
+    #     :param item: should contain a pieces.Piece instance
+    #     :type item: pieces.Piece
+    #
+    #     :return: the unique 64bit value
+    #     :rtype: int
+    #     """
+    #     piece = item
+    #     i = self.pieces[f"{piece.color.name}_{piece.name.upper()}"]
+    #     return self.table[i][piece.pos[0] + piece.pos[1] * 8]
 
-        :param item: should contain a pieces.Piece instance
-        :type item: pieces.Piece
+    @classmethod
+    def get_table_value(cls, piece_name, color, position):
+        index = cls.pieces[f"{color.name}_{piece_name.upper()}"]
+        return cls.table[index][position[0] + position[1] * 8]
 
-        :return: the unique 64bit value
-        :rtype: int
-        """
-        piece = item
-        i = self.pieces[f"{piece.color.name}_{piece.name}"]
-        return self.table[i][piece.pos[0] + piece.pos[1] * 8]
-
-    def debug_values(self, val):
+    @classmethod
+    def debug_values(cls, val):
         """ a debug method to view the table and compare a value in it
 
         :param val: the 64bit integer
         :type val: int
         """
-        for i in self.pieces.keys():
+        print("DEBUG HASHING VALUES")
+        for i in cls.pieces.keys():
             print(i)
-            values = self.table[self.pieces[i]]
+            values = cls.table[cls.pieces[i]]
             print("val in values")
             print(val in values)
-            print(self.table[self.pieces[i]])
-            # 3237877843526964457
+            print(values)
+            # 14061870981566557310
 
         print("castling rights")
-        print(self.castling_rights)
+        print(cls.castling_rights)
 
         print("en passant")
-        print(self.en_passant)
+        print(cls.en_passant)
 
+        print("black turn")
+        print(cls.black_turn)
 
 # board = loader.Board(fen="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", hasher = hasher)
 # hash = hasher.hash(board)

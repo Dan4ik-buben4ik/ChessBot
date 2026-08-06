@@ -1,4 +1,3 @@
-from Errors import JustError
 from position import PositionVector2D
 from util import TurnColor
 from Move import Move
@@ -890,13 +889,16 @@ class Pawn(Piece):
                 yield Move(self.pos, new_pos, None)
 
         # double move forward
-        square_1 = self.board.board[self.pos[1]+2*self.moving_direction][self.pos[0]]
-        square_2 = self.board.board[self.pos[1] + self.moving_direction][self.pos[0]]
-        starting_pos_check = (self.pos[1] == 6 if self.color == TurnColor.WHITE else self.pos[1] == 1)
+        try:
+            square_1 = self.board.board[self.pos[1]+2*self.moving_direction][self.pos[0]]
+            square_2 = self.board.board[self.pos[1] + self.moving_direction][self.pos[0]]
+            starting_pos_check = (self.pos[1] == 6 if self.color == TurnColor.WHITE else self.pos[1] == 1)
 
-        if square_1 == 0 and square_2 == 0 and starting_pos_check:
-            new_pos = PositionVector2D((self.pos[0], self.pos[1] + 2 * self.moving_direction))
-            yield Move(self.pos, new_pos, None)
+            if square_1 == 0 and square_2 == 0 and starting_pos_check:
+                new_pos = PositionVector2D((self.pos[0], self.pos[1] + 2 * self.moving_direction))
+                yield Move(self.pos, new_pos, None)
+        except IndexError:
+            pass
 
         # side capture
         try:

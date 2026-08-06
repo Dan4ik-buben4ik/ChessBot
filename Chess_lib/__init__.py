@@ -4,16 +4,14 @@
 __version__ = "1.0.0"
 __author__ = "Daniel Rakhmatov, Peter Luo"
 
+
 from loader import Board
-from fen_converter import board_to_FEN, FEN_to_board, validate_FEN
 from pieces import Pawn, Bishop, King, Rook, Queen, Knight, Piece
-from position import PositionVector2D
+from Move import Move
+from util import TurnColor
 
 __all__ = [
     "Board",
-    "board_to_FEN",
-    "FEN_to_board",
-    "validate_FEN",
     "Piece",
     "Pawn",
     "Knight",
@@ -21,5 +19,6 @@ __all__ = [
     "Rook",
     "Queen",
     "King",
-    "PositionVector2D"
+    "Move",
+    "TurnColor"
 ]
