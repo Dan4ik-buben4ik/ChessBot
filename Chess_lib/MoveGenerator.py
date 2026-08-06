@@ -54,6 +54,7 @@ def generate_quiescence_legal_moves(board):
         :rtype: collections.abc.Generator[move.Move]
         """
     legal_moves = generate_legal_moves(board)
+    #TODO: when evaluating kings+rooks, an error with the hash occurs
     yield from filter(lambda x: not (board.is_move_capture(x) or board.is_move_check(x)), legal_moves)
 
 

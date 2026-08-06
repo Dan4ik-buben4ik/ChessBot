@@ -19,10 +19,12 @@ def AlphaBetaSearch(board, alpha, beta, depth):
     best = -math.inf
     for move in MoveGen.generate_legal_moves(board):
         print(f"engine considers: {move} | depth: {depth}")
+        logger.log_intro(move, depth)
         board.push(move)
         evaluation = AlphaBetaSearch(board, -beta, -alpha, depth-1) * color
 
         print(f"static evaluation for move {move} at depth {depth}: {evaluation * color}\n")
+        logger.log_outro(evaluation)
         board.pop()
 
         best = max(best, evaluation)
@@ -32,7 +34,6 @@ def AlphaBetaSearch(board, alpha, beta, depth):
         if alpha >= beta:
             break
 
-        logger.log(move.to_uci(), evaluation, depth)
 
         # logger(move, evaluation, depth)
 
@@ -46,9 +47,11 @@ def QuiescenceSearch(board, alpha, beta):
 
     for move in MoveGen.generate_quiescence_legal_moves(board):
         print(f"engine considers: {move} | depth: 0")
+        logger.log_intro(move, 0)
         board.push(move)
         evaluation = StaticEvaluation.evaluate(board) * color
         print(f"static evaluation for move {move} at depth 0: {evaluation * color}\n")
+        logger.log_outro(evaluation)
         board.pop()
 
 
@@ -58,7 +61,6 @@ def QuiescenceSearch(board, alpha, beta):
         if alpha >= beta:
             break
 
-        logger.log(move.to_uci(), evaluation, 0)
 
         # logger(move, evaluation, 0)
 
@@ -87,10 +89,12 @@ class Engine:
 
         for move in MoveGen.generate_legal_moves(self.board):
             print(f"engine considers: {move} | depth: {self.depth}")
+            logger.log_intro(move, self.depth)
             self.board.push(move)
-            evaluation = -AlphaBetaSearch(self.board, -beta, -alpha, self.depth - 1) * color
+            evaluation = AlphaBetaSearch(self.board, -beta, -alpha, self.depth - 1) * color
             print(f"static evaluation for move {move} at depth {self.depth}: {evaluation * color}\n")
             self.board.pop()
+            logger.log_outro(evaluation)
 
 
             if evaluation > best_score:
@@ -99,15 +103,15 @@ class Engine:
 
             alpha = max(alpha, evaluation)
 
-            logger.log(move.to_uci(), evaluation, self.depth)
 
 
 
         return best_move
 
     def evaluate(self):
+        color = 1 if self.board.turn == TurnColor.WHITE else -1
         try:
-            return AlphaBetaSearch(self.board, self.init_alpha, self.init_beta, self.depth)
+            return AlphaBetaSearch(self.board, self.init_alpha, self.init_beta, self.depth) * color
         except BaseException as exp:
             self.board.construct()
             raise exp
@@ -132,17 +136,36 @@ class Engine:
 #         cls.chain.pop()
 
 
-
+import json
 class logger:
     data = {
-        "root": {"moves": [], "evaluation": 0}
+        "root": {"moves": [], "evaluation": 0, "depth": 0}
     }
     parent_path = "root"
 
     @classmethod
-    def log(cls, move, evaluation, depth):
-        #TODO: maybe write in formal root/e4/e5?
-        pass
+    def log_intro(cls, move, depth):
+        new_path = f"{cls.parent_path}/{move.to_uci()}"
+        cls.data[cls.parent_path]["moves"].append(move.to_uci())
+        cls.data[cls.parent_path]["depth"] = depth
+        cls.parent_path = new_path
+
+        cls.data[new_path] = {"moves": [], "evaluation": 0, "depth": 0}
+
+    @classmethod
+    def log_outro(cls, evaluation):
+        new_path = "/".join(cls.parent_path.split("/")[:-1])
+        cls.data[cls.parent_path]["evaluation"] = evaluation
+        cls.parent_path = new_path
+
+    @classmethod
+    def print_dict(cls):
+        with open("log.json", "w", encoding="utf-8") as file:
+            json.dump(cls.data, file, ensure_ascii=False)
+            file.write("\n")
+            file.flush()
+        print(json.dumps(cls.data, indent=4))
+
 
 
 

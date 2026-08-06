@@ -2,7 +2,7 @@ from loader import *
 import MoveGenerator
 from Move import Move
 import evaluation
-from Engine import Engine, print_dict, logger
+from Engine import Engine, logger
 # only queens and kings: "3qk3/8/8/8/8/8/8/3QK3 w - - 0 1"
 # only rooks and kings: r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1
 # only bishops and kings: 2b1kb2/8/8/8/8/8/8/2B1KB2 w - - 0 1
@@ -14,9 +14,9 @@ from Engine import Engine, print_dict, logger
 # starting position: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 
 
-board = Board(fen="4k3/8/8/8/1p6/8/P7/4K3 w - - 0 1") # 4k3/8/8/8/8/p7/8/4K3 w - - 0 2
+board = Board(fen="4k3/8/8/8/1p6/8/P7/4K3 w - - 0 1")
 board.construct()
-enigne = Engine(board, -100, 100, 6)  # depth 10 fails
+enigne = Engine(board, -100, 100, 2)  # depth 10 fails
 # print("Possible moves")
 # possible_moves = list(MoveGenerator.generate_legal_moves(board))
 # print(possible_moves)
@@ -28,9 +28,12 @@ while True:
     print("Possible moves")
     possible_moves = list(MoveGenerator.generate_legal_moves(board))
     print(possible_moves)
-    print(enigne.evaluate())
+    evaluation = enigne.evaluate()
+    print(evaluation)
+    #TODO: yields and error when depth >=9
     print(enigne.generate())
-    print_dict(logger.data)
+    print(evaluation)
+    logger.print_dict()
 
     input_move = input("Move Input (uci): ")
     if input_move == "pop":

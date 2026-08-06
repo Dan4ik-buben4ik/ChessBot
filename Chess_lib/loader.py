@@ -248,7 +248,6 @@ class Board:
         if self.debug:
             print(f"Moved {piece.name} from {move.init_pos.algebraic} to {move.final_pos.algebraic}")
 
-        # TODO: creates an error
         self.history.append(HistoryEntree(move, captured_piece, self.possible_en_passant, self.castling_rights, self.half_moves, self.full_moves, hash_before_move))
 
         # update the game state

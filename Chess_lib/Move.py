@@ -94,8 +94,6 @@ def san_to_uci(board, move: str) -> str:
         return f"{move[1:3]}{new_pos.algebraic}{promotion if promotion else ''}"
     elif len(move) == 4:
         prefix = move[1]
-    else:
-        raise JustError
 
     for piece in possible_pieces:
         if prefix in piece.pos.cord:
@@ -209,8 +207,6 @@ class Move:
             prefix = san_move_txt[1:3]
         elif len(san_move_txt) == 4:
             prefix = san_move_txt[1]
-        else:
-            raise JustError
 
         for piece in possible_pieces:
             if prefix in piece.pos.cord:
