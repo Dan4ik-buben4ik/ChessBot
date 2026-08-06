@@ -195,17 +195,18 @@ class Board:
             raise ImpossibleMoveException
 
     def push(self, move: Move) -> None:
+        hash_before_move = self.hash
 
-        # san_move_txt = uci_to_san(self, uci_move_txt)  # removes the en_passant pawn
-        # if self.debug:
-        #     print(f"san move: {san_move_txt}")
-        #
-        # init_pos, new_pos, promotion = uci_decoder(uci_move_txt)
 
         piece = self.board[move.init_pos[1]][move.init_pos[0]]
 
         self.board[piece.pos[1]][piece.pos[0]] = 0  # makes the old square empty
         self.hash ^= self.hasher.get_table_value(piece.name, piece.color, piece.pos)
+
+        # checks if the new space is occupied and performs a needed hash operations
+        captured_piece = self.board[move.final_pos[1]][move.final_pos[0]]
+        if captured_piece != 0:
+            self.hash ^= self.hasher.get_table_value(captured_piece.name, captured_piece.color, captured_piece.pos)
 
         if move.promotion:
             if move.promotion == "q":
@@ -239,11 +240,6 @@ class Board:
             self.board[captured_pos[1]][captured_pos[0]] = 0
             self.hash ^= self.hasher.get_table_value(captured_piece.name, captured_piece.color, captured_piece.pos)
 
-        # checks if the new space is occupied and performs a needed hash operations
-        captured_piece = self.board[move.final_pos[1]][move.final_pos[0]]
-        if captured_piece != 0:
-            self.hash ^= self.hasher.get_table_value(captured_piece.name, captured_piece.color, captured_piece.pos)
-
         # update the table and its hash
         piece.pos = move.final_pos
         self.board[move.final_pos[1]][move.final_pos[0]] = piece
@@ -252,7 +248,8 @@ class Board:
         if self.debug:
             print(f"Moved {piece.name} from {move.init_pos.algebraic} to {move.final_pos.algebraic}")
 
-        self.history.append(HistoryEntree(move, captured_piece, self.possible_en_passant, self.castling_rights, self.half_moves, self.full_moves, self.hash))
+        # TODO: creates an error
+        self.history.append(HistoryEntree(move, captured_piece, self.possible_en_passant, self.castling_rights, self.half_moves, self.full_moves, hash_before_move))
 
         # update the game state
         self.update_game_state()  # should be before or after push?
@@ -260,6 +257,11 @@ class Board:
         self.update_en_passant(piece, move)
         self.update_move_clock(piece, captured_piece)
         self.switch_turn()
+
+        # print(self.hash)
+        # print(self.hasher.hash(self))
+
+        assert self.hash == self.hasher.hash(self)
 
     # ===========================================================================================================================
     # ===========================================================================================================================
@@ -283,6 +285,7 @@ class Board:
         self.push(move)
         check, attackers = self.check_if_king_attacked(self.turn)
         self.pop()
+
         return check
 
     def update_castling_rights(self, piece, move) -> None:
@@ -338,7 +341,8 @@ class Board:
         else:
             self.repetition_table[self.hash] = 1
 
-    def pop(self):
+    def pop(self, *, debug=False):
+        # self.construct()
         """removes last move"""
         history: HistoryEntree = self.history.pop()
         self.possible_en_passant = history.previous_en_passant
@@ -351,6 +355,8 @@ class Board:
         # self.move = move
         # self.captured_piece = captured_piece
         move = history.move
+        if debug:
+            print(f"reversing move: {move}\n")
         piece = self.board[move.final_pos[1]][move.final_pos[0]]
         self.board[move.final_pos[1]][move.final_pos[0]] = 0
 
@@ -375,6 +381,8 @@ class Board:
 
         piece.pos = move.init_pos
         self.board[move.init_pos[1]][move.init_pos[0]] = piece
+
+        # assert self.hash == self.hasher.hash(self)
 
     def check_if_king_attacked(self, color):
         king = self.kings[color]
@@ -452,6 +460,7 @@ class Board:
                 yield knight_pos
 
     def game_end_check(self):
+        #TODO: only kings or kings + knight/bishop
         # returns: game_finished (True if yes and False if not), winner (str of the player or None if draw)
         if not len(list(MoveGenerator.generate_legal_moves(self))) == 0:
             # check if triple move draw or 50 move draw
@@ -507,3 +516,6 @@ class HistoryEntree:
         self.previous_half_moves = previous_half_moves
         self.previous_full_moves = previous_full_moves
         self.previous_hash = previous_hash
+
+    def __repr__(self):
+        return f"{self.previous_hash}"

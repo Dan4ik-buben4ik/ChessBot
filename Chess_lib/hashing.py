@@ -130,26 +130,30 @@ class ZobristHasher:
         index = cls.pieces[f"{color.name}_{piece_name.upper()}"]
         return cls.table[index][position[0] + position[1] * 8]
 
-    def debug_values(self, val):
+    @classmethod
+    def debug_values(cls, val):
         """ a debug method to view the table and compare a value in it
 
         :param val: the 64bit integer
         :type val: int
         """
-        for i in self.pieces.keys():
+        print("DEBUG HASHING VALUES")
+        for i in cls.pieces.keys():
             print(i)
-            values = self.table[self.pieces[i]]
+            values = cls.table[cls.pieces[i]]
             print("val in values")
             print(val in values)
-            print(self.table[self.pieces[i]])
-            # 3237877843526964457
+            print(values)
+            # 14061870981566557310
 
         print("castling rights")
-        print(self.castling_rights)
+        print(cls.castling_rights)
 
         print("en passant")
-        print(self.en_passant)
+        print(cls.en_passant)
 
+        print("black turn")
+        print(cls.black_turn)
 
 # board = loader.Board(fen="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", hasher = hasher)
 # hash = hasher.hash(board)

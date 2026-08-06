@@ -2,6 +2,7 @@ from loader import *
 import MoveGenerator
 from Move import Move
 import evaluation
+from Engine import Engine, print_dict, logger
 # only queens and kings: "3qk3/8/8/8/8/8/8/3QK3 w - - 0 1"
 # only rooks and kings: r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1
 # only bishops and kings: 2b1kb2/8/8/8/8/8/8/2B1KB2 w - - 0 1
@@ -15,28 +16,41 @@ import evaluation
 
 board = Board(fen="4k3/8/8/8/1p6/8/P7/4K3 w - - 0 1") # 4k3/8/8/8/8/p7/8/4K3 w - - 0 2
 board.construct()
+enigne = Engine(board, -100, 100, 6)  # depth 10 fails
+# print("Possible moves")
+# possible_moves = list(MoveGenerator.generate_legal_moves(board))
+# print(possible_moves)
+# print(enigne.evaluate())
+# print(enigne.generate())
+# a2a3, e8d8, a3a4, d8c8, a4a5, c8b8, a5a6, b8a7, e1d1, a7a6
+
 while True:
     print("Possible moves")
     possible_moves = list(MoveGenerator.generate_legal_moves(board))
     print(possible_moves)
-    print(evaluation.StaticEvaluation.evaluate(board))
+    print(enigne.evaluate())
+    print(enigne.generate())
+    print_dict(logger.data)
 
+    input_move = input("Move Input (uci): ")
+    if input_move == "pop":
+        board.pop()
+        board.construct()
+        continue
+    move = Move.from_uci(input_move)
 
-    move = Move.from_uci(input("Move Input (uci): "))
-    print(move)
     if move in possible_moves:
         board.push(move)
         board.construct()
         # board.pop()
         # board.construct()
-
-
-        # end, winner = board.game_end_check(MoveGenerator)
-        # if end:
-        #     print(f"winner: {winner}")
-        #     break
-
-
+#
+#
+#
+#         # end, winner = board.game_end_check(MoveGenerator)
+#         # if end:
+#         #     print(f"winner: {winner}")
+#         #     break
 
 
 

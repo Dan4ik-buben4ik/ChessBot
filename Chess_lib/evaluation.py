@@ -34,6 +34,7 @@ class StaticEvaluation:
         return score
 
     @staticmethod
+    #TODO: actually add values to the table
     def _piece_square(board) -> int:
         score = 0
         for row in board.board:
@@ -73,6 +74,7 @@ class StaticEvaluation:
                 elif piece.name != "Pawn":
                     continue
 
+                #TODO: make the passed pawn work differently
                 if piece.color == TurnColor.WHITE and piece.pos[1] <= 2 and not isinstance(board.board[piece.pos[1] - 1][piece.pos[0]], Pawn):
                     score += EvalTable.passed_pawn
 
