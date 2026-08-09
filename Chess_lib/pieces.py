@@ -1,6 +1,6 @@
-from position import PositionVector2D
-from util import TurnColor
-from Move import Move
+from .position import PositionVector2D
+from .util import TurnColor
+from .Move import Move
 
 from types import GeneratorType
 
@@ -95,12 +95,6 @@ class Piece:
     def get_possible_moves(self):
         """ generates every possible move for the piece in the current position in the board
 
-        *Note: when overriden, the first element yielded is always None, as to prevent empty generator issues
-        and to ensure that the collection of the elements are smooth.
-
-        Basically, allways write next(generated_obj) before handling it *
-
-
         :return: a generator object with uci encoded moves
         :rtype: collections.abc.Generator[Move.Move]
         """
@@ -191,16 +185,9 @@ class Knight(Piece):
     def get_possible_moves(self) -> GeneratorType:
         """ generates every possible move for the piece in the current position in the board
 
-        *Note: The first element yielded is always None, as to prevent empty generator issues
-        and to ensure that the collection of the elements are smooth.
-
-        Basically, allways write next(generated_obj) before handling it *
-
         :return: a generator object with uci encoded moves
         :rtype: collections.abc.Generator[Move.Move]
         """
-        yield None # control yield
-
         for pos in self._get_attacking_squares():
             piece = self.board.board[pos[1]][pos[0]]
             if isinstance(piece, Piece):
@@ -324,15 +311,9 @@ class Rook(Piece):
     def get_possible_moves(self) -> GeneratorType:
         """ generates every possible move for the piece in the current position in the board
 
-        *Note: The first element yielded is always None, as to prevent empty generator issues
-        and to ensure that the collection of the elements are smooth.
-
-        Basically, allways write next(generated_obj) before handling it *
-
         :return: a generator object with uci encoded moves
         :rtype: collections.abc.Generator[Move.Move]
         """
-        yield None # control yield
 
         for i in ((self.pos[0], 0), (self.pos[0], 7), (0, self.pos[1]), (7, self.pos[1])):
             for j in self._get_line_positions(self.pos * -1 + i):
@@ -459,15 +440,9 @@ class Bishop(Piece):
     def get_possible_moves(self) -> GeneratorType:
         """ generates every possible move for the piece in the current position in the board
 
-        *Note: The first element yielded is always None, as to prevent empty generator issues
-        and to ensure that the collection of the elements are smooth.
-
-        Basically, allways write next(generated_obj) before handling it *
-
         :return: a generator object with uci encoded moves
         :rtype: collections.abc.Generator[Move.Move]
         """
-        yield None # control yield
         for i in ((7, 0), (0, 7), (0, 0), (7, 7)):
             for j in self._get_diagonal_positions(self.pos * -1 + i):
                 if not (0 <= j[0] <= 7 and 0 <= j[1] <= 7):
@@ -619,15 +594,9 @@ class Queen(Piece):
     def get_possible_moves(self) -> GeneratorType:
         """ generates every possible move for the piece in the current position in the board
 
-        *Note: The first element yielded is always None, as to prevent empty generator issues
-        and to ensure that the collection of the elements are smooth.
-
-        Basically, allways write next(generated_obj) before handling it *
-
         :return: a generator object with uci encoded moves
         :rtype: collections.abc.Generator[Move.Move]
         """
-        yield None # control yield
 
         for i in ((self.pos[0], 0), (self.pos[0], 7), (0, self.pos[1]), (7, self.pos[1])):
             for j in self._get_line_positions(self.pos * -1 + i):
@@ -717,15 +686,9 @@ class King(Piece):
     def get_possible_moves(self) -> GeneratorType:
         """ generates every possible move for the piece in the current position in the board
 
-        *Note: The first element yielded is always None, as to prevent empty generator issues
-        and to ensure that the collection of the elements are smooth.
-
-        Basically, allways write next(generated_obj) before handling it *
-
         :return: a generator object with uci encoded moves
         :rtype: collections.abc.Generator[MOve.Move]
         """
-        yield None  # control yield
 
         for y_i in range(-1, 2):
             for x_i in range(-1, 2):
@@ -869,15 +832,9 @@ class Pawn(Piece):
     def get_possible_moves(self) -> GeneratorType:
         """ generates every possible move for the piece in the current position in the board
 
-        *Note: The first element yielded is always None, as to prevent empty generator issues
-        and to ensure that the collection of the elements are smooth.
-
-        Basically, allways write next(generated_obj) before handling it *
-
         :return: a generator object with uci encoded moves
         :rtype: collections.abc.Generator[Move.Move]
         """
-        yield None # control yield
         # move forward
         if self.board.board[self.pos[1]+self.moving_direction][self.pos[0]] == 0:
             new_pos = PositionVector2D((self.pos[0], self.pos[1]+self.moving_direction))
@@ -902,7 +859,8 @@ class Pawn(Piece):
 
         # side capture
         try:
-            if self.board.board[self.pos[1]+self.moving_direction][self.pos[0]+1] != 0:
+            captured_piece = self.board.board[self.pos[1]+self.moving_direction][self.pos[0]+1]
+            if captured_piece != 0 and captured_piece.color != self.color:
                 new_pos = PositionVector2D((self.pos[0]+1, self.pos[1]+self.moving_direction))
                 if new_pos[1] in (0, 7):
                     for letter in ("q", "r", "b", "n"):
@@ -913,7 +871,8 @@ class Pawn(Piece):
             pass
 
         try:
-            if self.board.board[self.pos[1]+self.moving_direction][self.pos[0]-1] != 0:
+            captured_piece = self.board.board[self.pos[1] + self.moving_direction][self.pos[0]-1]
+            if captured_piece != 0 and captured_piece.color != self.color:
                 new_pos = PositionVector2D((self.pos[0]-1, self.pos[1]+self.moving_direction))
                 if new_pos[1] in (0, 7):
                     for letter in ("q", "r", "b", "n"):

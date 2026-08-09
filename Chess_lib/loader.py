@@ -1,11 +1,11 @@
-from pieces import Piece, Rook, King, Pawn, Bishop, Queen, Knight
-from position import PositionVector2D
-from fen_converter import FEN_to_board, board_to_FEN
-from hashing import ZobristHasher
-from util import TurnColor, EvalTable
-from Move import Move
-from Errors import ImpossibleMoveException
-import MoveGenerator
+from .pieces import Piece, Rook, King, Pawn, Bishop, Queen, Knight
+from .position import PositionVector2D
+from .fen_converter import FEN_to_board, board_to_FEN
+from .hashing import ZobristHasher
+from .util import TurnColor, EvalTable
+from .Move import Move
+from .Errors import ImpossibleMoveException
+from .MoveGenerator import generate_legal_moves
 
 from types import GeneratorType
 
@@ -189,7 +189,7 @@ class Board:
         return column
 
     def play(self, move: Move):
-        if move in MoveGenerator.generate_legal_moves(self):
+        if move in generate_legal_moves(self):
             self.push(move)
         else:
             raise ImpossibleMoveException
@@ -386,6 +386,7 @@ class Board:
     def check_if_king_attacked(self, color):
         king = self.kings[color]
         res, positions_that_attack_king = self.check_if_pos_attacked(king.pos, self.turn)
+
         return res, positions_that_attack_king
 
     def check_if_pos_attacked(self, pos: PositionVector2D | tuple[int, int], turn_color: TurnColor) -> tuple[bool, list]:
@@ -430,6 +431,7 @@ class Board:
                             pos_that_attack.append(piece_pos)
 
                     elif isinstance(piece, King) and i == 1:
+                        #TODO: yields the king, even though we check if one king is attacked
                         pos_that_attack.append(piece_pos)
                         # return True, f"{piece.name} is attacking the position"
 
@@ -461,7 +463,7 @@ class Board:
     def game_end_check(self):
         #TODO: only kings or kings + knight/bishop
         # returns: game_finished (True if yes and False if not), winner (str of the player or None if draw)
-        if not len(list(MoveGenerator.generate_legal_moves(self))) == 0:
+        if not len(list(generate_legal_moves(self))) == 0:
             # check if triple move draw or 50 move draw
             if self.repetition_table.get(self.hash):
                 if self.repetition_table.get(self.hash) >= 3:

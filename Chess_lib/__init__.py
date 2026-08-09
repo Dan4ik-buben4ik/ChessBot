@@ -5,10 +5,10 @@ __version__ = "1.0.0"
 __author__ = "Daniel Rakhmatov, Peter Luo"
 
 
-from loader import Board
-from pieces import Pawn, Bishop, King, Rook, Queen, Knight, Piece
-from Move import Move
-from util import TurnColor
+from .loader import Board
+from .pieces import Pawn, Bishop, King, Rook, Queen, Knight, Piece
+from .Move import Move
+from .util import TurnColor
 
 __all__ = [
     "Board",

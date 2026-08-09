@@ -1,6 +1,6 @@
-from util import TurnColor, EvalTable
-from pieces import Pawn
-import MoveGenerator as MoveGen
+from Chess_lib.util import TurnColor, EvalTable
+from Chess_lib.pieces import Pawn
+import Chess_lib.MoveGenerator as MoveGen
 
 
 

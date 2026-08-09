@@ -1,6 +1,6 @@
-from pieces import Piece, Pawn, King, Rook, Bishop, Queen, Knight
-from position import PositionVector2D
-from util import TurnColor
+from .pieces import Piece, Pawn, King, Rook, Bishop, Queen, Knight
+from .position import PositionVector2D
+from .util import TurnColor
 
 
 def board_to_FEN(board) -> str:  # board of class loader.Board

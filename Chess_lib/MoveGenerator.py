@@ -1,6 +1,6 @@
 from types import GeneratorType
 
-from pieces import Piece, Knight, Pawn, King
+from .pieces import Piece, Knight, Pawn, King
 
 
 def generate_legal_moves(board) -> GeneratorType:
@@ -19,25 +19,31 @@ def generate_legal_moves(board) -> GeneratorType:
             attacking_piece_pos = king_attackers_pos[0]
             attacking_piece: Piece | 0 = board.board[attacking_piece_pos[1]][attacking_piece_pos[0]]
             if isinstance(attacking_piece, (Knight, Pawn)):
-                possible_spaces_str = [attacking_piece_pos]
+                possible_spaces = [attacking_piece_pos]
             else:
                 # attacking pos method to find all the possible moves?
-                possible_spaces_str = list(attacking_piece.attacking_positions_towards_king(king_pos))[:-1]
+                try:
+                    possible_spaces = list(attacking_piece.attacking_positions_towards_king(king_pos))
+                except BaseException as exp:
+                    board.construct()
+                    raise exp
 
-    for row in board.board:
-        for piece in row:
-            if piece == 0:
-                continue
-            piece: Piece
-            if piece.color != board.turn:
-                continue
+    pieces = [
+        piece
+        for row in board.board
+        for piece in row
+        if piece != 0 and piece.color == board.turn
+    ]
 
-            moves = piece.get_possible_moves()
-            next(moves, None)
-            if is_check and len(king_attackers_pos) == 1 and not isinstance(piece, King):
-                moves = filter(lambda x: x.final_pos in possible_spaces_str, moves)
+    legal_moves = []
+    for piece in pieces:
+        moves = list(piece.get_possible_moves())
+        if is_check and len(king_attackers_pos) == 1 and not isinstance(piece, King):
+            moves = filter(lambda x: x.final_pos in possible_spaces, moves)
 
-            yield from moves
+        legal_moves.extend(moves)
+
+    yield from legal_moves
 
 
 def generate_quiescence_legal_moves(board):

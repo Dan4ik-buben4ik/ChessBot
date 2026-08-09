@@ -1,5 +1,5 @@
-from position import PositionVector2D
-from util import TurnColor
+from .position import PositionVector2D
+from .util import TurnColor
 
 
 def find_san_pieces(board, symbol: str, new_pos: PositionVector2D) -> list:
