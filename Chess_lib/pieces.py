@@ -568,6 +568,32 @@ class Queen(Piece):
         :rtype: collections.abc.Generator[position.PositionVector2D]
         """
         pos_change = king_pos - self.pos
+        abs_pos_change = abs(pos_change)
+
+        if 2 * min(abs_pos_change[0], abs_pos_change[1]) >= max(abs_pos_change[0], abs_pos_change[1]):
+                yield from self._get_diagonal_positions(pos_change)
+        else:
+            if abs(pos_change[0]) > abs(pos_change[1]):
+                pos_change = PositionVector2D((pos_change[0], 0))
+            else:
+                pos_change = PositionVector2D((0, pos_change[1]))
+
+            yield from self._get_line_positions(pos_change)
+
+        # 2 yields don't work. need only 1 yield for the move generator
+
+    def _attacking_lines_towards_king(self, king_pos: PositionVector2D | tuple[int, int]):
+        """ a method to ge the attacking line towards the king, stopping at the king
+
+        *Note: this is an optional method and is only modified in classes (Bishop, Rook, Queen)*
+
+        :param king_pos: the king position
+        :type king_pos: position.PositionVector2D
+
+        :return: generator object with the squares
+        :rtype: collections.abc.Generator[position.PositionVector2D]
+        """
+        pos_change = king_pos - self.pos
         yield from self._get_diagonal_positions(pos_change)
 
         if abs(pos_change[0]) > abs(pos_change[1]):
@@ -586,7 +612,7 @@ class Queen(Piece):
         :return: generator object with the squares
         :rtype: collections.abc.Generator[position.PositionVector2D]
         """
-        for point in self.attacking_positions_towards_king(king_pos):
+        for point in self._attacking_lines_towards_king(king_pos):  # maybe make a separate function?
             pos_change = king_pos - point
             if pos_change[0] in (-1, 0, 1) and pos_change[1] in (-1, 0, 1):
                 yield point
@@ -680,15 +706,19 @@ class King(Piece):
             if piece_in_pos.color == self.color:
                 return True
 
-        attacked, pos_that_attack = self.board.check_if_pos_attacked(pos, self.color)
+        attacked, pos_that_attack = self.board.is_square_attacked(pos, self.color.next())
         return attacked
 
     def get_possible_moves(self) -> GeneratorType:
         """ generates every possible move for the piece in the current position in the board
 
+        FIrst, we check if the positions around the king are attacked by the opposite colour.
+        To do so, we remove the king first, so that it won't interfere with the search.
+
         :return: a generator object with uci encoded moves
-        :rtype: collections.abc.Generator[MOve.Move]
+        :rtype: collections.abc.Generator[Move.Move]
         """
+        self.board.board[self.pos[1]][self.pos[0]] = 0
 
         for y_i in range(-1, 2):
             for x_i in range(-1, 2):
@@ -703,13 +733,15 @@ class King(Piece):
                 if isinstance(possible_piece, Piece):
                     if possible_piece.color == self.color:
                         continue
-                res = self.board.check_if_pos_attacked(position, self.color)
+                res = self.board.is_square_attacked(position, self.color.next())
                 if not res[0] and (0 <= position[0] <= 7 and 0 <= position[1] <= 7):
                     yield Move(self.pos, position, None)
 
+        self.board.board[self.pos[1]][self.pos[0]] = self
+
         can_castle = self.board.castling_rights[self.color]
 
-        if not self.board.check_if_king_attacked(self.color):
+        if not self.board.is_king_attacked(self.color):
             if can_castle[0] and self._can_castle(-1):
                 yield Move(self.pos, PositionVector2D((2, self.pos[1])), None)
             if can_castle[1] and self._can_castle(1):
@@ -731,11 +763,10 @@ class King(Piece):
         pos_2 = self.pos + PositionVector2D((2, 0)) * side
         if isinstance(self.board.board[pos_1[1]][pos_1[0]], Piece) or isinstance(self.board.board[pos_2[1]][pos_2[0]], Piece):
             return False
-        if self.board.check_if_pos_attacked(pos_1, self.color)[0] is True or self.board.check_if_pos_attacked(pos_2, self.color)[0] is True:
+        if self.board.is_square_attacked(pos_1, self.color.next())[0] is True or self.board.is_square_attacked(pos_2, self.color.next())[0] is True:
             return False
 
         return True
-
 
 
 

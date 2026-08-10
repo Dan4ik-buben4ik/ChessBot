@@ -13,57 +13,40 @@ from Engine.engine import Engine, logger
 # starting position: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 
 
-board = Board(fen="4k3/8/8/8/1p6/8/P7/4K3 w - - 0 1")
+board = Board(fen="Q7/2k5/3q4/4K3/8/8/8/8 w - - 7 11")  # "Q7/2k5/8/8/8/1q2K3/8/8 w - - 3 9"
 board.construct()
-enigne = Engine(board, -100, 100, 30)  # depth 10 fails
-# print("Possible moves")
-# possible_moves = list(MoveGenerator.generate_legal_moves(board))
-# print(possible_moves)
-# print(enigne.evaluate())
-# print(enigne.generate())
-# a2a3, e8d8, a3a4, d8c8, a4a5, c8b8, a5a6, b8a7, e1d1, a7a6
-# error path: root/a2a3/e8d8/a3a4/d8c8/a4a5/c8b8/a5a6/b4b3/a7b8q
+enigne = Engine(board, -100, 100, 3)  # depth 10 fails
 
-print("Possible moves")
-possible_moves = list(MoveGenerator.generate_legal_moves(board))
-print(possible_moves)
-evaluation = enigne.evaluate()
-print(evaluation)
-#TODO: yields and error when depth >=9
-print(enigne.generate())
-print(evaluation)
-# logger.print_dict()
 while True:
-    # print("Possible moves")
-    # possible_moves = list(MoveGenerator.generate_legal_moves(board))
-    # print(possible_moves)
-    # evaluation = enigne.evaluate()
-    # print(evaluation)
-    # #TODO: yields and error when depth >=9
-    # print(enigne.generate())
-    # print(evaluation)
-    # logger.print_dict()
-    logger.view_dict()
+    print("Possible moves")
+    possible_moves = list(MoveGenerator.generate_legal_moves(board))
+    print(possible_moves)
+    print(enigne.generate())
+    print(enigne.evaluate())
+    print(logger.nodes)
 
 
-    # input_move = input("Move Input (uci): ")
-    # if input_move == "pop":
-    #     board.pop()
-    #     board.construct()
-    #     continue
+    #Q7/2k5/3q4/4K3/8/8/8/8 w - - 7 11, a8a5 possible?
+
+
+    input_move = input("Move Input (uci): ")
+    if input_move == "pop":
+        board.pop()
+        board.construct()
+        continue
     # elif input_move == "print":
     #     logger.print_dict()
     #     continue
     # elif input_move == "view":
     #     logger.view_dict()
     #     continue
-    # move = Move.from_uci(input_move)
-    #
-    # if move in possible_moves:
-    #     board.push(move)
-    #     board.construct()
-    #     # board.pop()
-    #     # board.construct()
+    move = Move.from_uci(input_move)
+
+    if move in possible_moves:
+        board.push(move)
+        board.construct()
+        # board.pop()
+        # board.construct()
 #
 #
 #

@@ -12,7 +12,7 @@ def generate_legal_moves(board) -> GeneratorType:
     :return: A generator that yields string moves formatted in UCI notation
     :rtype: collections.abc.Generator[move.Move]
     """
-    is_check, king_attackers_pos = board.check_if_king_attacked(board.turn)
+    is_check, king_attackers_pos = board.is_king_attacked(board.turn)
     if is_check:
         if len(king_attackers_pos) == 1:
             king_pos = board.kings[board.turn].pos

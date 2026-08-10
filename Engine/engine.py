@@ -174,13 +174,6 @@ class Engine:
 
     def evaluate(self):
         color = 1 if self.board.turn == TurnColor.WHITE else -1
-        try:
-            return self._AlphaBetaSearch(self.board, self.init_alpha, self.init_beta, self.depth) * color
+        return self._AlphaBetaSearch(self.board, self.init_alpha, self.init_beta, self.depth) * color
 
-        except BaseException as exp:
-            print(logger.parent_path)
-            logger.view_dict()
-            logger.view_dict()
-            logger.view_dict()
-            raise exp
 

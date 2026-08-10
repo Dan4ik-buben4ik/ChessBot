@@ -9,9 +9,11 @@ class SearchLogger:
         "root": {"moves": [], "move evaluations": [], "evaluation": 0, "depth": 0}
     }
     parent_path = "root"
+    nodes = 0
 
 
     def log_intro(self, move, depth):
+        self.nodes += 1
         new_path = f"{self.parent_path}/{move.to_uci()}"
         self.data[self.parent_path]["moves"].append(move.to_uci())
         self.data[self.parent_path]["depth"] = depth
@@ -56,3 +58,9 @@ def timer(func):
         return result
 
     return wrapper
+
+
+
+def perfit(depth):
+    #TODO: finish the function
+    pass

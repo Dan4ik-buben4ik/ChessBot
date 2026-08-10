@@ -151,9 +151,7 @@ def FEN_to_board(fen: str, board):
     # print(board.full_moves)
     # print()
 
-    king = board.kings[board.turn]
-    is_check, attacking_pos = board.check_if_pos_attacked(king.pos, board.turn)
-    print(is_check, attacking_pos)
+    is_check, attacking_pos = board.is_king_attacked(board.turn)
     if is_check:
         board.check = True
         board.positions_that_attack_king = attacking_pos

@@ -282,7 +282,7 @@ class Board:
 
     def is_move_check(self, move):
         self.push(move)
-        check, attackers = self.check_if_king_attacked(self.turn)
+        check, attackers = self.is_king_attacked(self.turn)
         self.pop()
 
         return check
@@ -302,7 +302,7 @@ class Board:
                 self.castling_rights[self.turn][1] = False
                 self.hash ^= self.hasher.castling_rights[self.turn][1]
 
-        if self.check_if_king_attacked(self.turn)[0] is True:
+        if self.is_king_attacked(self.turn)[0] is True:
             opponent_color = self.turn.next()
             if self.castling_rights[opponent_color] != [False, False]:
                 self.castling_rights[opponent_color] = [False, False]
@@ -383,20 +383,20 @@ class Board:
 
         # assert self.hash == self.hasher.hash(self)
 
-    def check_if_king_attacked(self, color):
+    def is_king_attacked(self, color):
         king = self.kings[color]
-        res, positions_that_attack_king = self.check_if_pos_attacked(king.pos, self.turn)
+        res, positions_that_attack_king = self.is_square_attacked(king.pos, self.turn.next())
 
         return res, positions_that_attack_king
 
-    def check_if_pos_attacked(self, pos: PositionVector2D | tuple[int, int], turn_color: TurnColor) -> tuple[bool, list]:
+    def is_square_attacked(self, pos: PositionVector2D | tuple[int, int], by_color: TurnColor) -> tuple[bool, list]:
         directions_list = [(0, 1), (1, 1), (1, 0), (1, -1), (0, -1), (-1, -1), (-1, 0), (-1, 1)]
         directions_list = list(map(lambda x: PositionVector2D(x), directions_list))
         direction_del = []
         pos_that_attack = []
 
         # check for knight
-        pos_that_attack.extend(list(self._knights_attacking_pos(pos, turn_color)))
+        pos_that_attack.extend(list(self._knights_attacking_pos(pos, by_color)))
 
         # check for any other pieces
         for i in range(1, 8):
@@ -412,9 +412,9 @@ class Board:
                     direction_del.append(direction)
                     continue
 
-                if piece == 0 or piece == self:
+                if piece == 0:
                     pass
-                elif piece.color == turn_color:
+                elif piece.color != by_color:
                     direction_del.append(direction)
 
                 else:
@@ -443,7 +443,7 @@ class Board:
 
         return True if len(pos_that_attack) > 0 else False, pos_that_attack
 
-    def _knights_attacking_pos(self, pos: PositionVector2D, turn_color: TurnColor) -> GeneratorType:
+    def _knights_attacking_pos(self, pos: PositionVector2D, by_color: TurnColor) -> GeneratorType:
         knight_directions = [(1, 2), (1, -2), (-1, 2), (-1, -2), (2, 1), (-2, 1), (-2, -1), (2, -1)]
 
         for i in knight_directions:
@@ -457,7 +457,7 @@ class Board:
 
             if piece == 0:
                 continue
-            elif piece.name == "Knight" and piece.color != turn_color:
+            elif piece.name == "Knight" and piece.color == by_color:
                 yield knight_pos
 
     def game_end_check(self):
@@ -474,7 +474,7 @@ class Board:
                 return False, None
 
         opponent_color = self.turn.next()
-        if self.check_if_king_attacked(opponent_color)[0]:
+        if self.is_king_attacked(opponent_color)[0]:
             return True, opponent_color
         else:
             return False, None
