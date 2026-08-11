@@ -1,4 +1,3 @@
-from position import PositionVector2D
 # A file with errors. Quite self-explanatory
 """
 

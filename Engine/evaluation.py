@@ -1,6 +1,6 @@
-from util import TurnColor, EvalTable
-from pieces import Pawn
-import MoveGenerator as MoveGen
+from Chess_lib.util import TurnColor, EvalTable
+from Chess_lib.pieces import Pawn
+import Chess_lib.MoveGenerator as MoveGen
 
 
 
@@ -74,7 +74,7 @@ class StaticEvaluation:
                 elif piece.name != "Pawn":
                     continue
 
-                #TODO: make the passed pawn work differently
+                #TODO: make the passed pawn work differently, aka the further it is the better and check if there are any pawns in front
                 if piece.color == TurnColor.WHITE and piece.pos[1] <= 2 and not isinstance(board.board[piece.pos[1] - 1][piece.pos[0]], Pawn):
                     score += EvalTable.passed_pawn
 

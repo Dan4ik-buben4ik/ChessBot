@@ -1,6 +1,5 @@
 import random
-import loader
-from util import TurnColor
+from .util import TurnColor
 
 class ZobristHasher:
     """ A hashing class designed to use Zobrist hashing
