@@ -34,14 +34,23 @@ class EvalTable:
         "Queen": 900,
     }
 
-    activity = [[0 for _ in range(8)] for _ in range(8)]
+    activity = [
+        [0, 0, 0, 0, 0, 0, 0, 0],
+        [0, 1, 1, 1, 1, 1, 1, 0],
+        [0, 1, 2, 2, 2, 2, 1, 0],
+        [0, 1, 2, 4, 4, 2, 1, 0],
+        [0, 1, 2, 4, 4, 2, 1, 0],
+        [0, 1, 2, 2, 2, 2, 1, 0],
+        [0, 1, 1, 1, 1, 1, 1, 0],
+        [0, 0, 0, 0, 0, 0, 0, 0],
+    ]
 
     bishop_pair = 30
     doubled_pawn = - 15
     isolated_pawn = -20
     passed_pawn = 45
     mobility = 3
-    activity_scale = 0.05
+    activity_scale = 0.02
     king_open_file = -50
     rook_open_file = 20
     tempo = 10
