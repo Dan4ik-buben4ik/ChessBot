@@ -4,7 +4,7 @@ import enum
 from dataclasses import dataclass
 
 
-class TurnColor(enum.Enum):
+class TurnColor(enum.IntEnum):
     WHITE = 0
     BLACK = 1
 

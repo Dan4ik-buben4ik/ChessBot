@@ -21,9 +21,12 @@ while True:
     print("Possible moves")
     possible_moves = list(MoveGenerator.generate_legal_moves(board))
     print(possible_moves)
-    print(enigne.generate())
-    print(enigne.evaluate())
-    print(logger.nodes)
+    print(f"best move: {enigne.generate()}")
+    print(f"evaluation: {enigne.evaluate()}")
+    print(f"nodes checked: {logger.nodes}")
+    logger.view_dict()
+    logger.view_dict()
+    logger.view_dict()
 
 
     #Q7/2k5/3q4/4K3/8/8/8/8 w - - 7 11, a8a5 possible?

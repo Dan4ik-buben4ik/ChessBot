@@ -1,7 +1,7 @@
 import Chess_lib.MoveGenerator as MoveGen
 from Chess_lib.util import TurnColor
 
-from .util import TTFlag, TTEntree
+from .util import *
 from .evaluation import StaticEvaluation
 import math
 
