@@ -3,9 +3,6 @@ from .error import *
 from .move import Move
 from .hashing import ZobristHasher
 
-from dataclasses import dataclass
-
-
 
 class Board:
     #slots later?

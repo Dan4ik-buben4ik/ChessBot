@@ -1,4 +1,5 @@
 import enum
+import array
 from typing import TypeAlias
 
 
@@ -83,6 +84,8 @@ BB_FILE_F: BitBoard = 0x0101_0101_0101_0101 << FILE_F
 BB_FILE_G: BitBoard = 0x0101_0101_0101_0101 << FILE_G
 BB_FILE_H: BitBoard = 0x0101_0101_0101_0101 << FILE_H
 BB_FILES = [BB_FILE_A, BB_FILE_B, BB_FILE_C, BB_FILE_D, BB_FILE_E, BB_FILE_F, BB_FILE_G, BB_FILE_H]
+
+BB_EDGES = BB_RANK_1 | BB_RANK_8 | BB_FILE_A | BB_FILE_H
 
 Square: TypeAlias = int
 A1: Square = 0
@@ -178,8 +181,8 @@ def square_file(square):
     return square & 7
 
 def square_distance(a: Square, b: Square):
-    """in steps between the squares"""
-    return abs(square_file(a) - square_file(b)) + abs(square_rank(a) - square_rank(b))
+    """in king steps between the squares"""
+    return max(abs(square_file(a) - square_file(b)), abs(square_rank(a) - square_rank(b)))
 
 
 
@@ -197,21 +200,67 @@ CASTLING_RIGHTS_UPDATE_BY_SQUARE = {
     H8: BLACK_KINGS_CASTLE,
     E8: BLACK_QUEENS_CASTLE | BLACK_KINGS_CASTLE,
 }
-def _delta_attacks(square, deltas: list):
+
+
+def _delta_attacks(square: Square, deltas: list):
+    return _sliding_attacks(square, BB_ALL, deltas)
+
+
+def _sliding_attacks(square: Square, occupied: BitBoard, deltas: list):
     attacks = BB_EMPTY
     for d in deltas:
-        sq = square + d
-        if 0 <= sq < 64 and square_distance(sq, sq-d) <= 3:
+        sq = square
+        while True:
+            sq += d
+            if not (0 <= sq < 64) or square_distance(sq, sq - d) > 2:
+                break
+
             attacks |= 1 << sq
 
+            if occupied & 1 << sq:
+                break
+
     return attacks
+
+def _edges(sq):
+    return (
+        ((BB_RANK_1 | BB_RANK_8) & ~BB_RANKS[square_rank(sq)]) |
+        ((BB_FILE_A | BB_FILE_H) & ~BB_FILES[square_file(sq)])
+    )
+
+def _create_masks(deltas):
+    masks = []
+    for square in SQUARES:
+        mask = _sliding_attacks(square, BB_EMPTY, deltas) & ~_edges(square)
+        masks.append(mask)
+
+    return masks
+
+
 
 
 BB_PAWN_ATTACKS: list[list[Square]] = [[_delta_attacks(sq, delta) for sq in SQUARES] for delta in ([7, 9], [-7, -9])]
 BB_KNIGHT_ATTACKS: list[Square] = [_delta_attacks(sq, [-10, 6, 15, 17, 10, -6, -17, -15]) for sq in SQUARES]
 BB_KING_ATTACKS: list[Square] = [_delta_attacks(sq, [-7, -8, -9, -1, 1, 7, 8, 9]) for sq in SQUARES]
-BB_RAYS = None
+BB_ORTHOGONAL_RAYS: list[BitBoard] = [_sliding_attacks(sq, BB_EMPTY, [8, 1, -1, -8]) for sq in SQUARES]
+BB_DIAGONAL_RAYS: list[BitBoard] = [_sliding_attacks(sq, BB_EMPTY, [7, 9, -7, -9]) for sq in SQUARES]
 
+BB_ORTHOGONAL_MASK: list[BitBoard] = _create_masks([8, 1, -1, -8])
+BB_DIAGONAL_MASK: list[BitBoard] = _create_masks([7, 9, -7, -9])
+
+
+def _subsets(mask):
+    subset = mask
+    while True:
+        yield subset
+
+        if subset == 0:
+            break
+
+        subset = (subset-1) & mask
+
+
+# bit manipulation
 def pop_lsb(bitboard):
     lsb = bitboard & -bitboard
     square = lsb.bit_length() - 1
@@ -219,7 +268,8 @@ def pop_lsb(bitboard):
 
     return square, bitboard
 
-def bitprint(bit, length=None):
+
+def bitprint(bit, length=64):
     txt = ""
     while bit:
         txt += str(bit & 0b1)
@@ -228,3 +278,65 @@ def bitprint(bit, length=None):
     if length and len(txt) < length:
         txt += "0" * (length - len(txt))
     print("".join(("0b", txt[::-1])))
+def bit_string(bit, length=64):
+    txt = ""
+    while bit:
+        txt += str(bit & 0b1)
+        bit >>= 1
+
+    if length and len(txt) < length:
+        txt += "0" * (length - len(txt))
+    return "".join(("0b", txt[::-1]))
+
+
+
+# reading the magic number files
+with open("magic_table.bin", "rb") as file:
+    ROOK_MAGIC = array.array("Q")
+    ROOK_MAGIC.fromfile(file, 64)
+
+    ROOK_SHIFT = array.array("B")
+    ROOK_SHIFT.fromfile(file, 64)
+
+    ROOK_ATTACK_OFFSET = array.array("Q")
+    ROOK_ATTACK_TABLE = array.array("Q")
+
+    offset = 0
+    for sq, shift in enumerate(ROOK_SHIFT):
+        size = 1 << (64 - shift)
+        ROOK_ATTACK_OFFSET.append(offset)
+
+        attack = array.array("Q")
+        attack.fromfile(file, size)
+
+        assert len(attack) == size
+
+        ROOK_ATTACK_TABLE.extend(attack)
+
+        offset += size
+
+    BISHOP_MAGIC = array.array("Q")
+    BISHOP_MAGIC.fromfile(file, 64)
+
+    BISHOP_SHIFT = array.array("B")
+    BISHOP_SHIFT.fromfile(file, 64)
+
+    BISHOP_ATTACK_OFFSET = array.array("Q")
+    BISHOP_ATTACK_TABLE = array.array("Q")
+
+    offset = 0
+    for sq, shift in enumerate(BISHOP_SHIFT):
+        size = 1 << (64 - shift)
+        BISHOP_ATTACK_OFFSET.append(offset)
+
+        attack = array.array("Q")
+        attack.fromfile(file, size)
+
+        assert len(attack) == size
+
+        BISHOP_ATTACK_TABLE.extend(attack)
+
+        offset += size
+
+
+
