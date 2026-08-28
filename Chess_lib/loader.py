@@ -1,4 +1,5 @@
 from .util import *
+from .util import _sliding_attacks
 from .error import *
 from .move import Move
 from .hashing import ZobristHasher
@@ -111,9 +112,19 @@ class Board:
         elif bb_square & self.knights:
             return BB_KNIGHT_ATTACKS[square]
         elif bb_square & self.kings:
+            bitprint(BB_KING_ATTACKS[square])
             return BB_KING_ATTACKS[square]
         else:
-            raise NotImplementedError
+            mask = 0
+            if bb_square & (self.bishops | self.queens):
+                index = (((self.occupancy & BB_DIAGONAL_MASK[square]) * BISHOP_MAGIC[square]) & 0xffff_ffff_ffff_ffff) >> BISHOP_SHIFT[square]
+                mask |= BISHOP_ATTACK_TABLE[BISHOP_ATTACK_OFFSET[square] + index]
+            if bb_square & (self.rooks | self.queens):
+                bitprint(self.occupancy & BB_ORTHOGONAL_MASK[square])
+                index = (((self.occupancy & BB_ORTHOGONAL_MASK[square]) * ROOK_MAGIC[square]) & 0xffff_ffff_ffff_ffff) >> ROOK_SHIFT[square]
+                mask |= ROOK_ATTACK_TABLE[ROOK_ATTACK_OFFSET[square] + index]
+
+            return mask
 
     def is_en_passant(self, move):
         return (
@@ -399,7 +410,7 @@ class Board:
                     val = sym.upper() if color == WHITE else sym.lower()
                 print(f"|  {val}  " if len(str(val)) == 1 else f"|  {val} ", end="")
             print("|", end="")
-            print(f"  {rank}")
+            print(f"  {rank+1}")
             print("|-----" * 8 + "|")
         # section to add letters
         print("   ", end="")

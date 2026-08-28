@@ -63,7 +63,7 @@ BB_Rank = 0x0000_0000_0000_0011
 BitBoard: TypeAlias = int
 
 BB_EMPTY = 0x0000_0000_0000_0000
-BB_ALL = 0x1111_1111_1111_1111
+BB_ALL = 0xffff_ffff_ffff_ffff
 
 BB_RANK_1: BitBoard = 0xff << (8 * RANK_1)
 BB_RANK_2: BitBoard = 0xff << (8 * RANK_2)
@@ -217,7 +217,7 @@ def _sliding_attacks(square: Square, occupied: BitBoard, deltas: list):
 
             attacks |= 1 << sq
 
-            if occupied & 1 << sq:
+            if occupied & (1 << sq):
                 break
 
     return attacks
@@ -291,7 +291,7 @@ def bit_string(bit, length=64):
 
 
 # reading the magic number files
-with open("magic_table.bin", "rb") as file:
+with open("Chess_Lib/magic_table.bin", "rb") as file:
     ROOK_MAGIC = array.array("Q")
     ROOK_MAGIC.fromfile(file, 64)
 
@@ -337,6 +337,5 @@ with open("magic_table.bin", "rb") as file:
         BISHOP_ATTACK_TABLE.extend(attack)
 
         offset += size
-
 
 
