@@ -11,8 +11,17 @@ from Chess_lib.util import _subsets, _sliding_attacks
 # double check: "8/8/8/8/4k3/5p2/4P3/K3R3 w - - 0 1"
 # all pawns on the last row: "2R5/PPPPPPPP/8/8/8/8/8/k6K w - - 0 1"
 # starting position: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
-bit_board = Board.from_fen("4k2r/8/8/8/8/8/8/R3K3 w KQkq - 0 1 w - - 0 1")
+# diagonal pin : "4k3/8/8/8/7q/8/5N2/4K3 w KQkq - 0 1"
+
+bit_board = Board.from_fen("4k2r/8/8/8/8/8/8/R3K3 w KQkq - 0 1")
 bit_board.construct()
 
-print(list(bit_board.generate_pseudo_legal_moves()))
+while True:
+    print("possible moves")
+    print(list(bit_board.generate_legal_moves()))
+
+    move = Move.from_uci(input("uci move: "))
+    bit_board.push(move)
+    bit_board.construct()
+
 

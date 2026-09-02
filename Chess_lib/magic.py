@@ -23,8 +23,8 @@ def find_magic_numbers(square: Square, mask: BitBoard, deltas):
     attempt = 0
     while True:
         attempt += 1
-        if attempt % 100_000 == 0:
-            print(attempt)
+        # if attempt % 100_000 == 0:
+        #     print(attempt)
         magic = rng.getrandbits(64) & rng.getrandbits(64) & rng.getrandbits(64)
         if magic in tried:
             continue
@@ -58,7 +58,7 @@ ROOK_MAGIC = []  # Square: magic number
 ROOK_SHIFT = []  # Square: shift value
 for square in SQUARES:
     number, shift = find_magic_numbers(square, BB_ORTHOGONAL_MASK[square], [8, 1, -1, -8])
-    print(number, shift)
+    # print(number, shift)
 
     ROOK_MAGIC.append(number)
     ROOK_SHIFT.append(shift)
@@ -79,16 +79,17 @@ BISHOP_MAGIC = []  # Square: magic number
 BISHOP_SHIFT = []  # Square: shift value
 for square in SQUARES:
     number, shift = find_magic_numbers(square, BB_DIAGONAL_MASK[square], [7, 9, -7, -9])
-    print(number, shift)
+    # print(number, shift)
 
     BISHOP_MAGIC.append(number)
     BISHOP_SHIFT.append(shift)
 
     attacks = [0 for _ in range(1 << (64-shift))]
-    for blockers in _subsets(BB_ORTHOGONAL_RAYS[square]):
+    for blockers in _subsets(BB_DIAGONAL_RAYS[square]):
         index = ((blockers * number) & 0xffff_ffff_ffff_ffff) >> shift
 
         attacks[index] = _sliding_attacks(square, blockers, [7, 9, -7, -9])
+
     BISHOP_ATTACKS.append(attacks)
 
 
@@ -114,28 +115,28 @@ for square in SQUARES:
 #     file.flush()
 
 
-print("ROOK tables:")
-print(f"len ROOK_ATTACKS = {len(ROOK_ATTACKS)}")
-for sq, row in enumerate(ROOK_ATTACKS):
-    print(f"\nsquare: {SQUARE_NAMES[sq]}")
-    expected = 1 << (64 - ROOK_SHIFT[sq])
-    print(
-        "shift =", ROOK_SHIFT[sq],
-        "actual =", len(row),
-        "expected =", expected
-    )
-    print(len(ROOK_ATTACKS[sq]) == 1 << (64 - ROOK_SHIFT[sq]))
-
-print("BISHOP tables:")
-for sq, row in enumerate(BISHOP_ATTACKS):
-    print(f"\nsquare: {SQUARE_NAMES[sq]}")
-    expected = 1 << (64 - BISHOP_SHIFT[sq])
-    print(
-        "shift =", BISHOP_SHIFT[sq],
-        "actual =", len(row),
-        "expected =", expected
-    )
-    print(len(BISHOP_ATTACKS[sq]) == 1 << (64 - BISHOP_SHIFT[sq]))
+# print("ROOK tables:")
+# print(f"len ROOK_ATTACKS = {len(ROOK_ATTACKS)}")
+# for sq, row in enumerate(ROOK_ATTACKS):
+#     print(f"\nsquare: {SQUARE_NAMES[sq]}")
+#     expected = 1 << (64 - ROOK_SHIFT[sq])
+#     print(
+#         "shift =", ROOK_SHIFT[sq],
+#         "actual =", len(row),
+#         "expected =", expected
+#     )
+#     print(len(ROOK_ATTACKS[sq]) == 1 << (64 - ROOK_SHIFT[sq]))
+#
+# print("BISHOP tables:")
+# for sq, row in enumerate(BISHOP_ATTACKS):
+#     print(f"\nsquare: {SQUARE_NAMES[sq]}")
+#     expected = 1 << (64 - BISHOP_SHIFT[sq])
+#     print(
+#         "shift =", BISHOP_SHIFT[sq],
+#         "actual =", len(row),
+#         "expected =", expected
+#     )
+#     print(len(BISHOP_ATTACKS[sq]) == 1 << (64 - BISHOP_SHIFT[sq]))
 
 
 if os.path.exists("magic_table.bin"):

@@ -112,7 +112,6 @@ class Board:
         elif bb_square & self.knights:
             return BB_KNIGHT_ATTACKS[square]
         elif bb_square & self.kings:
-            bitprint(BB_KING_ATTACKS[square])
             return BB_KING_ATTACKS[square]
         else:
             mask = 0
@@ -120,11 +119,26 @@ class Board:
                 index = (((self.occupancy & BB_DIAGONAL_MASK[square]) * BISHOP_MAGIC[square]) & 0xffff_ffff_ffff_ffff) >> BISHOP_SHIFT[square]
                 mask |= BISHOP_ATTACK_TABLE[BISHOP_ATTACK_OFFSET[square] + index]
             if bb_square & (self.rooks | self.queens):
-                bitprint(self.occupancy & BB_ORTHOGONAL_MASK[square])
                 index = (((self.occupancy & BB_ORTHOGONAL_MASK[square]) * ROOK_MAGIC[square]) & 0xffff_ffff_ffff_ffff) >> ROOK_SHIFT[square]
                 mask |= ROOK_ATTACK_TABLE[ROOK_ATTACK_OFFSET[square] + index]
 
             return mask
+
+    def attackers_mask(self, square: Square, color: Color):
+        mask = BB_EMPTY
+        mask |= BB_PAWN_ATTACKS[1 ^ color][square] & self.pawns
+        mask |= BB_KNIGHT_ATTACKS[square] & self.knights
+        mask |= BB_KING_ATTACKS[square] & self.kings
+
+        diagonal_index = (((self.occupancy & BB_DIAGONAL_MASK[square]) * BISHOP_MAGIC[square]) & 0xffff_ffff_ffff_ffff) >> BISHOP_SHIFT[square]
+        mask |= BISHOP_ATTACK_TABLE[BISHOP_ATTACK_OFFSET[square] + diagonal_index] & (self.bishops | self.queens)
+
+        orthogonal_index = (((self.occupancy & BB_ORTHOGONAL_MASK[square]) * ROOK_MAGIC[square]) & 0xffff_ffff_ffff_ffff) >> ROOK_SHIFT[square]
+        mask |= ROOK_ATTACK_TABLE[ROOK_ATTACK_OFFSET[square] + orthogonal_index] & (self.rooks | self.queens)
+
+        return mask & self.occupancy_color[color]
+
+
 
     def is_en_passant(self, move):
         return (
@@ -230,13 +244,18 @@ class Board:
         prev_state.restore()
         return True
 
+
     def generate_pseudo_legal_moves(self):
+        #TODO: change into a format of from square -> targets bitboard
         # generate non pawns moves
         non_pawns = self.occupancy_color[self.turn] & ~self.pawns
         for from_square in scan_forward_bb(non_pawns):
             moves = self.attacks_mask(from_square) & ~self.occupancy_color[self.turn]
-            for to_square in scan_forward_bb(moves):
-                yield Move(from_square, to_square)
+            # print()
+            # bitprint(moves)
+            yield from_square, moves
+            # for to_square in scan_forward_bb(moves):
+            #     yield Move(from_square, to_square)
 
 
         #generate pawns moves
@@ -247,14 +266,15 @@ class Board:
         #captures
         for from_square in scan_backward_bb(ally_pawns):
             targets = BB_PAWN_ATTACKS[self.turn][from_square] & self.occupancy_color[1 ^ self.turn]
-            for to_square in scan_backward_bb(targets):
-                if square_rank(to_square) in (RANK_1, RANK_8):
-                    yield Move(from_square, to_square, KNIGHT)
-                    yield Move(from_square, to_square, BISHOP)
-                    yield Move(from_square, to_square, ROOK)
-                    yield Move(from_square, to_square, QUEEN)
-                else:
-                    yield Move(from_square, to_square)
+            yield from_square, targets
+            # for to_square in scan_backward_bb(targets):
+            #     if square_rank(to_square) in (RANK_1, RANK_8):
+            #         yield Move(from_square, to_square, KNIGHT)
+            #         yield Move(from_square, to_square, BISHOP)
+            #         yield Move(from_square, to_square, ROOK)
+            #         yield Move(from_square, to_square, QUEEN)
+            #     else:
+            #         yield Move(from_square, to_square)
 
         #advances
         if self.turn == WHITE:
@@ -266,17 +286,18 @@ class Board:
 
         for to_square in scan_backward_bb(single_moves):
             from_square = to_square + (-8 if self.turn == WHITE else 8)
-            if square_rank(to_square) in (RANK_1, RANK_8):
-                yield Move(from_square, to_square, KNIGHT)
-                yield Move(from_square, to_square, BISHOP)
-                yield Move(from_square, to_square, ROOK)
-                yield Move(from_square, to_square, QUEEN)
-            else:
-                yield Move(from_square, to_square)
+            yield from_square, to_square
+            # if square_rank(to_square) in (RANK_1, RANK_8):
+            #     yield Move(from_square, to_square, KNIGHT)
+            #     yield Move(from_square, to_square, BISHOP)
+            #     yield Move(from_square, to_square, ROOK)
+            #     yield Move(from_square, to_square, QUEEN)
+            # else:
+            #     yield Move(from_square, to_square)
 
         for to_square in scan_backward_bb(double_moves):
             from_square = to_square + (-16 if self.turn == WHITE else 16)
-            yield Move(from_square, to_square)
+            yield from_square, to_square
 
         #generate en passant
         if not self.ep_square or self.ep_square & self.occupancy:
@@ -284,9 +305,98 @@ class Board:
 
         capturers = ally_pawns & BB_PAWN_ATTACKS[1 ^ self.turn][self.ep_square] & (BB_RANK_4 if self.turn == WHITE else BB_RANK_5)
         for from_square in scan_backward_bb(capturers):
-            yield Move(from_square, self.ep_square)
+            yield from_square, self.ep_square
 
         # raise NotImplementedError
+
+
+    def generate_legal_moves(self):
+        king_mask = self.kings & self.occupancy_color[self.turn]
+        king_square = msb_square(king_mask)
+
+        opposite_color = 1 ^ self.turn
+        pinned, msb_pinned_rays = self.pinned(king_square, self.turn)
+        checkers = self.attackers_mask(king_square, opposite_color)
+
+        if checkers:
+            evasion_mask = self.generate_evasions_mask()
+            for to_square in scan_backward_bb(evasion_mask):
+                yield Move(king_square, to_square)
+
+            if checkers.bit_count() == 1:
+                ray = checkers
+                if checkers & (self.rooks | self.bishops | self.queens):
+                    ray |= BB_RAYS[king_square][checkers.bit_length()-1]
+                for from_square, targets in self.generate_pseudo_legal_moves():
+                    bb_from_square = 1 << from_square
+                    if bb_from_square & pinned or from_square == king_square:
+                        continue
+                    targets &= ray
+                    for to_square in scan_backward_bb(targets):
+                        if square_rank(to_square) in (RANK_1, RANK_8) and bb_from_square & self.pawns:
+                            yield Move(from_square, to_square, KNIGHT)
+                            yield Move(from_square, to_square, BISHOP)
+                            yield Move(from_square, to_square, ROOK)
+                            yield Move(from_square, to_square, QUEEN)
+                        else:
+                            yield Move(from_square, to_square)
+
+        else:
+            for from_square, targets in self.generate_pseudo_legal_moves():
+                bb_from_square = 1 << from_square
+                if bb_from_square & pinned:
+                    targets &= msb_pinned_rays[(pinned >> (from_square + 1)).bit_count()]
+                for to_square in scan_backward_bb(targets):
+                    if square_rank(to_square) in (RANK_1, RANK_8) and bb_from_square & self.pawns:
+                        yield Move(from_square, to_square, KNIGHT)
+                        yield Move(from_square, to_square, BISHOP)
+                        yield Move(from_square, to_square, ROOK)
+                        yield Move(from_square, to_square, QUEEN)
+                    else:
+                        yield Move(from_square, to_square)
+
+
+    def generate_evasions_mask(self):
+        king_mask = self.kings & self.occupancy_color[self.turn]
+        king_square = msb_square(king_mask)
+        opponent_color = 1 ^ self.turn
+
+        attack_mask = BB_KING_ATTACKS[king_square]
+        mask = 0
+        self.kings &= ~king_mask
+        for to_square in scan_forward_bb(attack_mask):
+            mask |= 1 << to_square if not self.attackers_mask(to_square, opponent_color) else 0
+        self.kings |= king_mask
+
+        return mask
+
+
+
+
+    def pinned(self, king_sq: Square, color: Color) -> (BitBoard, list[Square]):
+        """ the pinner squares are done using the msb approach, thus each pinner_square is the current msb"""
+        opponent_color = 1 ^ color
+        possible_pinners = 0
+
+        diagonal_index = (((self.occupancy_color[opponent_color] & BB_DIAGONAL_MASK[king_sq]) * BISHOP_MAGIC[king_sq]) & 0xffff_ffff_ffff_ffff) >> BISHOP_SHIFT[king_sq]
+        possible_pinners |= BISHOP_ATTACK_TABLE[BISHOP_ATTACK_OFFSET[king_sq] + diagonal_index] & (self.bishops | self.queens)
+
+        orthogonal_index = (((self.occupancy_color[opponent_color] & BB_ORTHOGONAL_MASK[king_sq]) * ROOK_MAGIC[king_sq]) & 0xffff_ffff_ffff_ffff) >> ROOK_SHIFT[king_sq]
+        possible_pinners |= ROOK_ATTACK_TABLE[ROOK_ATTACK_OFFSET[king_sq] + orthogonal_index] & (self.rooks | self.queens)
+
+        possible_pinners &= self.occupancy_color[opponent_color]
+
+        pinned = BB_EMPTY
+        pinned_ray = []
+        for square in scan_forward_bb(possible_pinners):
+            potential_blockers = BB_BETWEEN[king_sq][square] & self.occupancy
+            if potential_blockers.bit_count() == 1:
+                pinned |= potential_blockers & self.occupancy_color[color]
+                pinned_ray.append(BB_BETWEEN[king_sq][square])
+
+        return pinned, pinned_ray
+
+
 
     @classmethod
     def from_fen(cls, fen: str):

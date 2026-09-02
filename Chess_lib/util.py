@@ -248,6 +248,48 @@ BB_DIAGONAL_RAYS: list[BitBoard] = [_sliding_attacks(sq, BB_EMPTY, [7, 9, -7, -9
 BB_ORTHOGONAL_MASK: list[BitBoard] = _create_masks([8, 1, -1, -8])
 BB_DIAGONAL_MASK: list[BitBoard] = _create_masks([7, 9, -7, -9])
 
+def _between() -> list[list[BitBoard]]:
+    rays = []
+    for a in range(64):
+        bb_a = 1 << a
+        temp_list = []
+        for b in range(64):
+            bb_b = 1 << b
+            if BB_ORTHOGONAL_RAYS[a] & bb_b:
+                temp_list.append(BB_ORTHOGONAL_RAYS[a] & BB_ORTHOGONAL_RAYS[b] & (BB_ALL << a ^ BB_ALL << b))
+            elif BB_DIAGONAL_RAYS[a] & bb_b:
+                temp_list.append(BB_DIAGONAL_RAYS[a] & BB_DIAGONAL_RAYS[b] & (BB_ALL << a ^ BB_ALL << b))
+            else:
+                temp_list.append(BB_EMPTY)
+
+        rays.append(temp_list)
+
+    return rays
+
+
+BB_BETWEEN = _between()
+
+
+def _rays() -> list[list[BitBoard]]:
+    rays = []
+    for a in range(64):
+        bb_a = 1 << a
+        temp_list = []
+        for b in range(64):
+            bb_b = 1 << b
+            if BB_ORTHOGONAL_RAYS[a] & bb_b:
+                temp_list.append(BB_BETWEEN[a][b] | bb_a | bb_b)
+            elif BB_DIAGONAL_RAYS[a] & bb_b:
+                temp_list.append(BB_BETWEEN[a][b] | bb_a | bb_b)
+            else:
+                temp_list.append(BB_EMPTY)
+
+        rays.append(temp_list)
+
+    return rays
+
+
+BB_RAYS = _rays()
 
 def _subsets(mask):
     subset = mask
@@ -269,15 +311,21 @@ def pop_lsb(bitboard):
     return square, bitboard
 
 
-def bitprint(bit, length=64):
-    txt = ""
-    while bit:
-        txt += str(bit & 0b1)
-        bit >>= 1
+def lsb_square(bitboard):
+    return (bitboard & -bitboard).bit_length() - 1
 
-    if length and len(txt) < length:
-        txt += "0" * (length - len(txt))
-    print("".join(("0b", txt[::-1])))
+def msb_square(bitboard):
+    return bitboard.bit_length() - 1
+
+
+def bitprint(bit, length=64):
+    txt = bin(bit)[2:]
+    if len(txt) != length:
+        txt = "".join(("0" * (length - len(txt)), txt))
+    txt = "\n".join([txt[i:i+8] for i in range(0, len(txt), 8)])
+    print(txt)
+
+
 def bit_string(bit, length=64):
     txt = ""
     while bit:
