@@ -13,7 +13,7 @@ from Chess_lib.util import _subsets, _sliding_attacks
 # starting position: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 # diagonal pin : "4k3/8/8/8/7q/8/5N2/4K3 w KQkq - 0 1"
 
-bit_board = Board.from_fen("4k2r/8/8/8/8/8/8/R3K3 w KQkq - 0 1")
+bit_board = Board.from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
 bit_board.construct()
 
 while True:

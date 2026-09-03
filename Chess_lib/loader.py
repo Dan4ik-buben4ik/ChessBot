@@ -112,7 +112,18 @@ class Board:
         elif bb_square & self.knights:
             return BB_KNIGHT_ATTACKS[square]
         elif bb_square & self.kings:
-            return BB_KING_ATTACKS[square]
+            mask = BB_KING_ATTACKS[square]
+            if self.turn == WHITE:
+                if self.castling_rights & WHITE_KINGS_CASTLE:
+                    mask |= 1 << G1
+                if self.castling_rights & WHITE_QUEENS_CASTLE:
+                    mask |= 1 << C1
+            else:
+                if self.castling_rights & BLACK_KINGS_CASTLE:
+                    mask |= 1 << G8
+                if self.castling_rights & BLACK_QUEENS_CASTLE:
+                    mask |= 1 << C8
+            return mask
         else:
             mask = 0
             if bb_square & (self.bishops | self.queens):
@@ -124,16 +135,17 @@ class Board:
 
             return mask
 
-    def attackers_mask(self, square: Square, color: Color):
+    def attackers_mask(self, square: Square, color: Color, occupancy=None):
+        occupancy = self.occupancy if occupancy is None else occupancy
         mask = BB_EMPTY
         mask |= BB_PAWN_ATTACKS[1 ^ color][square] & self.pawns
         mask |= BB_KNIGHT_ATTACKS[square] & self.knights
         mask |= BB_KING_ATTACKS[square] & self.kings
 
-        diagonal_index = (((self.occupancy & BB_DIAGONAL_MASK[square]) * BISHOP_MAGIC[square]) & 0xffff_ffff_ffff_ffff) >> BISHOP_SHIFT[square]
+        diagonal_index = (((occupancy & BB_DIAGONAL_MASK[square]) * BISHOP_MAGIC[square]) & 0xffff_ffff_ffff_ffff) >> BISHOP_SHIFT[square]
         mask |= BISHOP_ATTACK_TABLE[BISHOP_ATTACK_OFFSET[square] + diagonal_index] & (self.bishops | self.queens)
 
-        orthogonal_index = (((self.occupancy & BB_ORTHOGONAL_MASK[square]) * ROOK_MAGIC[square]) & 0xffff_ffff_ffff_ffff) >> ROOK_SHIFT[square]
+        orthogonal_index = (((occupancy & BB_ORTHOGONAL_MASK[square]) * ROOK_MAGIC[square]) & 0xffff_ffff_ffff_ffff) >> ROOK_SHIFT[square]
         mask |= ROOK_ATTACK_TABLE[ROOK_ATTACK_OFFSET[square] + orthogonal_index] & (self.rooks | self.queens)
 
         return mask & self.occupancy_color[color]
@@ -148,8 +160,6 @@ class Board:
             self.piece_at(move.to_square) is None
         )
 
-    def is_attacked(self, square):
-        return NotImplementedError
 
     def push(self, move):
         """ assume the move is perfectly legal"""
@@ -245,17 +255,11 @@ class Board:
         return True
 
 
-    def generate_pseudo_legal_moves(self):
-        #TODO: change into a format of from square -> targets bitboard
-        # generate non pawns moves
+    def generate_pseudo_legal_moves(self) -> (Square, BitBoard):
         non_pawns = self.occupancy_color[self.turn] & ~self.pawns
         for from_square in scan_forward_bb(non_pawns):
             moves = self.attacks_mask(from_square) & ~self.occupancy_color[self.turn]
-            # print()
-            # bitprint(moves)
             yield from_square, moves
-            # for to_square in scan_forward_bb(moves):
-            #     yield Move(from_square, to_square)
 
 
         #generate pawns moves
@@ -267,14 +271,6 @@ class Board:
         for from_square in scan_backward_bb(ally_pawns):
             targets = BB_PAWN_ATTACKS[self.turn][from_square] & self.occupancy_color[1 ^ self.turn]
             yield from_square, targets
-            # for to_square in scan_backward_bb(targets):
-            #     if square_rank(to_square) in (RANK_1, RANK_8):
-            #         yield Move(from_square, to_square, KNIGHT)
-            #         yield Move(from_square, to_square, BISHOP)
-            #         yield Move(from_square, to_square, ROOK)
-            #         yield Move(from_square, to_square, QUEEN)
-            #     else:
-            #         yield Move(from_square, to_square)
 
         #advances
         if self.turn == WHITE:
@@ -286,18 +282,11 @@ class Board:
 
         for to_square in scan_backward_bb(single_moves):
             from_square = to_square + (-8 if self.turn == WHITE else 8)
-            yield from_square, to_square
-            # if square_rank(to_square) in (RANK_1, RANK_8):
-            #     yield Move(from_square, to_square, KNIGHT)
-            #     yield Move(from_square, to_square, BISHOP)
-            #     yield Move(from_square, to_square, ROOK)
-            #     yield Move(from_square, to_square, QUEEN)
-            # else:
-            #     yield Move(from_square, to_square)
+            yield from_square, 1<< to_square
 
         for to_square in scan_backward_bb(double_moves):
             from_square = to_square + (-16 if self.turn == WHITE else 16)
-            yield from_square, to_square
+            yield from_square, 1 << to_square
 
         #generate en passant
         if not self.ep_square or self.ep_square & self.occupancy:
@@ -305,7 +294,7 @@ class Board:
 
         capturers = ally_pawns & BB_PAWN_ATTACKS[1 ^ self.turn][self.ep_square] & (BB_RANK_4 if self.turn == WHITE else BB_RANK_5)
         for from_square in scan_backward_bb(capturers):
-            yield from_square, self.ep_square
+            yield from_square, 1 << self.ep_square
 
         # raise NotImplementedError
 
@@ -346,7 +335,21 @@ class Board:
                 bb_from_square = 1 << from_square
                 if bb_from_square & pinned:
                     targets &= msb_pinned_rays[(pinned >> (from_square + 1)).bit_count()]
+
                 for to_square in scan_backward_bb(targets):
+                    if from_square == king_square:
+                        if square_distance(from_square, to_square) == 2:
+                            for square in scan_forward_bb(BB_RAYS[from_square][to_square]):
+                                if self.attackers_mask(square, opposite_color):
+                                    break
+                            else:
+                                yield Move(from_square, to_square)
+                            continue
+
+                        elif self.attackers_mask(to_square, opposite_color):
+                            continue
+
+
                     if square_rank(to_square) in (RANK_1, RANK_8) and bb_from_square & self.pawns:
                         yield Move(from_square, to_square, KNIGHT)
                         yield Move(from_square, to_square, BISHOP)
@@ -363,10 +366,8 @@ class Board:
 
         attack_mask = BB_KING_ATTACKS[king_square]
         mask = 0
-        self.kings &= ~king_mask
         for to_square in scan_forward_bb(attack_mask):
-            mask |= 1 << to_square if not self.attackers_mask(to_square, opponent_color) else 0
-        self.kings |= king_mask
+            mask |= 1 << to_square if not self.attackers_mask(to_square, opponent_color, self.occupancy & ~king_mask) else 0
 
         return mask
 
