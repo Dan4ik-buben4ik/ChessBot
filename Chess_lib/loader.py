@@ -103,7 +103,6 @@ class Board:
         self.hash ^= ZobristHasher.get_table_value(piece_color, piece_type, square)
         return piece_type, piece_color
 
-
     def attacks_mask(self, square: Square):
         bb_square = 1 << square
 
@@ -114,14 +113,14 @@ class Board:
         elif bb_square & self.kings:
             mask = BB_KING_ATTACKS[square]
             if self.turn == WHITE:
-                if self.castling_rights & WHITE_KINGS_CASTLE:
+                if self.castling_rights & WHITE_KINGS_CASTLE and ~self.occupancy & 1 << F1:
                     mask |= 1 << G1
-                if self.castling_rights & WHITE_QUEENS_CASTLE:
+                if self.castling_rights & WHITE_QUEENS_CASTLE and ~self.occupancy & 1 << D1:
                     mask |= 1 << C1
             else:
-                if self.castling_rights & BLACK_KINGS_CASTLE:
+                if self.castling_rights & BLACK_KINGS_CASTLE and ~self.occupancy & 1 << F8:
                     mask |= 1 << G8
-                if self.castling_rights & BLACK_QUEENS_CASTLE:
+                if self.castling_rights & BLACK_QUEENS_CASTLE and ~self.occupancy & 1 << D8:
                     mask |= 1 << C8
             return mask
         else:
@@ -132,6 +131,7 @@ class Board:
             if bb_square & (self.rooks | self.queens):
                 index = (((self.occupancy & BB_ORTHOGONAL_MASK[square]) * ROOK_MAGIC[square]) & 0xffff_ffff_ffff_ffff) >> ROOK_SHIFT[square]
                 mask |= ROOK_ATTACK_TABLE[ROOK_ATTACK_OFFSET[square] + index]
+
 
             return mask
 
@@ -150,8 +150,6 @@ class Board:
 
         return mask & self.occupancy_color[color]
 
-
-
     def is_en_passant(self, move):
         return (
             self.ep_square and
@@ -159,7 +157,6 @@ class Board:
             self.piece_at(move.from_square) == PAWN and
             self.piece_at(move.to_square) is None
         )
-
 
     def push(self, move):
         """ assume the move is perfectly legal"""
@@ -245,15 +242,12 @@ class Board:
             self.construct()
             raise err
 
-
-
     def pop(self):
         if not self.history:
             return False
         prev_state = self.history.pop()
         prev_state.restore()
         return True
-
 
     def generate_pseudo_legal_moves(self) -> (Square, BitBoard):
         non_pawns = self.occupancy_color[self.turn] & ~self.pawns
@@ -297,7 +291,6 @@ class Board:
             yield from_square, 1 << self.ep_square
 
         # raise NotImplementedError
-
 
     def generate_legal_moves(self):
         king_mask = self.kings & self.occupancy_color[self.turn]
@@ -369,7 +362,7 @@ class Board:
         for to_square in scan_forward_bb(attack_mask):
             mask |= 1 << to_square if not self.attackers_mask(to_square, opponent_color, self.occupancy & ~king_mask) else 0
 
-        return mask
+        return mask & ~self.occupancy_color[self.turn]
 
 
 
@@ -393,7 +386,7 @@ class Board:
             potential_blockers = BB_BETWEEN[king_sq][square] & self.occupancy
             if potential_blockers.bit_count() == 1:
                 pinned |= potential_blockers & self.occupancy_color[color]
-                pinned_ray.append(BB_BETWEEN[king_sq][square])
+                pinned_ray.append(BB_BETWEEN[king_sq][square] | 1 << square)
 
         return pinned, pinned_ray
 

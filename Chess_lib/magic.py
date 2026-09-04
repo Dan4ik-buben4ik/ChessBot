@@ -29,24 +29,23 @@ def find_magic_numbers(square: Square, mask: BitBoard, deltas):
         if magic in tried:
             continue
         tried.add(magic)
-        # if ((mask * magic) & 0xFF00000000000000).bit_count() < 6:
-        #     continue
-        used = {}
+        table = [0 for _ in range(1 << (64-shift))]
 
         failed = False
 
         for blockers, attack in zip(occupancies, attacks):
             index = ((blockers * magic) & 0xffff_ffff_ffff_ffff) >> shift
 
-            if index in used:
-                if used[index] != attack:
+            if table[index] != 0:
+                if table[index] != attack:
                     failed = True
                     break
             else:
-                used[index] = attack
+                table[index] = attack
 
         if not failed:
-            return magic, shift
+            return magic, shift, table
+
 
 
 
@@ -57,17 +56,11 @@ ROOK_ATTACKS = []  # Square, index : BitBoard
 ROOK_MAGIC = []  # Square: magic number
 ROOK_SHIFT = []  # Square: shift value
 for square in SQUARES:
-    number, shift = find_magic_numbers(square, BB_ORTHOGONAL_MASK[square], [8, 1, -1, -8])
+    number, shift, attacks = find_magic_numbers(square, BB_ORTHOGONAL_MASK[square], [8, 1, -1, -8])
     # print(number, shift)
 
     ROOK_MAGIC.append(number)
     ROOK_SHIFT.append(shift)
-
-    attacks = [0 for _ in range(1 << (64-shift))]
-    for blockers in _subsets(BB_ORTHOGONAL_RAYS[square]):
-        index = ((blockers * number) & 0xffff_ffff_ffff_ffff) >> shift
-
-        attacks[index] = _sliding_attacks(square, blockers, [8, 1, -1, -8])
     ROOK_ATTACKS.append(attacks)
 
 
@@ -78,17 +71,11 @@ BISHOP_ATTACKS = []  # Square, index : BitBoard
 BISHOP_MAGIC = []  # Square: magic number
 BISHOP_SHIFT = []  # Square: shift value
 for square in SQUARES:
-    number, shift = find_magic_numbers(square, BB_DIAGONAL_MASK[square], [7, 9, -7, -9])
+    number, shift, attacks = find_magic_numbers(square, BB_DIAGONAL_MASK[square], [7, 9, -7, -9])
     # print(number, shift)
 
     BISHOP_MAGIC.append(number)
     BISHOP_SHIFT.append(shift)
-
-    attacks = [0 for _ in range(1 << (64-shift))]
-    for blockers in _subsets(BB_DIAGONAL_RAYS[square]):
-        index = ((blockers * number) & 0xffff_ffff_ffff_ffff) >> shift
-
-        attacks[index] = _sliding_attacks(square, blockers, [7, 9, -7, -9])
 
     BISHOP_ATTACKS.append(attacks)
 

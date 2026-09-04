@@ -12,9 +12,12 @@ from Chess_lib.util import _subsets, _sliding_attacks
 # all pawns on the last row: "2R5/PPPPPPPP/8/8/8/8/8/k6K w - - 0 1"
 # starting position: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 # diagonal pin : "4k3/8/8/8/7q/8/5N2/4K3 w KQkq - 0 1"
+# empty : "8/8/8/8/8/8/8/8 w - - 0 1"
 
-bit_board = Board.from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+bit_board = Board.from_fen("4k3/8/8/8/7b/8/5Q2/4K3 w - - 0 1")
 bit_board.construct()
+
+#TODO: issue: when pinned, can't capture the pinner
 
 while True:
     print("possible moves")
