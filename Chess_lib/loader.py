@@ -1,8 +1,4 @@
 from .util import *
-from .util import _sliding_attacks
-from .error import *
-from .move import Move
-from .hashing import ZobristHasher
 
 
 class Board:
@@ -158,6 +154,39 @@ class Board:
             self.piece_at(move.to_square) is None
         )
 
+    def is_check(self):
+        king_square = msb_square(self.kings & self.occupancy_color[self.turn])
+        return bool(self.attackers_mask(king_square, 1 ^ self.turn))
+
+    def has_legal_moves(self):
+        return next(self.generate_legal_moves(), None) is not None
+
+    def is_insufficient_material(self):
+        if (self.knights | self.bishops).bit_count() <= 1 and (self.rooks | self.queens).bit_count() == 0:
+            return True
+        else:
+            return False
+
+    def outcome(self):
+        # use outcome enum
+        if not self.has_legal_moves():
+            if self.is_check():
+                return GameResult.CHECKMATE
+            else:
+                return GameResult.STALEMATE
+
+        elif self.repetition_table[self.hash] >= 3:
+            return GameResult.DRAW_REPETITION
+
+        elif self.half_moves >= 100:
+            return GameResult.DRAW_50_MOVES
+
+        elif self.is_insufficient_material():
+            return GameResult.DRAW_INSUFFICIENT_MATERIAL
+
+        return GameResult.ONGOING
+
+
     def push(self, move):
         """ assume the move is perfectly legal"""
         # update history
@@ -204,9 +233,10 @@ class Board:
 
         #update castling rights
         if piece == KING or piece == ROOK:
+            self.hash ^= ZobristHasher.castling_rights[self.castling_rights]
             castling_val = CASTLING_RIGHTS_UPDATE_BY_SQUARE.get(move.from_square, 0)
             self.castling_rights &= ~castling_val
-            self.hash ^= ZobristHasher.castling_rights[castling_val]
+            self.hash ^= ZobristHasher.castling_rights[self.castling_rights]
 
         self.set_piece_at(move.to_square, piece, piece_color)
 

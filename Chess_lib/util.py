@@ -1,21 +1,30 @@
+import random
 import enum
 import array
 from typing import TypeAlias
 
 
-class TTFlag(enum.Enum):
-    UPPER_BOUND = 0
-    LOWER_BOUND = 1
-    EXACT = 2
+# Errors
+class InvalidMoveException(BaseException):
+    def __init__(self, txt):
+        super().__init__(txt)
+
+class NotImplementedError(BaseException):
+    def __init__(self):
+        super().__init__("Haven't implemented yet")
 
 
-class TTEntree:
-    def __init__(self, depth, score, flag, best_move):
-        self.depth = depth
-        self.score = score
-        self.flag = flag
-        self.best_move = best_move
+# game results
+class GameResult(enum.Enum):
+    ONGOING = 0
+    CHECKMATE = 1
+    STALEMATE = 2
+    DRAW_REPETITION = 3
+    DRAW_50_MOVES = 4
+    DRAW_INSUFFICIENT_MATERIAL = 5
 
+
+# Constants
 
 PieceType: TypeAlias = int
 PAWN: PieceType = 1
@@ -61,9 +70,11 @@ RANK_NAMES = ["1", "2", "3", "4", "5", "6", "7", "8"]
 BB_Rank = 0x0000_0000_0000_0011
 
 BitBoard: TypeAlias = int
-
 BB_EMPTY = 0x0000_0000_0000_0000
 BB_ALL = 0xffff_ffff_ffff_ffff
+
+BB_WHITE_SQUARES = 0xaaaa_aaaa_aaaa_aaaa
+BB_BLACK_SQUARES = 0x5555_5555_5555_5555
 
 BB_RANK_1: BitBoard = 0xff << (8 * RANK_1)
 BB_RANK_2: BitBoard = 0xff << (8 * RANK_2)
@@ -85,6 +96,8 @@ BB_FILE_G: BitBoard = 0x0101_0101_0101_0101 << FILE_G
 BB_FILE_H: BitBoard = 0x0101_0101_0101_0101 << FILE_H
 BB_FILES = [BB_FILE_A, BB_FILE_B, BB_FILE_C, BB_FILE_D, BB_FILE_E, BB_FILE_F, BB_FILE_G, BB_FILE_H]
 
+BB_CENTRE = 0x0000_0018_1800_00
+BB_EXTENDED_CENTRE = 0x0000_3C24_3C24_0000
 BB_EDGES = BB_RANK_1 | BB_RANK_8 | BB_FILE_A | BB_FILE_H
 
 Square: TypeAlias = int
@@ -155,6 +168,11 @@ H8: Square = 63
 SQUARE_NAMES = [f + r for r in RANK_NAMES for f in FILE_NAMES]
 SQUARES = list(range(64))
 
+def square_rank(square):
+    return square >> 3
+
+def square_file(square):
+    return square & 7
 
 
 def scan_forward_bb(bitboard):
@@ -173,19 +191,12 @@ def scan_backward_bb(bitboard):
         yield square
         bitboard &= bitboard - 1
 
-
-def square_rank(square):
-    return square >> 3
-
-def square_file(square):
-    return square & 7
-
 def square_distance(a: Square, b: Square):
     """in king steps between the squares"""
     return max(abs(square_file(a) - square_file(b)), abs(square_rank(a) - square_rank(b)))
 
 
-
+# castling rights
 WHITE_KINGS_CASTLE = 1 << 0
 WHITE_QUEENS_CASTLE = 1 << 1
 BLACK_KINGS_CASTLE = 1 << 2
@@ -202,6 +213,7 @@ CASTLING_RIGHTS_UPDATE_BY_SQUARE = {
 }
 
 
+# attacks related rays
 def _delta_attacks(square: Square, deltas: list):
     return _sliding_attacks(square, BB_ALL, deltas)
 
@@ -247,96 +259,6 @@ BB_DIAGONAL_RAYS: list[BitBoard] = [_sliding_attacks(sq, BB_EMPTY, [7, 9, -7, -9
 
 BB_ORTHOGONAL_MASK: list[BitBoard] = _create_masks([8, 1, -1, -8])
 BB_DIAGONAL_MASK: list[BitBoard] = _create_masks([7, 9, -7, -9])
-
-def _between() -> list[list[BitBoard]]:
-    rays = []
-    for a in range(64):
-        bb_a = 1 << a
-        temp_list = []
-        for b in range(64):
-            bb_b = 1 << b
-            if BB_ORTHOGONAL_RAYS[a] & bb_b:
-                temp_list.append(BB_ORTHOGONAL_RAYS[a] & BB_ORTHOGONAL_RAYS[b] & (BB_ALL << a ^ BB_ALL << b))
-            elif BB_DIAGONAL_RAYS[a] & bb_b:
-                temp_list.append(BB_DIAGONAL_RAYS[a] & BB_DIAGONAL_RAYS[b] & (BB_ALL << a ^ BB_ALL << b))
-            else:
-                temp_list.append(BB_EMPTY)
-
-        rays.append(temp_list)
-
-    return rays
-
-
-BB_BETWEEN = _between()
-
-
-def _rays() -> list[list[BitBoard]]:
-    rays = []
-    for a in range(64):
-        bb_a = 1 << a
-        temp_list = []
-        for b in range(64):
-            bb_b = 1 << b
-            if BB_ORTHOGONAL_RAYS[a] & bb_b:
-                temp_list.append(BB_BETWEEN[a][b] | bb_a | bb_b)
-            elif BB_DIAGONAL_RAYS[a] & bb_b:
-                temp_list.append(BB_BETWEEN[a][b] | bb_a | bb_b)
-            else:
-                temp_list.append(BB_EMPTY)
-
-        rays.append(temp_list)
-
-    return rays
-
-
-BB_RAYS = _rays()
-
-def _subsets(mask):
-    subset = mask
-    while True:
-        yield subset
-
-        if subset == 0:
-            break
-
-        subset = (subset-1) & mask
-
-
-# bit manipulation
-def pop_lsb(bitboard):
-    lsb = bitboard & -bitboard
-    square = lsb.bit_length() - 1
-    bitboard &= bitboard - 1
-
-    return square, bitboard
-
-
-def lsb_square(bitboard):
-    return (bitboard & -bitboard).bit_length() - 1
-
-def msb_square(bitboard):
-    return bitboard.bit_length() - 1
-
-
-def bitprint(bit, length=64):
-    txt = bin(bit)[2:]
-    if len(txt) != length:
-        txt = "".join(("0" * (length - len(txt)), txt))
-    txt = "\n".join([txt[i:i+8] for i in range(0, len(txt), 8)])
-    print(txt)
-
-
-def bit_string(bit, length=64):
-    txt = ""
-    while bit:
-        txt += str(bit & 0b1)
-        bit >>= 1
-
-    if length and len(txt) < length:
-        txt += "0" * (length - len(txt))
-    return "".join(("0b", txt[::-1]))
-
-
 
 # reading the magic number files
 with open("Chess_Lib/magic_table.bin", "rb") as file:
@@ -385,5 +307,247 @@ with open("Chess_Lib/magic_table.bin", "rb") as file:
         BISHOP_ATTACK_TABLE.extend(attack)
 
         offset += size
+
+
+#rays creation
+def _between() -> list[list[BitBoard]]:
+    rays = []
+    for a in range(64):
+        bb_a = 1 << a
+        temp_list = []
+        for b in range(64):
+            bb_b = 1 << b
+            if BB_ORTHOGONAL_RAYS[a] & bb_b:
+                temp_list.append(BB_ORTHOGONAL_RAYS[a] & BB_ORTHOGONAL_RAYS[b] & (BB_ALL << a ^ BB_ALL << b))
+            elif BB_DIAGONAL_RAYS[a] & bb_b:
+                temp_list.append(BB_DIAGONAL_RAYS[a] & BB_DIAGONAL_RAYS[b] & (BB_ALL << a ^ BB_ALL << b))
+            else:
+                temp_list.append(BB_EMPTY)
+
+        rays.append(temp_list)
+
+    return rays
+
+
+BB_BETWEEN = _between()
+
+
+def _rays() -> list[list[BitBoard]]:
+    rays = []
+    for a in range(64):
+        bb_a = 1 << a
+        temp_list = []
+        for b in range(64):
+            bb_b = 1 << b
+            if BB_ORTHOGONAL_RAYS[a] & bb_b:
+                temp_list.append(BB_BETWEEN[a][b] | bb_a | bb_b)
+            elif BB_DIAGONAL_RAYS[a] & bb_b:
+                temp_list.append(BB_BETWEEN[a][b] | bb_a | bb_b)
+            else:
+                temp_list.append(BB_EMPTY)
+
+        rays.append(temp_list)
+
+    return rays
+
+
+BB_RAYS = _rays()
+
+#cambinations from a mask
+
+def _subsets(mask):
+    subset = mask
+    while True:
+        yield subset
+
+        if subset == 0:
+            break
+
+        subset = (subset-1) & mask
+
+
+# bit manipulation
+def pop_lsb(bitboard):
+    lsb = bitboard & -bitboard
+    square = lsb.bit_length() - 1
+    bitboard &= bitboard - 1
+
+    return square, bitboard
+
+
+def lsb_square(bitboard):
+    return (bitboard & -bitboard).bit_length() - 1
+
+def msb_square(bitboard):
+    return bitboard.bit_length() - 1
+
+
+# Useful Classes
+
+#transposition table
+class TTFlag(enum.Enum):
+    UPPER_BOUND = 0
+    LOWER_BOUND = 1
+    EXACT = 2
+
+
+class TTEntree:
+    def __init__(self, depth, score, flag, best_move):
+        self.depth = depth
+        self.score = score
+        self.flag = flag
+        self.best_move = best_move
+
+
+# Move class
+FROM_OFFSET = 0
+TO_OFFSET = 6
+PROMOTION_OFFSET = 12
+
+FROM_MASK = 0b111111
+TO_MASK = 0b111111
+PROMOTION_MASK = 0b111
+
+
+class Move:
+    __slots__ = ("value",)
+
+    def __init__(self, from_square, to_square, promotion: PieceType = 0):
+        self.value = (
+            from_square << FROM_OFFSET |
+            to_square << TO_OFFSET |
+            promotion << PROMOTION_OFFSET
+        )
+
+    @property
+    def from_square(self):
+        return (self.value >> FROM_OFFSET) & FROM_MASK
+
+    @property
+    def to_square(self):
+        return (self.value >> TO_OFFSET) & TO_MASK
+
+    @property
+    def promotion(self):
+        return (self.value >> PROMOTION_OFFSET) & PROMOTION_MASK
+
+
+    @classmethod
+    def from_uci(cls, uci):
+        if not (4 <= len(uci) <= 5):
+            raise InvalidMoveException(f"Invalid uci {uci}")
+
+        try:
+            from_square = SQUARE_NAMES.index(uci[:2])
+            to_square = SQUARE_NAMES.index(uci[2:4])
+            promotion = PIECE_SYM.index(uci[4]) if len(uci) == 5 else 0
+            return cls(from_square, to_square, promotion)
+        except ValueError:
+            raise InvalidMoveException(f"Invalid uci {uci}")
+
+    def uci(self):
+        if self.promotion:
+            return SQUARE_NAMES[self.from_square] + SQUARE_NAMES[self.to_square] + PIECE_SYM[self.promotion]
+        else:
+            return SQUARE_NAMES[self.from_square] + SQUARE_NAMES[self.to_square]
+
+    def __repr__(self):
+        return self.uci()
+
+
+# Zobrist Hashing
+class ZobristHasher:
+    rng = random.Random(0)
+    table = [[[bytes(0) for _ in range(64)] for _ in range(12)] for _ in range(2)]
+
+    used = set()
+    for c in range(2):
+        for i in range(12):
+            for j in range(64):
+                # ensures that there are no repeats in teh hashing
+                while True:
+                    random_bits = rng.getrandbits(64)
+                    if random_bits not in used:
+                        used.add(random_bits)
+                        table[c][i][j] = rng.getrandbits(64)
+                        break
+
+
+    black_turn = rng.getrandbits(64)
+
+    castling_rights = []
+    for _ in range(16):
+        castling_rights.append(rng.getrandbits(64))
+
+    en_passant = {}
+    for i in list(FILES):
+        en_passant[i] = rng.getrandbits(64)
+
+    @classmethod
+    def hash(cls, bitboard):
+        h = 0
+        for piece, bb_piece in enumerate([bitboard.pawns, bitboard.knights, bitboard.bishops, bitboard.rooks, bitboard.queens, bitboard.kings]):
+            while bb_piece:
+                lsb, bb_piece = pop_lsb(bb_piece)
+                color = WHITE if bitboard.occupancy_color[WHITE] & 1 << lsb else BLACK
+                h ^= cls.table[color][piece][lsb]
+
+        h ^= cls.castling_rights[bitboard.castling_rights]
+
+
+        h ^= cls.en_passant[bitboard.ep_square % 8] if bitboard.ep_square else 0
+
+        if bitboard.turn == BLACK:
+            h ^= cls.black_turn
+
+        return h
+
+
+    @classmethod
+    def get_table_value(cls, color, piece_type, square):
+        return cls.table[color][piece_type-1][square]
+
+    @classmethod
+    def debug(cls, value):
+        for table in cls.table:
+            for i, piece_bb in enumerate(table):
+                for j in piece_bb:
+                    if value == j:
+                        print(f"piece in {PIECE_NAME[i+1]} issue")
+                        return
+
+        if value in cls.castling_rights:
+            print("castling issue")
+
+        elif value in cls.en_passant.values():
+            print("en passant issue")
+
+        elif value == cls.black_turn:
+            print("turn color issue")
+
+        else:
+            print("combined issue")
+
+
+
+#debug
+def bitprint(bit, length=64):
+    txt = bin(bit)[2:]
+    if len(txt) != length:
+        txt = "".join(("0" * (length - len(txt)), txt))
+    txt = "\n".join([txt[i:i+8] for i in range(0, len(txt), 8)])
+    print(txt)
+
+
+def bit_string(bit, length=64):
+    txt = ""
+    while bit:
+        txt += str(bit & 0b1)
+        bit >>= 1
+
+    if length and len(txt) < length:
+        txt += "0" * (length - len(txt))
+    return "".join(("0b", txt[::-1]))
+
 
 
