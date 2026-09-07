@@ -1,522 +1,600 @@
-from .pieces import Piece, Rook, King, Pawn, Bishop, Queen, Knight
-from .position import PositionVector2D
-from .fen_converter import FEN_to_board, board_to_FEN
-from .hashing import ZobristHasher
-from .util import TurnColor, EvalTable
-from .Move import Move
-from .Errors import ImpossibleMoveException
-from .MoveGenerator import generate_legal_moves
+from .util import *
 
-from types import GeneratorType
-
-
-
-# board check logic
-# if (pos_change[0] != 0 and pos_change[1] != 0) or not (8 > new_pos[0] > -1 and 8 > new_pos[1] > -1):
-#     raise ImpossibleMoveException(self, f"{self.name} can't reach", self.pos, new_pos)
-#
-# # Checks if the piece is actually moving
-# elif pos_change[0] == 0 and pos_change[1] == 0:
-#     raise ImpossibleMoveException(self, "Need to move", self.pos, new_pos)
-
-
-# King- K
-# Queen - Q --
-# Rook - R --
-# Knight - N --
-# Bishop - B --
-# Pawn - P or non --
-
-# Board Visualisation (with position on the side and coordinates in the squares)
-#                       White
-#      |-----|-----|-----|-----|-----|-----|-----|-----|
-#      | 0,0 | 1,0 | 2,0 | 3,0 | 4,0 | 5,0 | 6,0 | 7,0 |  8
-#      |-----|-----|-----|-----|-----|-----|-----|-----|
-#      | 0,1 | 1,1 | 2,1 | 3,1 | 4,1 | 5,1 | 6,1 | 7,1 |  7
-#      |-----|-----|-----|-----|-----|-----|-----|-----|
-#      | 0,2 | 1,2 | 2,2 | 3,2 | 4,2 | 5,2 | 6,2 | 7,2 |  6
-#      |-----|-----|-----|-----|-----|-----|-----|-----|
-#      | 0,3 | 1,3 | 2,3 | 3,3 | 4,3 | 5,3 | 6,3 | 7,3 |  5
-#      |-----|-----|-----|-----|-----|-----|-----|-----|
-#      | 0,4 | 1,4 | 2,4 | 3,4 | 4,4 | 5,4 | 6,4 | 7,4 |  4
-#      |-----|-----|-----|-----|-----|-----|-----|-----|
-#      | 0,5 | 1,5 | 2,5 | 3,5 | 4,5 | 5,5 | 6,5 | 7,5 |  3
-#      |-----|-----|-----|-----|-----|-----|-----|-----|
-#      | 0,6 | 1,6 | 2,6 | 3,6 | 4,6 | 5,6 | 6,6 | 7,6 |  2
-#      |-----|-----|-----|-----|-----|-----|-----|-----|
-#      | 0,7 | 1,7 | 2,7 | 3,7 | 4,7 | 5,7 | 6,7 | 7,7 |  1
-#      |-----|-----|-----|-----|-----|-----|-----|-----|
-#         a     b     c     d     e     f     g     h
-
-
-# Board Visualisation (with coordinate system on the axis and positions in the squares)  ~ swap A and H
-#                       black
-#         0     1     2     3     4     5     6     7
-#      |-----|-----|-----|-----|-----|-----|-----|-----|
-#  0   | A8  | B8  | C8  | D8  | E8  | F8  | G8  | H8  |
-#      |-----|-----|-----|-----|-----|-----|-----|-----|
-#  1   | A7  | B7  | C7  | D7  | E7  | F7  | G7  | H7  |
-#      |-----|-----|-----|-----|-----|-----|-----|-----|
-#  2   | A6  | B6  | C6  | D6  | E6  | F6  | G6  | H6  |
-#      |-----|-----|-----|-----|-----|-----|-----|-----|
-#  3   | A5  | B5  | C5  | D5  | E5  | F5  | G5  | H5  |
-#      |-----|-----|-----|-----|-----|-----|-----|-----|
-#  4   | A4  | B4  | C4  | D4  | E4  | F4  | G4  | H4  |
-#      |-----|-----|-----|-----|-----|-----|-----|-----|
-#  5   | A3  | B3  | C3  | D3  | E3  | F3  | G3  | H3  |
-#      |-----|-----|-----|-----|-----|-----|-----|-----|
-#  6   | A2  | B2  | C2  | D2  | E2  | F2  | G2  | H2  |
-#      |-----|-----|-----|-----|-----|-----|-----|-----|
-#  7   | A1  | B1  | C1  | D1  | E1  | F1  | G1  | H1  |
-#      |-----|-----|-----|-----|-----|-----|-----|-----|
 
 class Board:
-    """ the main class that contains the board with the pieces and the game information
-
-    Attributes:
-
-    :ivar debug: adds debug mode that prints stuff into the console
-    :type debug: bool
-
-    :var board: a 8x8 array filled with either 0's (empty squares) or pieces.Piece instances
-    :type board: list[list[int | pieces.Piece]]
-
-    :var turn: the current player color
-    :type turn: util.TurnColor
-
-    :var kings: kings position in the board
-    :type kings: dict[util.TurnColor, pieces.Piece]
-
-    :var castling_rights: a dictionary that holds the castling rights for both sides
-    :type castling_rights: dict[str, [bool]]
-
-    :var possible_en_passant: the final position of the pawn after the en passant
-    :type possible_en_passant: position.PositionVector2D | None
-
-    :var half_moves: the number total moves for white + black
-    :type half_moves: int
-
-    :var full_moves: the number of moves white had made
-    :type full_moves: int
-
-    :var hasher: the Zobrist hasher for the board, holding the 64bit data for the board hash
-    :type hasher: hashing.ZobristHasher
-
-    :var hash: the 64bit hash value for the board
-    :type hash: int
-
-    :var repetition_table: table with the hashes of the positions and the number of times it had appeared
-    :type repetition_table: dict[int, int]
-
-    :var history: a list with previous moves and game states
-    :type history: list[loader.HistoryEntree]
+    #slots later?
+    pawns = 0
+    knights = 0
+    bishops = 0
+    rooks = 0
+    queens = 0
+    kings = 0
 
 
-    """
-    def __init__(self, fen: str, *, debug=False):
-        """ Initializes the class instance
+
+    occupancy_color = [0, 0]
+    occupancy = 0
+
+    turn = WHITE
+
+    castling_rights = 0
+    ep_square: Square | None = None
+
+    half_moves = 0
+    full_moves = 1
+
+    hash = 0
+
+    history = []
+    repetition_table = {}
+
+    def piece_at(self, square):
+        bit = 1 << square
+        if bit & self.pawns:
+            return PAWN
+        if bit & self.knights:
+            return KNIGHT
+        if bit & self.bishops:
+            return BISHOP
+        if bit & self.rooks:
+            return ROOK
+        if bit & self.queens:
+            return QUEEN
+        if bit & self.kings:
+            return KING
+        return None
 
 
-        :param fen: the FEN string of the position
-        :type fen: str
-
-        :param debug:
-        """
-        self.debug = debug
-
-        self.board = [[0 for _ in range(8)] for _ in range(8)]
-
-        # establishes whose move it is currently
-        self.turn = TurnColor.WHITE
-
-        # stores king's position (useful for checks)
-        # collapse in 1 dict?
-        self.kings = {}
-        self.castling_rights = {TurnColor.WHITE: [False, False], TurnColor.BLACK: [False, False]}  # king, queen side
-
-        self.possible_en_passant: PositionVector2D | None = None
-
-        self.half_moves = 0
-        self.full_moves = 1
-
-        FEN_to_board(fen, self)
-
-        # this is the list of all positions sins last pawn movement/capture. Used for the triple-repetition-draw check
-        self.hasher = ZobristHasher
-        self.hash = self.hasher.hash(self)
-        self.repetition_table = {self.hash: 1}
-
-        self.history = []
-
-    @property
-    def is_endgame(self):
-        white_material = 0
-        black_material = 0
-        queens = True
-        for row in self.board:
-            for piece in row:
-                if piece == 0:
-                    continue
-                if piece.name != "Pawn" and piece.name != "King":
-                    if piece.color == TurnColor.WHITE:
-                        white_material += EvalTable.piece_value[piece.name]
-                    else:
-                        black_material += EvalTable.piece_value[piece.name]
-
-                if piece.name == "Queen":
-                    queens = True
-
-        if queens:
-            if black_material <= 1300 and white_material <= 1300:
-                return True
-        elif black_material <= 1600 and white_material <= 1600:
-            return True
-
-        return False
-
-    @property
-    def open_files(self):
-        column = [True for _ in range(8)]
-        for row_i in range(8):
-            for column_i in range(8):
-                piece = self.board[column_i][row_i]
-                if piece == 0:
-                    continue
-                if piece.name == "Pawn":
-                    column[row_i] = False
-                    break
-
-        return column
-
-    def play(self, move: Move):
-        if move in generate_legal_moves(self):
-            self.push(move)
+    def color_at(self, square):
+        bit = 1 << square
+        if bit & self.occupancy_color[WHITE]:
+            return WHITE
+        elif bit & self.occupancy_color[BLACK]:
+            return BLACK
         else:
-            raise ImpossibleMoveException
+            return None
 
-    def push(self, move: Move) -> None:
-        hash_before_move = self.hash
+    def set_piece_at(self, square, piece_type, color):
+        bit = 1 << square
+        if piece_type == PAWN:
+            self.pawns |= bit
+        elif piece_type == KNIGHT:
+            self.knights |= bit
+        elif piece_type == BISHOP:
+            self.bishops |= bit
+        elif piece_type == ROOK:
+            self.rooks |= bit
+        elif piece_type == QUEEN:
+            self.queens |= bit
+        elif piece_type == KING:
+            self.kings |= bit
 
 
-        piece = self.board[move.init_pos[1]][move.init_pos[0]]
+        self.occupancy_color[color] |= bit
+        self.occupancy |= bit
+        self.hash ^= ZobristHasher.get_table_value(color, piece_type, square)
+        return None
 
-        self.board[piece.pos[1]][piece.pos[0]] = 0  # makes the old square empty
-        self.hash ^= self.hasher.get_table_value(piece.name, piece.color, piece.pos)
+    def remove_piece_at(self, square):
+        piece_type = self.piece_at(square)
+        piece_color = self.color_at(square)
+        bit = 1 << square
+        if bit & self.pawns:
+            self.pawns &= ~bit
+        elif bit & self.knights:
+            self.knights &= ~bit
+        elif bit & self.bishops:
+            self.bishops &= ~bit
+        elif bit & self.rooks:
+            self.rooks &= ~bit
+        elif bit & self.queens:
+            self.queens &= ~bit
+        elif bit & self.kings:
+            self.kings &= ~bit
+        else:
+            return None, None
 
-        # checks if the new space is occupied and performs a needed hash operations
-        captured_piece = self.board[move.final_pos[1]][move.final_pos[0]]
-        if captured_piece != 0:
-            self.hash ^= self.hasher.get_table_value(captured_piece.name, captured_piece.color, captured_piece.pos)
+        self.occupancy_color[piece_color] &= ~bit
+        self.occupancy &= ~bit
+        self.hash ^= ZobristHasher.get_table_value(piece_color, piece_type, square)
+        return piece_type, piece_color
 
+    def attacks_mask(self, square: Square):
+        bb_square = 1 << square
+
+        if bb_square & self.pawns:
+            return BB_PAWN_ATTACKS[self.turn][square]
+        elif bb_square & self.knights:
+            return BB_KNIGHT_ATTACKS[square]
+        elif bb_square & self.kings:
+            mask = BB_KING_ATTACKS[square]
+            if self.turn == WHITE:
+                if self.castling_rights & WHITE_KINGS_CASTLE and ~self.occupancy & 1 << F1:
+                    mask |= 1 << G1
+                if self.castling_rights & WHITE_QUEENS_CASTLE and ~self.occupancy & 1 << D1:
+                    mask |= 1 << C1
+            else:
+                if self.castling_rights & BLACK_KINGS_CASTLE and ~self.occupancy & 1 << F8:
+                    mask |= 1 << G8
+                if self.castling_rights & BLACK_QUEENS_CASTLE and ~self.occupancy & 1 << D8:
+                    mask |= 1 << C8
+            return mask
+        else:
+            mask = 0
+            if bb_square & (self.bishops | self.queens):
+                index = (((self.occupancy & BB_DIAGONAL_MASK[square]) * BISHOP_MAGIC[square]) & 0xffff_ffff_ffff_ffff) >> BISHOP_SHIFT[square]
+                mask |= BISHOP_ATTACK_TABLE[BISHOP_ATTACK_OFFSET[square] + index]
+            if bb_square & (self.rooks | self.queens):
+                index = (((self.occupancy & BB_ORTHOGONAL_MASK[square]) * ROOK_MAGIC[square]) & 0xffff_ffff_ffff_ffff) >> ROOK_SHIFT[square]
+                mask |= ROOK_ATTACK_TABLE[ROOK_ATTACK_OFFSET[square] + index]
+
+
+            return mask
+
+    def attackers_mask(self, square: Square, color: Color, occupancy=None):
+        occupancy = self.occupancy if occupancy is None else occupancy
+        mask = BB_EMPTY
+        mask |= BB_PAWN_ATTACKS[1 ^ color][square] & self.pawns
+        mask |= BB_KNIGHT_ATTACKS[square] & self.knights
+        mask |= BB_KING_ATTACKS[square] & self.kings
+
+        diagonal_index = (((occupancy & BB_DIAGONAL_MASK[square]) * BISHOP_MAGIC[square]) & 0xffff_ffff_ffff_ffff) >> BISHOP_SHIFT[square]
+        mask |= BISHOP_ATTACK_TABLE[BISHOP_ATTACK_OFFSET[square] + diagonal_index] & (self.bishops | self.queens)
+
+        orthogonal_index = (((occupancy & BB_ORTHOGONAL_MASK[square]) * ROOK_MAGIC[square]) & 0xffff_ffff_ffff_ffff) >> ROOK_SHIFT[square]
+        mask |= ROOK_ATTACK_TABLE[ROOK_ATTACK_OFFSET[square] + orthogonal_index] & (self.rooks | self.queens)
+
+        return mask & self.occupancy_color[color]
+
+    def is_en_passant(self, move):
+        return (
+            self.ep_square and
+            move.to_square == self.ep_square and
+            self.piece_at(move.from_square) == PAWN and
+            self.piece_at(move.to_square) is None
+        )
+
+    def is_check(self):
+        king_square = msb_square(self.kings & self.occupancy_color[self.turn])
+        return bool(self.attackers_mask(king_square, 1 ^ self.turn))
+
+    def has_legal_moves(self):
+        return next(self.generate_legal_moves(), None) is not None
+
+    def is_insufficient_material(self):
+        if (self.knights | self.bishops).bit_count() <= 1 and (self.rooks | self.queens).bit_count() == 0:
+            return True
+        else:
+            return False
+
+    def outcome(self):
+        # use outcome enum
+        if not self.has_legal_moves():
+            if self.is_check():
+                return GameResult.CHECKMATE
+            else:
+                return GameResult.STALEMATE
+
+        elif self.repetition_table[self.hash] >= 3:
+            return GameResult.DRAW_REPETITION
+
+        elif self.half_moves >= 100:
+            return GameResult.DRAW_50_MOVES
+
+        elif self.is_insufficient_material():
+            return GameResult.DRAW_INSUFFICIENT_MATERIAL
+
+        return GameResult.ONGOING
+
+
+    def push(self, move):
+        """ assume the move is perfectly legal"""
+        # update history
+        self.history.append(_BitBoardState(self))
+
+        # update en passant
+        ep_square = self.ep_square
+        if self.ep_square:
+            self.hash ^= ZobristHasher.en_passant[self.ep_square % 8]
+            self.ep_square = None
+
+        piece, piece_color = self.remove_piece_at(move.from_square)
+        captured_piece, captured_piece_color = self.remove_piece_at(move.to_square)
+
+        #handle promotion
         if move.promotion:
-            if move.promotion == "q":
-                piece = Queen(self, piece.color, move.final_pos)
-            if move.promotion == "r":
-                piece = Rook(self, piece.color, move.final_pos)
-            elif move.promotion == "n":
-                piece = Knight(self, piece.color, move.final_pos)
-            elif move.promotion == "b":
-                piece = Bishop(self, piece.color, move.final_pos)
+            piece = move.promotion
 
-            if self.debug:
-                print(f"promoting to {piece.name} on {piece.pos.algebraic}")
+        #handle castling
+        if piece == KING and abs(move.to_square - move.from_square) == 2:
+            if move.to_square > move.from_square:
+                self.remove_piece_at(H1 if self.turn == WHITE else H8)
+                self.set_piece_at(F1 if self.turn == WHITE else F8, ROOK, self.turn)
+            else:
+                self.remove_piece_at(A1 if self.turn == WHITE else A8)
+                self.set_piece_at(D1 if self.turn == WHITE else D8, ROOK, self.turn)
 
-        elif self._is_move_castle(piece, move):
-            direction = PositionVector2D.sign(move.pos_change[0])
-            rook = self.board[move.init_pos[1]][0 if direction == -1 else 7]
-            self.board[rook.pos[1]][rook.pos[0]] = 0  # makes the old square empty
-            self.hash ^= self.hasher.get_table_value(rook.name, rook.color, rook.pos)
 
-            new_rook_pos = move.init_pos + (direction, 0)
-            rook.pos = new_rook_pos
+        #handle pawn moves
+        if piece == PAWN:
+            diff = move.to_square - move.from_square
 
-            self.board[new_rook_pos[1]][new_rook_pos[0]] = rook
-            self.hash ^= self.hasher.get_table_value(rook.name, rook.color, rook.pos)
+            if diff == 16 and square_rank(move.from_square) == RANK_2:
+                self.ep_square = move.from_square + 8
+                self.hash ^= ZobristHasher.en_passant[self.ep_square % 8]
+            elif diff == -16 and square_rank(move.from_square) == RANK_7:
+                self.ep_square = move.from_square - 8
+                self.hash ^= ZobristHasher.en_passant[self.ep_square % 8]
+            elif move.to_square == ep_square and abs(diff) in (7, 9) and not captured_piece:
+                shift = -8 if self.turn == WHITE else 8
+                self.remove_piece_at(move.to_square + shift)
+                captured_piece = move.to_square + shift
 
-        elif self._is_move_en_passant(piece, move):
-            captured_pos = move.final_pos - (0, piece.moving_direction)
-            captured_piece = self.board[captured_pos[1]][captured_pos[0]]
 
-            self.board[captured_pos[1]][captured_pos[0]] = 0
-            self.hash ^= self.hasher.get_table_value(captured_piece.name, captured_piece.color, captured_piece.pos)
+        #update castling rights
+        if piece == KING or piece == ROOK:
+            self.hash ^= ZobristHasher.castling_rights[self.castling_rights]
+            castling_val = CASTLING_RIGHTS_UPDATE_BY_SQUARE.get(move.from_square, 0)
+            self.castling_rights &= ~castling_val
+            self.hash ^= ZobristHasher.castling_rights[self.castling_rights]
 
-        # update the table and its hash
-        piece.pos = move.final_pos
-        self.board[move.final_pos[1]][move.final_pos[0]] = piece
-        self.hash ^= self.hasher.get_table_value(piece.name, piece.color, piece.pos)
+        self.set_piece_at(move.to_square, piece, piece_color)
 
-        if self.debug:
-            print(f"Moved {piece.name} from {move.init_pos.algebraic} to {move.final_pos.algebraic}")
 
-        self.history.append(HistoryEntree(move, captured_piece, self.possible_en_passant, self.castling_rights, self.half_moves, self.full_moves, hash_before_move))
 
-        # update the game state
-        self.update_game_state()  # should be before or after push?
-        self.update_castling_rights(piece, move)
-        self.update_en_passant(piece, move)
-        self.update_move_clock(piece, captured_piece)
-        self.switch_turn()
-
-        # print(self.hash)
-        # print(self.hasher.hash(self))
-
-        assert self.hash == self.hasher.hash(self)
-
-    # ===========================================================================================================================
-    # ===========================================================================================================================
-    # ===========================================================================================================================
-
-    def _is_move_castle(self, piece, move):
-        if piece.name == "King" and abs(move.pos_change)[0] == 2:
-            return True
-        return False
-
-    def _is_move_en_passant(self, piece, move):
-        if piece.name == "Pawn" and abs(move.pos_change)[0] == 1 and move.final_pos == self.possible_en_passant:
-            return True
-        return False
-
-    def is_move_capture(self, move):
-        piece = self.board[move.init_pos[1]][move.init_pos[0]]
-        return self.board[move.final_pos[1]][move.final_pos[0]] != 0 or self._is_move_en_passant(piece, move)
-
-    def is_move_check(self, move):
-        self.push(move)
-        check, attackers = self.is_king_attacked(self.turn)
-        self.pop()
-
-        return check
-
-    def update_castling_rights(self, piece, move) -> None:
-        if isinstance(piece, King):
-            if self.castling_rights[self.turn] != [False, False]:
-                self.castling_rights[self.turn] = [False, False]
-                self.hash ^= self.hasher.castling_rights[self.turn][0]
-                self.hash ^= self.hasher.castling_rights[self.turn][1]
-
-        elif isinstance(piece, Rook):
-            if move.init_pos.algebraic[0] == "a" and self.castling_rights[self.turn][0] is True:
-                self.castling_rights[self.turn][0] = False
-                self.hash ^= self.hasher.castling_rights[self.turn][0]
-            elif move.init_pos.algebraic[0] == "h" and self.castling_rights[self.turn][1] is True:
-                self.castling_rights[self.turn][1] = False
-                self.hash ^= self.hasher.castling_rights[self.turn][1]
-
-        if self.is_king_attacked(self.turn)[0] is True:
-            opponent_color = self.turn.next()
-            if self.castling_rights[opponent_color] != [False, False]:
-                self.castling_rights[opponent_color] = [False, False]
-                self.hash ^= self.hasher.castling_rights[opponent_color][0]
-                self.hash ^= self.hasher.castling_rights[opponent_color][1]
-
-    def update_en_passant(self, piece, move) -> None:
-        if self.possible_en_passant:
-            self.hash ^= self.hasher.en_passant[self.possible_en_passant.algebraic[0]]
-            self.possible_en_passant = None
-
-        if not isinstance(piece, Pawn):
-            return
-
-        if (move.final_pos - move.init_pos)[1] == piece.moving_direction * 2:
-            self.possible_en_passant = move.init_pos + (0, piece.moving_direction)
-            self.hash ^= self.hasher.en_passant[self.possible_en_passant.algebraic[0]]
-
-    def update_move_clock(self, piece, captured_piece):
-        self.half_moves += 1
-        if isinstance(piece, Pawn) or captured_piece != 0:
+        # update the move clocks
+        if piece == PAWN or captured_piece:
             self.half_moves = 0
+        else:
+            self.half_moves += 1
 
-        if self.turn == TurnColor.BLACK:
+        if self.turn == BLACK:
             self.full_moves += 1
 
-    def switch_turn(self):
-        # changes the current player, aka the turn
-        self.hash ^= self.hasher.black_turn
-        self.turn = self.turn.next()
 
-    def update_game_state(self):
+        # update the turn
+        self.turn ^= 1
+
+        self.hash ^= ZobristHasher.black_turn
+
+        #update repetition table
         if self.repetition_table.get(self.hash):
             self.repetition_table[self.hash] += 1
         else:
             self.repetition_table[self.hash] = 1
 
-    def pop(self, *, debug=False):
-        # self.construct()
-        """removes last move"""
-        history: HistoryEntree = self.history.pop()
-        self.possible_en_passant = history.previous_en_passant
-        self.castling_rights = history.previous_castling_rights
-        self.half_moves = history.previous_half_moves
-        self.full_moves = history.previous_full_moves
-        self.hash = history.previous_hash
-        self.turn = self.turn.previous()
+        try:
+            assert self.hash == ZobristHasher.hash(self)
+        except AssertionError as err:
+            print(self.hash)
+            print(ZobristHasher.hash(self))
+            ZobristHasher.debug(ZobristHasher.hash(self) ^ self.hash)
+            self.construct()
+            raise err
 
-        # self.move = move
-        # self.captured_piece = captured_piece
-        move = history.move
-        if debug:
-            print(f"reversing move: {move}\n")
-        piece = self.board[move.final_pos[1]][move.final_pos[0]]
-        self.board[move.final_pos[1]][move.final_pos[0]] = 0
+    def pop(self):
+        if not self.history:
+            return False
+        prev_state = self.history.pop()
+        prev_state.restore()
+        return True
 
-        # bringing back the captured piece
-        captured_piece = history.captured_piece
-        if captured_piece != 0:
-            self.board[captured_piece.pos[1]][captured_piece.pos[0]] = captured_piece
+    def generate_pseudo_legal_moves(self) -> (Square, BitBoard):
+        non_pawns = self.occupancy_color[self.turn] & ~self.pawns
+        for from_square in scan_forward_bb(non_pawns):
+            moves = self.attacks_mask(from_square) & ~self.occupancy_color[self.turn]
+            yield from_square, moves
 
-        if move.promotion:
-            piece = Pawn(self, piece.color, move.init_pos, debug=self.debug)
 
-        if self._is_move_castle(piece, move):
-            direction = PositionVector2D.sign(move.pos_change[0])
-            new_rook_pos = move.init_pos + (direction, 0)
-            rook_init_pos = PositionVector2D((move.init_pos[1], 0 if direction == -1 else 7))
+        #generate pawns moves
+        ally_pawns = self.pawns & self.occupancy_color[self.turn]
+        if not ally_pawns:
+            return
 
-            rook = self.board[new_rook_pos[1]][new_rook_pos[0]]
-            self.board[new_rook_pos[1]][new_rook_pos[0]] = 0
+        #captures
+        for from_square in scan_backward_bb(ally_pawns):
+            targets = BB_PAWN_ATTACKS[self.turn][from_square] & self.occupancy_color[1 ^ self.turn]
+            yield from_square, targets
 
-            self.board[move.init_pos[1]][0 if direction == -1 else 7] = rook
-            rook.pos = rook_init_pos
-
-        piece.pos = move.init_pos
-        self.board[move.init_pos[1]][move.init_pos[0]] = piece
-
-        # assert self.hash == self.hasher.hash(self)
-
-    def is_king_attacked(self, color):
-        king = self.kings[color]
-        res, positions_that_attack_king = self.is_square_attacked(king.pos, self.turn.next())
-
-        return res, positions_that_attack_king
-
-    def is_square_attacked(self, pos: PositionVector2D | tuple[int, int], by_color: TurnColor) -> tuple[bool, list]:
-        directions_list = [(0, 1), (1, 1), (1, 0), (1, -1), (0, -1), (-1, -1), (-1, 0), (-1, 1)]
-        directions_list = list(map(lambda x: PositionVector2D(x), directions_list))
-        direction_del = []
-        pos_that_attack = []
-
-        # check for knight
-        pos_that_attack.extend(list(self._knights_attacking_pos(pos, by_color)))
-
-        # check for any other pieces
-        for i in range(1, 8):
-            for direction in directions_list:
-                piece_pos = pos + direction * i
-                if not (0 <= piece_pos[0] <= 7 and 0 <= piece_pos[1] <= 7):
-                    direction_del.append(direction)
-                    continue
-
-                try:  # second - just in case - check
-                    piece = self.board[piece_pos[1]][piece_pos[0]]
-                except IndexError:
-                    direction_del.append(direction)
-                    continue
-
-                if piece == 0:
-                    pass
-                elif piece.color != by_color:
-                    direction_del.append(direction)
-
-                else:
-                    if isinstance(piece, (Rook, Queen)) and sum(abs(direction).position) == 1:
-                        pos_that_attack.append(piece_pos)
-                        # return True, f"{piece.name} is attacking the position"
-
-                    elif isinstance(piece, (Bishop, Queen)) and sum(abs(direction).position) == 2:
-                        pos_that_attack.append(piece_pos)
-                        # return True, f"{piece.name} is attacking the position"
-
-                    elif isinstance(piece, Pawn) and i == 1:  # piece.direction somewhere
-                        if (direction[0], direction[1]) in ((-1, -piece.moving_direction), (1, -piece.moving_direction)):
-                            pos_that_attack.append(piece_pos)
-
-                    elif isinstance(piece, King) and i == 1:
-                        #TODO: yields the king, even though we check if one king is attacked
-                        pos_that_attack.append(piece_pos)
-                        # return True, f"{piece.name} is attacking the position"
-
-                    direction_del.append(direction)
-
-            for d in direction_del:
-                directions_list.remove(d)
-            direction_del = []
-
-        return True if len(pos_that_attack) > 0 else False, pos_that_attack
-
-    def _knights_attacking_pos(self, pos: PositionVector2D, by_color: TurnColor) -> GeneratorType:
-        knight_directions = [(1, 2), (1, -2), (-1, 2), (-1, -2), (2, 1), (-2, 1), (-2, -1), (2, -1)]
-
-        for i in knight_directions:
-            knight_pos = pos + i
-            if not (0 <= knight_pos[0] <= 7 and 0 <= knight_pos[1] <= 7):
-                continue
-            try:
-                piece: Piece | 0 = self.board[knight_pos[1]][knight_pos[0]]
-            except IndexError:
-                continue
-
-            if piece == 0:
-                continue
-            elif piece.name == "Knight" and piece.color == by_color:
-                yield knight_pos
-
-    def game_end_check(self):
-        #TODO: only kings or kings + knight/bishop
-        # returns: game_finished (True if yes and False if not), winner (str of the player or None if draw)
-        if not len(list(generate_legal_moves(self))) == 0:
-            # check if triple move draw or 50 move draw
-            if self.repetition_table.get(self.hash):
-                if self.repetition_table.get(self.hash) >= 3:
-                    return True, None
-            elif self.half_moves >= 100:
-                return True, None
-            else:
-                return False, None
-
-        opponent_color = self.turn.next()
-        if self.is_king_attacked(opponent_color)[0]:
-            return True, opponent_color
+        #advances
+        if self.turn == WHITE:
+            single_moves = ally_pawns << 8 & ~self.occupancy
+            double_moves = single_moves << 8 & ~self.occupancy & BB_RANK_4
         else:
-            return False, None
+            single_moves = ally_pawns >> 8 & ~self.occupancy
+            double_moves = single_moves >> 8 & ~self.occupancy & BB_RANK_5
 
-    def to_fen(self):
-        return board_to_FEN(self)
+        for to_square in scan_backward_bb(single_moves):
+            from_square = to_square + (-8 if self.turn == WHITE else 8)
+            yield from_square, 1<< to_square
+
+        for to_square in scan_backward_bb(double_moves):
+            from_square = to_square + (-16 if self.turn == WHITE else 16)
+            yield from_square, 1 << to_square
+
+        #generate en passant
+        if not self.ep_square or self.ep_square & self.occupancy:
+            return
+
+        capturers = ally_pawns & BB_PAWN_ATTACKS[1 ^ self.turn][self.ep_square] & (BB_RANK_4 if self.turn == WHITE else BB_RANK_5)
+        for from_square in scan_backward_bb(capturers):
+            yield from_square, 1 << self.ep_square
+
+        # raise NotImplementedError
+
+    def generate_legal_moves(self):
+        king_mask = self.kings & self.occupancy_color[self.turn]
+        king_square = msb_square(king_mask)
+
+        opposite_color = 1 ^ self.turn
+        pinned, msb_pinned_rays = self.pinned(king_square, self.turn)
+        checkers = self.attackers_mask(king_square, opposite_color)
+
+        if checkers:
+            evasion_mask = self.generate_evasions_mask()
+            for to_square in scan_backward_bb(evasion_mask):
+                yield Move(king_square, to_square)
+
+            if checkers.bit_count() == 1:
+                ray = checkers
+                if checkers & (self.rooks | self.bishops | self.queens):
+                    ray |= BB_RAYS[king_square][checkers.bit_length()-1]
+                for from_square, targets in self.generate_pseudo_legal_moves():
+                    bb_from_square = 1 << from_square
+                    if bb_from_square & pinned or from_square == king_square:
+                        continue
+                    targets &= ray
+                    for to_square in scan_backward_bb(targets):
+                        if square_rank(to_square) in (RANK_1, RANK_8) and bb_from_square & self.pawns:
+                            yield Move(from_square, to_square, KNIGHT)
+                            yield Move(from_square, to_square, BISHOP)
+                            yield Move(from_square, to_square, ROOK)
+                            yield Move(from_square, to_square, QUEEN)
+                        else:
+                            yield Move(from_square, to_square)
+
+        else:
+            for from_square, targets in self.generate_pseudo_legal_moves():
+                bb_from_square = 1 << from_square
+                if bb_from_square & pinned:
+                    targets &= msb_pinned_rays[(pinned >> (from_square + 1)).bit_count()]
+
+                for to_square in scan_backward_bb(targets):
+                    if from_square == king_square:
+                        if square_distance(from_square, to_square) == 2:
+                            for square in scan_forward_bb(BB_RAYS[from_square][to_square]):
+                                if self.attackers_mask(square, opposite_color):
+                                    break
+                            else:
+                                yield Move(from_square, to_square)
+                            continue
+
+                        elif self.attackers_mask(to_square, opposite_color):
+                            continue
+
+
+                    if square_rank(to_square) in (RANK_1, RANK_8) and bb_from_square & self.pawns:
+                        yield Move(from_square, to_square, KNIGHT)
+                        yield Move(from_square, to_square, BISHOP)
+                        yield Move(from_square, to_square, ROOK)
+                        yield Move(from_square, to_square, QUEEN)
+                    else:
+                        yield Move(from_square, to_square)
+
+
+    def generate_evasions_mask(self):
+        king_mask = self.kings & self.occupancy_color[self.turn]
+        king_square = msb_square(king_mask)
+        opponent_color = 1 ^ self.turn
+
+        attack_mask = BB_KING_ATTACKS[king_square]
+        mask = 0
+        for to_square in scan_forward_bb(attack_mask):
+            mask |= 1 << to_square if not self.attackers_mask(to_square, opponent_color, self.occupancy & ~king_mask) else 0
+
+        return mask & ~self.occupancy_color[self.turn]
+
+
+
+
+    def pinned(self, king_sq: Square, color: Color) -> (BitBoard, list[Square]):
+        """ the pinner squares are done using the msb approach, thus each pinner_square is the current msb"""
+        opponent_color = 1 ^ color
+        possible_pinners = 0
+
+        diagonal_index = (((self.occupancy_color[opponent_color] & BB_DIAGONAL_MASK[king_sq]) * BISHOP_MAGIC[king_sq]) & 0xffff_ffff_ffff_ffff) >> BISHOP_SHIFT[king_sq]
+        possible_pinners |= BISHOP_ATTACK_TABLE[BISHOP_ATTACK_OFFSET[king_sq] + diagonal_index] & (self.bishops | self.queens)
+
+        orthogonal_index = (((self.occupancy_color[opponent_color] & BB_ORTHOGONAL_MASK[king_sq]) * ROOK_MAGIC[king_sq]) & 0xffff_ffff_ffff_ffff) >> ROOK_SHIFT[king_sq]
+        possible_pinners |= ROOK_ATTACK_TABLE[ROOK_ATTACK_OFFSET[king_sq] + orthogonal_index] & (self.rooks | self.queens)
+
+        possible_pinners &= self.occupancy_color[opponent_color]
+
+        pinned = BB_EMPTY
+        pinned_ray = []
+        for square in scan_forward_bb(possible_pinners):
+            potential_blockers = BB_BETWEEN[king_sq][square] & self.occupancy
+            if potential_blockers.bit_count() == 1:
+                pinned |= potential_blockers & self.occupancy_color[color]
+                pinned_ray.append(BB_BETWEEN[king_sq][square] | 1 << square)
+
+        return pinned, pinned_ray
+
+
+
+    @classmethod
+    def from_fen(cls, fen: str):
+        bit_board = cls()
+
+        sections = fen.split(" ")
+
+        for file_i, row in enumerate(sections[0].split("/")):
+            empty = 0
+            for piece in row:
+                if piece.isnumeric():
+                    empty += int(piece)
+                else:
+                    square = (7 - file_i) * 8 + empty
+                    piece_colour = WHITE if piece.isupper() else BLACK
+                    piece_type = PIECE_SYM.index(piece.lower())
+                    bit_board.set_piece_at(square, piece_type, piece_colour)
+                    empty += 1
+
+
+        if sections[1] == "w":
+            bit_board.turn = WHITE
+        if sections[1] == "b":
+            bit_board.turn = BLACK
+
+        castles = sections[2]
+        if "K" in castles:
+            bit_board.castling_rights |= WHITE_KINGS_CASTLE
+        if "Q" in castles:
+            bit_board.castling_rights |= WHITE_QUEENS_CASTLE
+        if "k" in castles:
+            bit_board.castling_rights |= BLACK_KINGS_CASTLE
+        if "q" in castles:
+            bit_board.castling_rights |= BLACK_QUEENS_CASTLE
+
+        bit_board.ep_square = SQUARE_NAMES.index(sections[3]) if sections[3] != "-" else None
+
+        bit_board.half_moves = int(sections[4])
+        bit_board.full_moves = int(sections[5])
+
+        bit_board.hash = ZobristHasher.hash(bit_board)
+        return bit_board
+
+
+    def to_fen(self) -> str:
+        fen = ""
+
+        # --DEBUG--
+        # print("\nFEN INPUT")
+        # print(board.player)
+        # print(board.kings_castle)
+        # print(board.possible_en_passant)
+        # print(board.half_moves, board.full_moves)
+        # print()
+
+        # Positions (section 1)
+        for rank in range(7, -1, -1):
+            empty = 0
+
+            for file in range(8):
+                square = rank * 8 + file
+                piece, color = self.piece_at(square), self.color_at(square)
+
+                if piece is None:
+                    empty += 1
+                else:
+                    if empty > 0:
+                        fen += str(empty)
+                    sym = PIECE_SYM[piece]
+                    fen += sym.upper() if color == WHITE else sym.lower()
+                    empty = 0
+
+            if empty > 0:
+                fen += str(empty)
+
+            if rank != 0:
+                fen += "/"
+
+        if self.turn == WHITE:
+            fen += " w"
+        else:
+            fen += " b"
+
+        # Castling (sections 2 and 3)
+        possible_castles = ""
+        if self.castling_rights & WHITE_KINGS_CASTLE:
+            possible_castles += "K"
+        if self.castling_rights & WHITE_QUEENS_CASTLE:
+            possible_castles += "Q"
+        if self.castling_rights & BLACK_KINGS_CASTLE:
+            possible_castles += "k"
+        if self.castling_rights & BLACK_QUEENS_CASTLE:
+            possible_castles += "q"
+
+        fen += f" {possible_castles if possible_castles else '-'}"
+
+        # en passant
+        if self.ep_square is None:
+            fen += " -"
+        else:
+            fen += f" {SQUARE_NAMES[self.ep_square]}"
+
+        # half moves and full moves
+        fen += f" {self.half_moves} {self.full_moves}"
+
+        return fen
 
     def construct(self):
         # A function that prints the board. NOTHING TO BE CHANGED HERE
         print(f"{'           ' * 2}Black")
-        num = 8  # h - 104, a - 97
         print("|-----" * 8 + "|")
-        for num_y, row in enumerate(self.board):
-            for num_x, val in enumerate(row):
-                if val == 0:
+        for rank in range(7, -1, -1):
+            for file in range(8):
+                square = rank * 8 + file
+                piece, color = self.piece_at(square), self.color_at(square)
+
+                if piece is None:
                     val = " "
                 else:
-                    val = val.sym
+                    sym = PIECE_SYM[piece]
+                    val = sym.upper() if color == WHITE else sym.lower()
                 print(f"|  {val}  " if len(str(val)) == 1 else f"|  {val} ", end="")
             print("|", end="")
-            print(f"  {num}")
-            num -= 1
+            print(f"  {rank+1}")
             print("|-----" * 8 + "|")
-
         # section to add letters
         print("   ", end="")
         # h - 104, a - 97
         for letter in range(97, 105):  # H -> A ~ (104, 96, -1)
             print(f"{chr(letter)}     ", end="")
         print(f"\n{'           ' * 2}White")
-        print(f"\nFEN: {board_to_FEN(self)}")
+        print(f"\nFEN: {self.to_fen()}")
 
 
-class HistoryEntree:
-    def __init__(self, move, captured_piece, previous_en_passant: PositionVector2D, previous_castling_rights, previous_half_moves, previous_full_moves, previous_hash):
-        self.move = move
-        self.captured_piece = captured_piece
-        self.previous_en_passant = previous_en_passant
-        self.previous_castling_rights = previous_castling_rights
-        self.previous_half_moves = previous_half_moves
-        self.previous_full_moves = previous_full_moves
-        self.previous_hash = previous_hash
+
+class _BitBoardState:
+    __slots__ = (
+        "pawns", "knights", "bishops", "rooks", "queens", "kings", "occupancy_color", "castling_rights",
+        "ep_square", "half_moves", "full_moves", "hash",
+    )
+
+    def __init__(self, bitboard):
+        # slots later?
+        self.pawns = bitboard.pawns
+        self.knights = bitboard.knights
+        self.bishops = bitboard.bishops
+        self.rooks = bitboard.rooks
+        self.queens = bitboard.queens
+        self.kings = bitboard.kings
+
+        self.occupancy_color = bitboard.occupancy_color
+        self.castling_rights = bitboard.castling_rights
+        self.ep_square: Square | None = bitboard.ep_square
+        self.half_moves = bitboard.half_moves
+        self.full_moves = bitboard.full_moves
+        self.hash = bitboard.hash
+
+    def restore(self, bitboard):
+        bitboard.pawns = self.pawns
+        bitboard.knights = self.knights
+        bitboard.bishops = self.bishops
+        bitboard.rooks = self.rooks
+        bitboard.queens = self.queens
+        bitboard.kings = self.kings
+
+        bitboard.occupancy_color = self.occupancy_color
+        bitboard.castling_rights = self.castling_rights
+        bitboard.ep_square = self.ep_square
+        bitboard.half_moves = self.half_moves
+        bitboard.full_moves = self.full_moves
+        bitboard.hash = self.hash
+
+        bitboard.occupancy = self.occupancy_color[WHITE] | self.occupancy_color[BLACK]
+        bitboard.turn ^= 1
 
     def __repr__(self):
-        return f"{self.previous_hash}"
+        return f"{self.hash}"

@@ -6,19 +6,14 @@ __author__ = "Daniel Rakhmatov, Peter Luo"
 
 
 from .loader import Board
-from .pieces import Pawn, Bishop, King, Rook, Queen, Knight, Piece
-from .Move import Move
-from .util import TurnColor
+from .util import *
+from .move import Move
 
 __all__ = [
     "Board",
-    "Piece",
-    "Pawn",
-    "Knight",
-    "Bishop",
-    "Rook",
-    "Queen",
-    "King",
-    "Move",
-    "TurnColor"
+    "Color",
+    "PieceType",
+    "Square",
+    "File",
+    "Move"
 ]

@@ -1,12 +1,101 @@
-from Chess_lib.util import TurnColor, EvalTable
-from Chess_lib.pieces import Pawn
-import Chess_lib.MoveGenerator as MoveGen
+import dataclasses
+from typing import TypeAlias
 
+from .util import *
+from .loader import Board
+
+
+Material: TypeAlias = int
+#all in centipawns
+PAWN_MATERIAL: Material = 100
+KNIGHT_MATERIAL: Material = 300
+BISHOP_MATERIAL: Material = 300
+ROOK_MATERIAL: Material = 500
+QUEEN_MATERIAL: Material = 900
+
+PieceSquareTable: TypeAlias = list
+KNIGHT_PST: PieceSquareTable = [
+    -5, -4, -3, -2, -2, -3, -4, -5,
+    -4, -2,  0,  1,  1,  0, -2, -4,
+    -3,  0,  2,  3,  3,  2,  0, -3,
+    -2,  1,  3,  4,  4,  3,  1, -2,
+    -2,  1,  3,  4,  4,  3,  1, -2,
+    -3,  0,  2,  3,  3,  2,  0, -3,
+    -4, -2,  0,  1,  1,  0, -2, -4,
+    -5, -4, -3, -2, -2, -3, -4, -5
+]
+
+BISHOP_PST = [
+    -3, -2, -1, -1, -1, -1, -2, -3,
+    -2, -1,  0,  1,  1,  0, -1, -2,
+    -1,  0,  1,  2,  2,  1,  0, -1,
+     0,  1,  3,  4,  4,  3,  1,  0,
+     0,  1,  3,  4,  4,  3,  1,  0,
+    -1,  0,  1,  2,  2,  1,  0, -1,
+    -2, -1,  0,  1,  1,  0, -1, -2,
+    -3, -2, -1, -1, -1, -1, -2, -3
+]
+
+ROOK_PST = [
+     5,  5,  5,  5,  5,  5,  5,  5,
+    20, 20, 20, 20, 20, 20, 20, 20,
+     0,  0,  0,  5,  5,  0,  0,  0,
+     0,  0,  0,  5,  5,  0,  0,  0,
+     0,  0,  0,  5,  5,  0,  0,  0,
+     0,  0,  0,  5,  5,  0,  0,  0,
+    15, 15, 15, 15, 15, 15, 15, 15,
+     5,  5,  5,  5,  5,  5,  5,  5
+]
+
+QUEEN_PST = [
+    -3, -2, -1, -1, -1, -1, -2, -3,
+    -2, -1,  0,  1,  1,  0, -1, -2,
+    -1,  0,  1,  2,  2,  1,  0, -1,
+     0,  1,  3,  4,  4,  3,  1,  0,
+     0,  1,  3,  4,  4,  3,  1,  0,
+    -1,  0,  1,  2,  2,  1,  0, -1,
+    -2, -1,  0,  1,  1,  0, -1, -2,
+    -3, -2, -1, -1, -1, -1, -2, -3
+]
+
+KING_OPENING_PST = [
+     5,  4,  3,  0,  1,  2,  4,  5,
+     1,  0, -1, -1, -1, -1,  0,  1,
+    -1, -2, -3, -4, -4, -3, -2, -1,
+    -2, -3, -4, -5, -5, -4, -3, -2,
+    -2, -3, -4, -5, -5, -4, -3, -2,
+    -1, -2, -3, -4, -4, -3, -2, -1,
+     1,  0, -1, -1, -1, -1,  0,  1,
+     5,  4,  3,  0,  1,  2,  4,  5,
+]
+
+KING_ENDGAME_PST = [
+    -3, -2, -1, -1, -1, -1, -2, -3,
+    -2, -1,  0,  1,  1,  0, -1, -2,
+    -1,  0,  1,  2,  2,  1,  0, -1,
+     0,  1,  3,  4,  4,  3,  1,  0,
+     0,  1,  3,  4,  4,  3,  1,  0,
+    -1,  0,  1,  2,  2,  1,  0, -1,
+    -2, -1,  0,  1,  1,  0, -1, -2,
+    -3, -2, -1, -1, -1, -1, -2, -3
+]
+
+
+
+bishop_pair = 30
+doubled_pawn = - 15
+isolated_pawn = -20
+passed_pawn = 45
+mobility = 3
+activity_scale = 0.02
+king_open_file = -50
+rook_open_file = 20
+tempo = 10
 
 
 class StaticEvaluation:
     @classmethod
-    def evaluate(cls, board):
+    def evaluate(cls, board: Board):
         score = 0
         score += cls._material(board)
         score += cls._piece_square(board)
@@ -18,54 +107,52 @@ class StaticEvaluation:
         return score
 
     @staticmethod
-    def _material(board):
-        score = 0
-        for row in board.board:
-            for piece in row:
-                if piece == 0:
-                    continue
-                if piece.name == "King":
-                    continue
-                change = EvalTable.piece_value[piece.name]
-                if piece.color == TurnColor.WHITE:
-                    score += change
-                else:
-                    score -= change
-        return score
+    def _material(board: Board):
+        white = (
+            (board.knights & board.occupancy[WHITE]).bit_count() * KNIGHT_MATERIAL +
+            (board.bishops & board.occupancy[WHITE]).bit_count() * BISHOP_MATERIAL +
+            (board.rooks & board.occupancy[WHITE]).bit_count() * ROOK_MATERIAL +
+            (board.queens & board.occupancy[WHITE]).bit_count() * QUEEN_MATERIAL +
+            (board.pawns & board.occupancy[WHITE]).bit_count() * PAWN_MATERIAL
+        )
+        black = (
+            (board.knights & board.occupancy[BLACK]).bit_count() * KNIGHT_MATERIAL +
+            (board.bishops & board.occupancy[BLACK]).bit_count() * BISHOP_MATERIAL +
+            (board.rooks & board.occupancy[BLACK]).bit_count() * ROOK_MATERIAL +
+            (board.queens & board.occupancy[BLACK]).bit_count() * QUEEN_MATERIAL +
+            (board.pawns & board.occupancy[BLACK]).bit_count() * PAWN_MATERIAL
+        )
+        return white - black
+
 
     @staticmethod
-    #TODO: actually add values to the table
-    def _piece_square(board) -> int:
-        score = 0
-        for row in board.board:
-            for piece in row:
-                if piece == 0:
-                    continue
-                elif piece.name == "Pawn" or piece.name == "King":
-                    continue
-
-                change = EvalTable.activity[piece.pos[1]][piece.pos[0]] * EvalTable.activity_scale * EvalTable.piece_value[piece.name]
-                if piece.color == TurnColor.WHITE:
-                    score += change
-                else:
-                    score -= change
-        return score
+    def _piece_square(board: Board) -> int:
+        white = (
+            (board.occupancy_color[WHITE] & BB_CENTRE).bit_count() * EvalTable.CENTRE +
+            (board.occupancy_color[WHITE] & BB_EXTENDED_CENTRE).bit_count() * EvalTable.EXTENDED_CENTRE +
+            (board.occupancy_color[WHITE] & BB_EDGES).bit_count() * EvalTable.EDGE
+        )
+        black = (
+            (board.occupancy_color[BLACK] & BB_CENTRE).bit_count() * EvalTable.CENTRE +
+            (board.occupancy_color[BLACK] & BB_EXTENDED_CENTRE).bit_count() * EvalTable.EXTENDED_CENTRE +
+            (board.occupancy_color[BLACK] & BB_EDGES).bit_count() * EvalTable.EDGE
+        )
+        return white - black
 
     @staticmethod
-    def _mobility(board) -> int:
-        current_moves = len(list(MoveGen.generate_legal_moves(board)))
-        board.switch_turn()
-        opponent_moves = len(list(MoveGen.generate_legal_moves(board)))
-        board.switch_turn()
+    def _mobility(board: Board) -> int:
+        current_moves = len(list(board.generate_pseudo_legal_moves()))
+        board.turn ^= 1
+        opponent_moves = len(list(board.generate_pseudo_legal_moves()))
+        board.turn ^= 1
         score = (current_moves - opponent_moves) * EvalTable.mobility + EvalTable.tempo
-        if board.turn == TurnColor.BLACK:
+        if board.turn == BLACK:
             score *= -1
 
-
         return score
 
     @staticmethod
-    def _pawn_structure(board) -> int:
+    def _pawn_structure(board: Board) -> int:
         score = 0
         for row in board.board:
             for piece in row:
@@ -111,7 +198,7 @@ class StaticEvaluation:
         return score
 
     @staticmethod
-    def _king_safety(board) -> int:
+    def _king_safety(board: Board) -> int:
         """
         include open files near the king and the detection of endgame/middle game
 
@@ -145,7 +232,7 @@ class StaticEvaluation:
         return score
 
     @staticmethod
-    def _rook_activity(board) -> int:
+    def _rook_activity(board: Board) -> int:
         open_files = board.open_files
 
         score = 0
@@ -165,7 +252,7 @@ class StaticEvaluation:
         return score
 
     @staticmethod
-    def _bishop_pair(board) -> int:
+    def _bishop_pair(board: Board) -> int:
         score = 0
         pair_white = 0
         pair_black = 0
@@ -187,4 +274,3 @@ class StaticEvaluation:
             score -= EvalTable.bishop_pair
 
         return score
-
