@@ -1,33 +1,96 @@
 import dataclasses
+from typing import TypeAlias
+
 from .util import *
 from .loader import Board
 
 
+Material: TypeAlias = int
+#all in centipawns
+PAWN_MATERIAL: Material = 100
+KNIGHT_MATERIAL: Material = 300
+BISHOP_MATERIAL: Material = 300
+ROOK_MATERIAL: Material = 500
+QUEEN_MATERIAL: Material = 900
+
+PieceSquareTable: TypeAlias = list
+KNIGHT_PST: PieceSquareTable = [
+    -5, -4, -3, -2, -2, -3, -4, -5,
+    -4, -2,  0,  1,  1,  0, -2, -4,
+    -3,  0,  2,  3,  3,  2,  0, -3,
+    -2,  1,  3,  4,  4,  3,  1, -2,
+    -2,  1,  3,  4,  4,  3,  1, -2,
+    -3,  0,  2,  3,  3,  2,  0, -3,
+    -4, -2,  0,  1,  1,  0, -2, -4,
+    -5, -4, -3, -2, -2, -3, -4, -5
+]
+
+BISHOP_PST = [
+    -3, -2, -1, -1, -1, -1, -2, -3,
+    -2, -1,  0,  1,  1,  0, -1, -2,
+    -1,  0,  1,  2,  2,  1,  0, -1,
+     0,  1,  3,  4,  4,  3,  1,  0,
+     0,  1,  3,  4,  4,  3,  1,  0,
+    -1,  0,  1,  2,  2,  1,  0, -1,
+    -2, -1,  0,  1,  1,  0, -1, -2,
+    -3, -2, -1, -1, -1, -1, -2, -3
+]
+
+ROOK_PST = [
+     5,  5,  5,  5,  5,  5,  5,  5,
+    20, 20, 20, 20, 20, 20, 20, 20,
+     0,  0,  0,  5,  5,  0,  0,  0,
+     0,  0,  0,  5,  5,  0,  0,  0,
+     0,  0,  0,  5,  5,  0,  0,  0,
+     0,  0,  0,  5,  5,  0,  0,  0,
+    15, 15, 15, 15, 15, 15, 15, 15,
+     5,  5,  5,  5,  5,  5,  5,  5
+]
+
+QUEEN_PST = [
+    -3, -2, -1, -1, -1, -1, -2, -3,
+    -2, -1,  0,  1,  1,  0, -1, -2,
+    -1,  0,  1,  2,  2,  1,  0, -1,
+     0,  1,  3,  4,  4,  3,  1,  0,
+     0,  1,  3,  4,  4,  3,  1,  0,
+    -1,  0,  1,  2,  2,  1,  0, -1,
+    -2, -1,  0,  1,  1,  0, -1, -2,
+    -3, -2, -1, -1, -1, -1, -2, -3
+]
+
+KING_OPENING_PST = [
+     5,  4,  3,  0,  1,  2,  4,  5,
+     1,  0, -1, -1, -1, -1,  0,  1,
+    -1, -2, -3, -4, -4, -3, -2, -1,
+    -2, -3, -4, -5, -5, -4, -3, -2,
+    -2, -3, -4, -5, -5, -4, -3, -2,
+    -1, -2, -3, -4, -4, -3, -2, -1,
+     1,  0, -1, -1, -1, -1,  0,  1,
+     5,  4,  3,  0,  1,  2,  4,  5,
+]
+
+KING_ENDGAME_PST = [
+    -3, -2, -1, -1, -1, -1, -2, -3,
+    -2, -1,  0,  1,  1,  0, -1, -2,
+    -1,  0,  1,  2,  2,  1,  0, -1,
+     0,  1,  3,  4,  4,  3,  1,  0,
+     0,  1,  3,  4,  4,  3,  1,  0,
+    -1,  0,  1,  2,  2,  1,  0, -1,
+    -2, -1,  0,  1,  1,  0, -1, -2,
+    -3, -2, -1, -1, -1, -1, -2, -3
+]
 
 
-@dataclasses.dataclass(frozen=True)
-class EvalTable:
-    #all in centipawns
-    PAWN = 100
-    KNIGHT = 300
-    BISHOP = 300
-    ROOK = 500
-    QUEEN = 900
 
-    CENTRE =  20
-    EXTENDED_CENTRE = 10
-    EDGE = -10
-
-
-    bishop_pair = 30
-    doubled_pawn = - 15
-    isolated_pawn = -20
-    passed_pawn = 45
-    mobility = 3
-    activity_scale = 0.02
-    king_open_file = -50
-    rook_open_file = 20
-    tempo = 10
+bishop_pair = 30
+doubled_pawn = - 15
+isolated_pawn = -20
+passed_pawn = 45
+mobility = 3
+activity_scale = 0.02
+king_open_file = -50
+rook_open_file = 20
+tempo = 10
 
 
 class StaticEvaluation:
@@ -46,18 +109,18 @@ class StaticEvaluation:
     @staticmethod
     def _material(board: Board):
         white = (
-            (board.knights & board.occupancy[WHITE]).bit_count() * EvalTable.KNIGHT +
-            (board.bishops & board.occupancy[WHITE]).bit_count() * EvalTable.BISHOP +
-            (board.rooks & board.occupancy[WHITE]).bit_count() * EvalTable.ROOK +
-            (board.queens & board.occupancy[WHITE]).bit_count() * EvalTable.QUEEN +
-            (board.pawns & board.occupancy[WHITE]).bit_count() * EvalTable.PAWN
+            (board.knights & board.occupancy[WHITE]).bit_count() * KNIGHT_MATERIAL +
+            (board.bishops & board.occupancy[WHITE]).bit_count() * BISHOP_MATERIAL +
+            (board.rooks & board.occupancy[WHITE]).bit_count() * ROOK_MATERIAL +
+            (board.queens & board.occupancy[WHITE]).bit_count() * QUEEN_MATERIAL +
+            (board.pawns & board.occupancy[WHITE]).bit_count() * PAWN_MATERIAL
         )
         black = (
-            (board.knights & board.occupancy[BLACK]).bit_count() * EvalTable.KNIGHT +
-            (board.bishops & board.occupancy[BLACK]).bit_count() * EvalTable.BISHOP +
-            (board.rooks & board.occupancy[BLACK]).bit_count() * EvalTable.ROOK +
-            (board.queens & board.occupancy[BLACK]).bit_count() * EvalTable.QUEEN +
-            (board.pawns & board.occupancy[BLACK]).bit_count() * EvalTable.PAWN
+            (board.knights & board.occupancy[BLACK]).bit_count() * KNIGHT_MATERIAL +
+            (board.bishops & board.occupancy[BLACK]).bit_count() * BISHOP_MATERIAL +
+            (board.rooks & board.occupancy[BLACK]).bit_count() * ROOK_MATERIAL +
+            (board.queens & board.occupancy[BLACK]).bit_count() * QUEEN_MATERIAL +
+            (board.pawns & board.occupancy[BLACK]).bit_count() * PAWN_MATERIAL
         )
         return white - black
 
