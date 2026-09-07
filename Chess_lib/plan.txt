@@ -1,0 +1,81 @@
+- when done: move, pgn_converter documentation
+
+
+Bitboard
+- legal move gen
+- end_game conditions
+
+Today:
+- evaluation
+> piece-square table (PST)
+> count material and piece activity(using pst) in board and update during move
+> adjacent precompute for pawns
+> king safety via pawn shield and len(evasions)
+- quiscience move generator
+- connect to the engine
+- san converter
+
+
+[ ] attack detection
+[ ] legal move generation
+[ ] AlphaBeta runs on it
+[ ] old vs new benchmark
+
+Speed table:
+Depth   | nodes     | time (sec) | NPS
+10      | 72160     |  154       | 469
+9       | 16993     |  27        | 629
+8       | 38156     |  57        | 669
+7       | 28972     | 45         | 643
+6       | 12201     | 18         | 677
+5       | 4165      | 6          | 694
+4       | 2813      | 4          | 703
+3       | 257       | 0.4        | 642
+
+average NPS = ~650
+
+
+
+
+# Board Visualisation (with position on the side and coordinates in the squares)
+#                            White
+#      |-----|-----|-----|-----|-----|-----|-----|-----|
+#      | 56  | 57  | 58  | 59  | 60  | 61  | 62  | 63  |  8
+#      |-----|-----|-----|-----|-----|-----|-----|-----|
+#      | 48  | 49  | 50  | 51  | 52  | 53  | 54  | 55  |  7
+#      |-----|-----|-----|-----|-----|-----|-----|-----|
+#      | 40  | 41  | 42  | 43  | 44  | 45  | 46  | 47  |  6
+#      |-----|-----|-----|-----|-----|-----|-----|-----|
+#      | 32  | 33  | 34  | 35  | 36  | 37  | 38  | 39  |  5
+#      |-----|-----|-----|-----|-----|-----|-----|-----|
+#      | 24  | 25  | 26  | 27  | 28  | 29  | 30  | 31  |  4
+#      |-----|-----|-----|-----|-----|-----|-----|-----|
+#      | 16  | 17  | 18  | 19  | 20  | 21  | 22  | 23  |  3
+#      |-----|-----|-----|-----|-----|-----|-----|-----|
+#      |  8  |  9  | 10  | 11  | 12  | 13  | 14  | 15  |  2
+#      |-----|-----|-----|-----|-----|-----|-----|-----|
+#      |  0  |  1  |  2  |  3  |  4  |  5  |  6  |  7  |  1
+#      |-----|-----|-----|-----|-----|-----|-----|-----|
+#         a     b     c     d     e     f     g     h
+#                            black
+
+
+
+Road map
+
+Engine
+│
+ML
+│
+├── Encoder
+├── Dataset
+├── Policy NN
+├── Value NN
+├── Self-play
+├── MCTS
+│
+Applications
+│
+├── AlphaZero clone
+├── Move intent analyzer
+├── Puzzle generator
