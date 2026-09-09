@@ -14,8 +14,8 @@ class SearchLogger:
 
     def log_intro(self, move, depth):
         self.nodes += 1
-        new_path = f"{self.parent_path}/{move.to_uci()}"
-        self.data[self.parent_path]["moves"].append(move.to_uci())
+        new_path = f"{self.parent_path}/{move.uci()}"
+        self.data[self.parent_path]["moves"].append(move.uci())
         self.data[self.parent_path]["depth"] = depth
         self.parent_path = new_path
 

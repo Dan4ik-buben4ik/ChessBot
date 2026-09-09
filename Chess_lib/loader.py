@@ -154,6 +154,16 @@ class Board:
             self.piece_at(move.to_square) is None
         )
 
+    def is_capture(self, move):
+        return self.piece_at(move.to_square) or self.is_en_passant(move)
+
+    def is_move_check(self, move):
+        piece = self.piece_at(move.from_square) if not move.promotion else move.promotion
+        self.set_piece_at(move.to_square, piece, self.turn)
+        res = self.is_check()
+        self.remove_piece_at(move.to_square)
+        return res
+
     def is_check(self):
         king_square = msb_square(self.kings & self.occupancy_color[self.turn])
         return bool(self.attackers_mask(king_square, 1 ^ self.turn))
@@ -322,7 +332,7 @@ class Board:
 
         # raise NotImplementedError
 
-    def generate_legal_moves(self):
+    def generate_legal_moves(self, *, quiescence=False):
         king_mask = self.kings & self.occupancy_color[self.turn]
         king_square = msb_square(king_mask)
 

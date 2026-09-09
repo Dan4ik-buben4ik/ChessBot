@@ -1,8 +1,10 @@
 import dataclasses
+import math
 from typing import TypeAlias
 
 from .util import *
 from .loader import Board
+from .logger import *
 
 
 Material: TypeAlias = int
@@ -92,185 +94,207 @@ king_open_file = -50
 rook_open_file = 20
 tempo = 10
 
+#transposition table
+#TODO: slots
+class TTFlag(enum.Enum):
+    UPPER_BOUND = 0
+    LOWER_BOUND = 1
+    EXACT = 2
 
+
+class TTEntree:
+    def __init__(self, depth, score, flag, best_move):
+        self.depth = depth
+        self.score = score
+        self.flag = flag
+        self.best_move = best_move
+
+def _move_order_score(board: Board, move: Move, tt_move=None):
+    score = 0
+
+    if move == tt_move:
+        score += 10
+
+    if board.is_move_check(move):
+        score += 5
+
+    if board.is_capture(move):
+        score += 3
+
+    if move.promotion:
+        score += 2
+
+    return score
+
+
+
+def move_ordering(board: Board, moves: list[Move], tt_move=None):
+    return sorted(
+        moves,
+        key=lambda x: _move_order_score(board, x, tt_move),
+        reverse=True
+    )
+
+
+#TODO: rewrite to use NNUE and HALFKP
 class StaticEvaluation:
     @classmethod
     def evaluate(cls, board: Board):
-        score = 0
-        score += cls._material(board)
-        score += cls._piece_square(board)
-        score += cls._mobility(board)
-        score += cls._pawn_structure(board)
-        score += cls._king_safety(board)
-        score += cls._rook_activity(board)
-        score += cls._bishop_pair(board)
-        return score
-
-    @staticmethod
-    def _material(board: Board):
-        white = (
-            (board.knights & board.occupancy[WHITE]).bit_count() * KNIGHT_MATERIAL +
-            (board.bishops & board.occupancy[WHITE]).bit_count() * BISHOP_MATERIAL +
-            (board.rooks & board.occupancy[WHITE]).bit_count() * ROOK_MATERIAL +
-            (board.queens & board.occupancy[WHITE]).bit_count() * QUEEN_MATERIAL +
-            (board.pawns & board.occupancy[WHITE]).bit_count() * PAWN_MATERIAL
-        )
-        black = (
-            (board.knights & board.occupancy[BLACK]).bit_count() * KNIGHT_MATERIAL +
-            (board.bishops & board.occupancy[BLACK]).bit_count() * BISHOP_MATERIAL +
-            (board.rooks & board.occupancy[BLACK]).bit_count() * ROOK_MATERIAL +
-            (board.queens & board.occupancy[BLACK]).bit_count() * QUEEN_MATERIAL +
-            (board.pawns & board.occupancy[BLACK]).bit_count() * PAWN_MATERIAL
-        )
-        return white - black
+        raise NotImplementedError
 
 
-    @staticmethod
-    def _piece_square(board: Board) -> int:
-        white = (
-            (board.occupancy_color[WHITE] & BB_CENTRE).bit_count() * EvalTable.CENTRE +
-            (board.occupancy_color[WHITE] & BB_EXTENDED_CENTRE).bit_count() * EvalTable.EXTENDED_CENTRE +
-            (board.occupancy_color[WHITE] & BB_EDGES).bit_count() * EvalTable.EDGE
-        )
-        black = (
-            (board.occupancy_color[BLACK] & BB_CENTRE).bit_count() * EvalTable.CENTRE +
-            (board.occupancy_color[BLACK] & BB_EXTENDED_CENTRE).bit_count() * EvalTable.EXTENDED_CENTRE +
-            (board.occupancy_color[BLACK] & BB_EDGES).bit_count() * EvalTable.EDGE
-        )
-        return white - black
+logger = SearchLogger()
+class Engine:
+    def __init__(self, board, alpha, beta, depth):
+        self.board = board
+        self.init_alpha = alpha
+        self.init_beta = beta
+        self.depth = depth
+        self.transposition_table = {}
 
-    @staticmethod
-    def _mobility(board: Board) -> int:
-        current_moves = len(list(board.generate_pseudo_legal_moves()))
-        board.turn ^= 1
-        opponent_moves = len(list(board.generate_pseudo_legal_moves()))
-        board.turn ^= 1
-        score = (current_moves - opponent_moves) * EvalTable.mobility + EvalTable.tempo
-        if board.turn == BLACK:
-            score *= -1
+    def _AlphaBetaSearch(self, board, alpha, beta, depth):
+        entry_move = None
+        #checks if the position had already been analysed
+        entry = self.transposition_table.get(board.hash)
+        if entry and entry.depth >= depth:
+            entry_move = entry.best_move
 
-        return score
+            if entry.flag == TTFlag.EXACT:
+                return entry.score
+            elif entry.flag == TTFlag.LOWER_BOUND:
+                alpha = max(alpha, entry.score)
+            elif entry.flag == TTFlag.UPPER_BOUND:
+                beta = min(beta, entry.score)
 
-    @staticmethod
-    def _pawn_structure(board: Board) -> int:
-        score = 0
-        for row in board.board:
-            for piece in row:
-                if piece == 0:
-                    continue
-                elif piece.name != "Pawn":
-                    continue
+            if alpha > beta:
+                return entry.score
 
-                #TODO: make the passed pawn work differently, aka the further it is the better and check if there are any pawns in front
-                if piece.color == TurnColor.WHITE and piece.pos[1] <= 2 and not isinstance(board.board[piece.pos[1] - 1][piece.pos[0]], Pawn):
-                    score += EvalTable.passed_pawn
 
-                if piece.color == TurnColor.BLACK and piece.pos[1] >= 6 and not isinstance(board.board[piece.pos[1] + 1][piece.pos[0]], Pawn):
-                    score += EvalTable.passed_pawn
+        original_alpha = alpha
+        original_beta = beta
+        color = 1 if board.turn == WHITE else -1
+        if board.game_end_check()[0]:
+            return StaticEvaluation.evaluate(board) * color
 
-                change = 0
-                isolated = True
-                doubled = False
+        if depth == 0:
+            return self._QuiescenceSearch(board, -beta, -alpha) * color
 
-                for x_i in (-1, 0, 1):
-                    for y_i in (-1, 0, 1):
-                        if x_i == y_i == 0:
-                            continue
-                        try:
-                            close_pawn = board.board[piece.pos[1] + y_i][piece.pos[0] + x_i]
-                            if close_pawn == 0:
-                                continue
+        best = -math.inf
+        best_move = None
+        for move in move_ordering(board, list(board.generate_legal_moves()), entry_move):
+            # print(f"engine considers: {move} | depth: {depth}")
+            logger.log_intro(move, depth)
+            board.push(move)
 
-                            isolated = False
-                            if x_i == 0:
-                                doubled = True
-                        except IndexError:
-                            continue
+            evaluation = -self._AlphaBetaSearch(board, -beta, -alpha, depth - 1)
 
-                change += EvalTable.isolated_pawn if isolated else 0
-                change += 1/2 * EvalTable.doubled_pawn if doubled else 0
+            # print(f"static evaluation for move {move} at depth {depth}: {evaluation}\n")
+            logger.log_outro(evaluation)
+            board.pop()
 
-                if piece.color == TurnColor.WHITE:
-                    score += change
-                else:
-                    score -= change
+            if evaluation > best:
+                best = evaluation
+                best_move = move
 
-        return score
+            alpha = max(alpha, evaluation)
 
-    @staticmethod
-    def _king_safety(board: Board) -> int:
-        """
-        include open files near the king and the detection of endgame/middle game
+            if alpha >= beta:
+                break
 
-        """
-        score = 0
-        white_king = board.kings[TurnColor.WHITE]
-        black_king = board.kings[TurnColor.BLACK]
-
-        if board.is_endgame:
-            score += EvalTable.activity[white_king.pos[1]][white_king.pos[0]] * EvalTable.activity_scale
-            score -= EvalTable.activity[black_king.pos[1]][black_king.pos[0]] * EvalTable.activity_scale
+        #records the position into the table
+        if best <= original_alpha:
+            flag = TTFlag.UPPER_BOUND
+        elif best >= original_beta:
+            flag = TTFlag.LOWER_BOUND
         else:
-            # checks the open files around the kings
-            open_files = board.open_files
-            for i in (-1, 0, 1):
-                try:
-                    file = open_files[white_king.pos[0] + i]
-                    if file:
-                        score += EvalTable.king_open_file
-                except IndexError:
-                    continue
+            flag = TTFlag.EXACT
 
-                try:
-                    file = open_files[black_king.pos[0] + i]
-                    if file:
-                        score -= EvalTable.king_open_file
-                except IndexError:
-                    continue
+        self.transposition_table[board.hash] = TTEntree(depth, best, flag, best_move)
+
+        return best
+
+    def _QuiescenceSearch(self, board: Board, alpha, beta):
+        entry_move = None
+        entry = self.transposition_table.get(board.hash)
+        if entry and entry.depth > 0:
+            entry_move = entry.best_move
+
+            if entry.flag == TTFlag.EXACT:
+                return entry.score
+            elif entry.flag == TTFlag.LOWER_BOUND:
+                alpha = max(alpha, entry.score)
+            elif entry.flag == TTFlag.UPPER_BOUND:
+                beta = min(beta, entry.score)
+
+            if alpha > beta:
+                return entry.score
+
+        color = 1 if board.turn == WHITE else -1
+        best = -math.inf
+
+        for move in move_ordering(board, list(board.generate_legal_moves()), entry_move):
+            if board.is_capture(move) or board.is_move_check(move):
+                continue
+            print(f"engine considers: {move} | depth: 0")
+            logger.log_intro(move, 0)
+            board.push(move)
+            evaluation = StaticEvaluation.evaluate(board) * color
+            print(f"static evaluation for move {move} at depth 0: {evaluation * color}\n")
+            logger.log_outro(evaluation * color)
+            board.pop()
+
+            best = max(best, evaluation)
+
+            alpha = max(alpha, evaluation)
+            if alpha >= beta:
+                break
+
+        return best
+
+    def generate(self):
+        best_score = -math.inf
+        best_move = None
+
+        alpha = self.init_alpha
+        beta = self.init_beta
+
+        for move in self.board.generate_legal_moves():
+            print(f"engine considers: {move} | depth: {self.depth}")
+            logger.log_intro(move, self.depth)
+            self.board.push(move)
+            try:
+                evaluation = -self._AlphaBetaSearch(self.board, -beta, -alpha, self.depth - 1)
+            except BaseException as exp:
+                print(logger.parent_path)
+                logger.view_dict()
+                logger.view_dict()
+                logger.view_dict()
+                raise exp
+            print(f"static evaluation for move {move} at depth {self.depth}: {evaluation}\n")
+            self.board.pop()
+            logger.log_outro(evaluation)
 
 
-        return score
+            if evaluation > best_score:
+                best_score = evaluation
+                best_move = move
 
-    @staticmethod
-    def _rook_activity(board: Board) -> int:
-        open_files = board.open_files
+            alpha = max(alpha, evaluation)
 
-        score = 0
-        for row in board.board:
-            for piece in row:
-                if piece == 0:
-                    continue
-                elif piece.name != "Rook":
-                    continue
+        if best_score <= self.init_alpha:
+            flag = TTFlag.UPPER_BOUND
+        elif best_score >= self.init_beta:
+            flag = TTFlag.LOWER_BOUND
+        else:
+            flag = TTFlag.EXACT
 
-                if open_files[piece.pos[0]]:
+        self.transposition_table[self.board.hash] = TTEntree(self.depth, best_score, flag, best_move)
 
-                    if piece.color == TurnColor.WHITE:
-                        score += EvalTable.rook_open_file
-                    else:
-                        score -= EvalTable.rook_open_file
-        return score
+        logger.log_outro(best_score)
 
-    @staticmethod
-    def _bishop_pair(board: Board) -> int:
-        score = 0
-        pair_white = 0
-        pair_black = 0
 
-        for row in board.board:
-            for piece in row:
-                if piece == 0:
-                    continue
-                if piece.name == "Bishop":
-                    if piece.color == TurnColor.WHITE:
-                        pair_white += 1
-                    else:
-                        pair_black += 1
+        return best_move
 
-        if pair_white >= 2:
-            score += EvalTable.bishop_pair
-
-        if pair_black >= 2:
-            score -= EvalTable.bishop_pair
-
-        return score
+    def evaluate(self):
+        color = 1 if self.board.turn == WHITE else -1
+        return self._AlphaBetaSearch(self.board, self.init_alpha, self.init_beta, self.depth) * color
