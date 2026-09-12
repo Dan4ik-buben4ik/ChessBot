@@ -1,6 +1,6 @@
 from Chess_lib import *
 from Chess_lib.util import *
-from Chess_lib.util import _subsets, _sliding_attacks
+
 
 # only queens and kings: "3qk3/8/8/8/8/8/8/3QK3 w - - 0 1"
 # only rooks and kings: r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1  hash = 8443997070231762362
@@ -14,18 +14,23 @@ from Chess_lib.util import _subsets, _sliding_attacks
 # diagonal pin : "4k3/8/8/8/7q/8/5N2/4K3 w KQkq - 0 1"
 # empty : "8/8/8/8/8/8/8/8 w - - 0 1"
 
-bit_board = Board.from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+bit_board = Board.from_fen("kr6/8/7Q/8/8/5p2/8/K7 w - - 0 1")
 bit_board.construct()
 
-#TODO: issue: when pinned, can't capture the pinner
+print("possible moves")
+print(list(bit_board.generate_legal_moves()))
+uci = Move.from_uci(input("uci: "))
+print(bit_board.san(uci))
 
-while True:
-    print("possible moves")
-    print(list(bit_board.generate_legal_moves()))
 
-    move = Move.from_uci(input("uci move: "))
-    bit_board.push(move)
-    bit_board.construct()
-    print(bit_board.outcome())
+
+# while True:
+#     print("possible moves")
+#     print(list(bit_board.generate_legal_moves()))
+#
+#     move = Move.from_uci(input("uci move: "))
+#     bit_board.push(move)
+#     bit_board.construct()
+#     print(bit_board.outcome())
 
 

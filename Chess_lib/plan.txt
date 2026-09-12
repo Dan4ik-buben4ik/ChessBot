@@ -1,23 +1,17 @@
-- when done: move, pgn_converter documentation
+Long term plans:
+- pgn
+- engine debug
+
+This week:
+- san push
+- half kp set up
+-
+
+Peter:
+- evaluation (NNue)
 
 
-Bitboard
-- legal move gen
-- end_game conditions
 
-Today:
-- evaluation
-> piece-square table (PST)
-> count material and piece activity(using pst) in board and update during move
-> adjacent precompute for pawns
-> king safety via pawn shield and len(evasions)
-- quiscience move generator
-- connect to the engine
-- san converter
-
-
-[ ] attack detection
-[ ] legal move generation
 [ ] AlphaBeta runs on it
 [ ] old vs new benchmark
 

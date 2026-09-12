@@ -146,6 +146,23 @@ class Board:
 
         return mask & self.occupancy_color[color]
 
+    def piece_type_mask(self, piece_type: PieceType):
+        if piece_type == PAWN:
+            return self.pawns
+        elif piece_type == KNIGHT:
+            return self.knights
+        elif piece_type == BISHOP:
+            return self.bishops
+        elif piece_type == ROOK:
+            return self.rooks
+        elif piece_type == QUEEN:
+            return self.queens
+        elif piece_type == KING:
+            return self.kings
+        else:
+            return 0
+
+
     def is_en_passant(self, move):
         return (
             self.ep_square and
@@ -164,9 +181,11 @@ class Board:
         self.remove_piece_at(move.to_square)
         return res
 
-    def is_check(self):
-        king_square = msb_square(self.kings & self.occupancy_color[self.turn])
-        return bool(self.attackers_mask(king_square, 1 ^ self.turn))
+    def is_check(self, color=None):
+        """ returns if the {color} king is attacked. By default, checks the ally king"""
+        color = color if color else self.turn
+        king_square = msb_square(self.kings & self.occupancy_color[color])
+        return bool(self.attackers_mask(king_square, 1 ^ color))
 
     def has_legal_moves(self):
         return next(self.generate_legal_moves(), None) is not None
@@ -185,7 +204,7 @@ class Board:
             else:
                 return GameResult.STALEMATE
 
-        elif self.repetition_table[self.hash] >= 3:
+        elif self.repetition_table.get(self.hash, 0) >= 3:
             return GameResult.DRAW_REPETITION
 
         elif self.half_moves >= 100:
@@ -197,8 +216,10 @@ class Board:
         return GameResult.ONGOING
 
 
-    def push(self, move):
-        """ assume the move is perfectly legal"""
+    def push(self, move, *, raw=False):
+        """ assume the move is perfectly legal
+        """
+
         # update history
         self.history.append(_BitBoardState(self))
 
@@ -286,7 +307,7 @@ class Board:
         if not self.history:
             return False
         prev_state = self.history.pop()
-        prev_state.restore()
+        prev_state.restore(self)
         return True
 
     def generate_pseudo_legal_moves(self) -> (Square, BitBoard):
@@ -323,10 +344,10 @@ class Board:
             yield from_square, 1 << to_square
 
         #generate en passant
-        if not self.ep_square or self.ep_square & self.occupancy:
+        if not self.ep_square or (1 << self.ep_square) & self.occupancy:
             return
 
-        capturers = ally_pawns & BB_PAWN_ATTACKS[1 ^ self.turn][self.ep_square] & (BB_RANK_4 if self.turn == WHITE else BB_RANK_5)
+        capturers = ally_pawns & BB_PAWN_ATTACKS[1 ^ self.turn][self.ep_square] & (BB_RANK_5 if self.turn == WHITE else BB_RANK_4)
         for from_square in scan_backward_bb(capturers):
             yield from_square, 1 << self.ep_square
 
@@ -404,9 +425,6 @@ class Board:
 
         return mask & ~self.occupancy_color[self.turn]
 
-
-
-
     def pinned(self, king_sq: Square, color: Color) -> (BitBoard, list[Square]):
         """ the pinner squares are done using the msb approach, thus each pinner_square is the current msb"""
         opponent_color = 1 ^ color
@@ -419,7 +437,7 @@ class Board:
         possible_pinners |= ROOK_ATTACK_TABLE[ROOK_ATTACK_OFFSET[king_sq] + orthogonal_index] & (self.rooks | self.queens)
 
         possible_pinners &= self.occupancy_color[opponent_color]
-
+        # attackers mask? possibly
         pinned = BB_EMPTY
         pinned_ray = []
         for square in scan_forward_bb(possible_pinners):
@@ -429,6 +447,69 @@ class Board:
                 pinned_ray.append(BB_BETWEEN[king_sq][square] | 1 << square)
 
         return pinned, pinned_ray
+
+
+    def san_without_suffix(self, move):
+        if move.to_square == self.ep_square:
+            return f"{FILE_NAMES[square_file(move.from_square)]}x{SQUARE_NAMES[self.ep_square]}"
+
+        piece = self.piece_at(move.from_square)
+        if piece == KING and abs(move.from_square - move.to_square) == 2:
+            if move.from_square > move.to_square:
+                return "O-O-O"
+            else:
+                return "O-O"
+
+        piece_sym = PIECE_SYM[piece]
+        san = piece_sym.upper() if piece != PAWN else ""
+        capture = bool(self.piece_at(move.to_square))
+
+        if piece == PAWN:
+            if capture:
+                san += FILE_NAMES[square_file(move.from_square)] + "x"
+            san += SQUARE_NAMES[move.to_square]
+            if move.promotion:
+                san += "=" + PIECE_SYM[move.promotion].upper()
+            return san
+
+        competition = self.attackers_mask(move.to_square, self.turn) & ~(1 << move.from_square) & self.piece_type_mask(piece)
+
+        if competition:
+            file, rank = "", ""
+            for sq in scan_forward_bb(competition):
+                if square_rank(sq) == square_rank(move.from_square):
+                    file = FILE_NAMES[square_file(move.from_square)]
+                if square_file(sq) == square_file(move.from_square):
+                    rank = RANK_NAMES[square_rank(move.from_square)]
+
+            if file == rank == "":
+                file = FILE_NAMES[square_file(move.from_square)]
+
+            san += file + rank
+
+        san += SQUARE_NAMES[move.to_square]
+        return san
+
+
+    def san(self, move):
+        """assume move is legal"""
+        san = self.san_without_suffix(move)
+        self.push(move)
+        # might need to consider raw push
+        if self.outcome() == GameResult.CHECKMATE:
+            san += "#"
+        elif self.is_check():
+            san += "+"
+        self.pop()
+
+        return san
+
+    def parse_san(self, san):
+        if san == ["O-O", "O-O+", "O-O#", "0-0", "0-0+", "0-0#"]:
+            pass
+        elif san == ["O-O-O", "O-O-O+", "O-O-O#", "0-0-0", "0-0-0+", "0-0-0#"]:
+            pass
+
 
 
 
