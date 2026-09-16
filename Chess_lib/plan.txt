@@ -3,9 +3,8 @@ Long term plans:
 - engine debug
 
 This week:
-- san push
-- half kp set up
--
+- engine
+- pgn
 
 Peter:
 - evaluation (NNue)

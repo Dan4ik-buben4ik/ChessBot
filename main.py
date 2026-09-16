@@ -14,23 +14,23 @@ from Chess_lib.util import *
 # diagonal pin : "4k3/8/8/8/7q/8/5N2/4K3 w KQkq - 0 1"
 # empty : "8/8/8/8/8/8/8/8 w - - 0 1"
 
-bit_board = Board.from_fen("kr6/8/7Q/8/8/5p2/8/K7 w - - 0 1")
+bit_board = Board.from_fen("4k3/8/8/8/8/8/8/4K3 w - - 0 1")
 bit_board.construct()
 
-print("possible moves")
-print(list(bit_board.generate_legal_moves()))
-uci = Move.from_uci(input("uci: "))
-print(bit_board.san(uci))
+# PLAN
+# - half kp set up
+# - pgn
 
 
 
-# while True:
-#     print("possible moves")
-#     print(list(bit_board.generate_legal_moves()))
-#
-#     move = Move.from_uci(input("uci move: "))
-#     bit_board.push(move)
-#     bit_board.construct()
-#     print(bit_board.outcome())
+while True:
+    legal = list(bit_board.generate_legal_moves())
+    print("possible moves")
+    print(legal)
+
+    move = bit_board.parse_san(input("san: "))
+    bit_board.push(move)
+    bit_board.construct()
+    print(bit_board.outcome())
 
 

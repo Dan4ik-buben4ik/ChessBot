@@ -1,6 +1,9 @@
 import random
 import enum
 import array
+import re
+import numpy as np
+import numpy.random
 from typing import TypeAlias
 
 
@@ -8,6 +11,10 @@ from typing import TypeAlias
 class InvalidMoveException(BaseException):
     def __init__(self, txt):
         super().__init__(txt)
+
+class UnrecognisedSanMove(BaseException):
+    def __init__(self, san):
+        super().__init__(f"Cant recognise the SAN move [{san}]")
 
 class NotImplementedError(BaseException):
     def __init__(self):
@@ -66,6 +73,7 @@ RANK_5: Rank = 4
 RANK_6: Rank = 5
 RANK_7: Rank = 6
 RANK_8: Rank = 7
+RANKS = [RANK_1, RANK_2, RANK_3, RANK_4, RANK_5, RANK_6, RANK_7, RANK_8]
 RANK_NAMES = ["1", "2", "3", "4", "5", "6", "7", "8"]
 BB_Rank = 0x0000_0000_0000_0011
 
@@ -381,6 +389,8 @@ def lsb_square(bitboard):
 def msb_square(bitboard):
     return bitboard.bit_length() - 1
 
+# san move regex
+SAN_REGEX = re.compile(r"^([NBKRQ])?([a-h])?([1-8])?[\-x]?([a-h][1-8])(=?[nbrqkNBRQK])?[\+#]?\Z")
 
 # Useful Classes
 
@@ -514,8 +524,66 @@ class ZobristHasher:
         else:
             print("combined issue")
 
+# -----------------------------------------------------------------------------------------------------------------------------
+# Engine Related
+#TODO: thing about the floating point problem and the solutions to it
+def generate_feature_table(size):
+    return np.random.randn(*size)
 
 
+feature_table = generate_feature_table((6 * 2 * 64 * 64, 128))
+
+
+def build_accumulator(board):
+    features_vector = np.zeros(128)
+    # print("adding features")
+    for sq in scan_backward_bb(board.occupancy):
+        piece_type, piece_color = board.piece_at(sq), board.color_at(sq)
+        # print(PIECE_NAME[piece_type], SQUARE_NAMES[sq])
+
+        features_vector += feature_table[HalfKPIndex(piece_type, piece_color, sq, board.king_sq[1 ^ piece_color])]
+
+    return features_vector
+
+def debug_features_set(board):
+    debug_set = set()
+    for sq in scan_backward_bb(board.occupancy):
+        piece_type, piece_color = board.piece_at(sq), board.color_at(sq)
+        debug_set.add(HalfKPIndex(piece_type, piece_color, sq, board.king_sq[1 ^ piece_color]))
+    return debug_set
+
+def debug_feature_index(index):
+    king_sq = index & 0b111111
+    piece_square = (index >> 6) & 0b111111
+    left = int(index >> 12)
+    color = int(left > 6)
+    piece_type = (left % 6) + 1
+    print(f"piece type: {PIECE_NAME[piece_type]} | piece square: {SQUARE_NAMES[piece_square]} | piece color: {COLOR_NAME[color]} | opp king sq: {SQUARE_NAMES[king_sq]}")
+
+def back_propagation_of_accumulator(board, output_grad, learning_rate):
+    for sq in scan_backward_bb(board.occupancy):
+        piece_type, piece_color = board.piece_at(sq), board.color_at(sq)
+
+        feature_table[HalfKPIndex(piece_type, piece_color, sq, board.king_sq[1 ^ piece_color])] -= output_grad * learning_rate
+
+
+def HalfKPIndex(piece_type, piece_color, piece_square, opponent_king):
+    return (
+        ((piece_color * 6) + piece_type-1) << 12 |
+        piece_square << 6 |
+        opponent_king
+    )
+
+
+
+
+
+
+
+
+
+
+# -----------------------------------------------------------------------------------------------------------------------------
 #debug
 def bitprint(bit, length=64):
     txt = bin(bit)[2:]

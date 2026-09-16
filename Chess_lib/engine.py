@@ -95,14 +95,16 @@ rook_open_file = 20
 tempo = 10
 
 #transposition table
-#TODO: slots
 class TTFlag(enum.Enum):
+    __slots__ = ()
     UPPER_BOUND = 0
     LOWER_BOUND = 1
     EXACT = 2
 
 
 class TTEntree:
+    __slots__ = ("depth", "score", "flag", "best_move",)
+
     def __init__(self, depth, score, flag, best_move):
         self.depth = depth
         self.score = score
