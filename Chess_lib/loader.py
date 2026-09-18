@@ -86,11 +86,21 @@ class Board:
             self.king_sq[color] = square
             self.nnue[color] = build_accumulator(self, color)
             self.debug_feature_indexes[color] = debug_features_set(self, color)
+            opponent_color = 1 ^ color
+            opponent_feature_index = Half_KA_Index(opponent_color == BLACK, KING, opponent_color, square, self.king_sq[opponent_color])
+            self.nnue[opponent_color] += feature_table[opponent_feature_index]
+            self.debug_feature_indexes[opponent_color].add(opponent_feature_index)
             return None
-        self.nnue[color] += feature_table[HalfKPIndex(piece_type, color, square, self.king_sq[color])]
-        self.debug_feature_indexes[color].add(HalfKPIndex(piece_type, color, square, self.king_sq[color]))
+        feature_table_white_index = Half_KA_Index(False, piece_type, color == WHITE, square, self.king_sq[WHITE])
+        feature_table_black_index = Half_KA_Index(True, piece_type, color == BLACK, square, self.king_sq[BLACK])
+        self.nnue[WHITE] += feature_table[feature_table_white_index]
+        self.debug_feature_indexes[WHITE].add(feature_table_white_index)
+
+        self.nnue[BLACK] += feature_table[feature_table_black_index]
+        self.debug_feature_indexes[BLACK].add(feature_table_black_index)
         print("adding feature")
-        debug_feature_index(HalfKPIndex(piece_type, color, square, self.king_sq[color]))
+        debug_feature_index(feature_table_white_index)
+        debug_feature_index(feature_table_black_index)
         return None
 
     def remove_piece_at(self, square):
@@ -116,13 +126,16 @@ class Board:
         self.occupancy &= ~bit
         self.hash ^= ZobristHasher.get_table_value(piece_color, piece_type, square)
 
+        feature_table_white_index = Half_KA_Index(False, piece_type, piece_color == WHITE, square, self.king_sq[WHITE])
+        feature_table_black_index = Half_KA_Index(True, piece_type, piece_color == BLACK, square, self.king_sq[BLACK])
+        self.nnue[WHITE] -= feature_table[feature_table_white_index]
+        self.debug_feature_indexes[WHITE].remove(feature_table_white_index)
 
-        self.nnue[piece_color] -= feature_table[HalfKPIndex(piece_type, piece_color, square, self.king_sq[piece_color])]
-        print(self.debug_feature_indexes[piece_color])
-        debug_feature_index(HalfKPIndex(piece_type, piece_color, square, self.king_sq[piece_color]))
-        self.debug_feature_indexes[piece_color].remove(HalfKPIndex(piece_type, piece_color, square, self.king_sq[piece_color]))
+        self.nnue[BLACK] -= feature_table[feature_table_black_index]
+        self.debug_feature_indexes[BLACK].remove(feature_table_black_index)
         print("removing feature")
-        debug_feature_index(HalfKPIndex(piece_type, piece_color, square, self.king_sq[piece_color]))
+        debug_feature_index(feature_table_white_index)
+        debug_feature_index(feature_table_black_index)
         return piece_type, piece_color
 
     def attacks_mask(self, square: Square):

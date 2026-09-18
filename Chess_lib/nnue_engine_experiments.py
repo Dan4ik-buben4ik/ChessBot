@@ -69,18 +69,31 @@ from .loader import Board
 
 
 """ Plan for tmrw
-Step 5: Half KA
-- add the relevance to both kings
-- thus 2 accumulates and 2x the features
+Step 6: Contextual features
+- keep a few features
+- the accumulator becomes a giant summ with a weight
+
+features to add
+- pins
+- castling right (4 neurons)
+- ep file (8 neurons or 1 if using activation)
+- checks
+- pawn structure
+- game state -> internally like stockfish
+
+layers wise
+* external layer
+- castling (4)
+- ep (8 by file)
 
 
-for now, also vertical flip of the king for opponent
+128 vector
+- checks - key: Color | piece type | square
+- pinned ray - key: ray | color | square
 
+pawn structure -> external ml
 
-- vertical flip, for the black, the board if flipped essentially, thus e8 becomes e1
-- horizontal flip (we make sure the king is on e-h side and get the weights then)
-- to balance the castling issue, I can add a castling feature in step 6
-
+game state -> internal layer
 """
 
 

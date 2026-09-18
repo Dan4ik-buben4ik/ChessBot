@@ -14,7 +14,7 @@ from Chess_lib.util import *
 # diagonal pin : "4k3/8/8/8/7q/8/5N2/4K3 w KQkq - 0 1"
 # empty : "8/8/8/8/8/8/8/8 w - - 0 1"
 
-bit_board = Board.from_fen("4k3/8/8/8/8/8/8/4K3 w - - 0 1")
+bit_board = Board.from_fen("3k3r3/8/8/8/8/8/8/R3K3 w - - 0 1")
 bit_board.construct()
 
 # PLAN
@@ -22,16 +22,16 @@ bit_board.construct()
 # - pgn
 
 
-#
-# while True:
-#     legal = list(bit_board.generate_legal_moves())
-#     print("possible moves")
-#     print(legal)
-#
-#     move = bit_board.parse_san(input("san: "))
-#     bit_board.push(move)
-#     bit_board.construct()
-#     print(bit_board.outcome())
+
+while True:
+    legal = list(bit_board.generate_legal_moves())
+    print("possible moves")
+    print(legal)
+
+    move = bit_board.parse_san(input("san: "))
+    bit_board.push(move)
+    bit_board.construct()
+    print(bit_board.outcome())
 
 
 
