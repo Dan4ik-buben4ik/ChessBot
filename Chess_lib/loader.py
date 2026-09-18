@@ -33,8 +33,8 @@ class Board:
     repetition_table = {}
 
     # engine related
-    nnue = np.zeros(128)
-    debug_feature_indexes = set()
+    nnue = [np.zeros(128), np.zeros(128)]
+    debug_feature_indexes = [set(), set()]
 
 
     def piece_at(self, square):
@@ -81,15 +81,16 @@ class Board:
         self.occupancy_color[color] |= bit
         self.occupancy |= bit
         self.hash ^= ZobristHasher.get_table_value(color, piece_type, square)
+
         if piece_type == KING:
             self.king_sq[color] = square
-            self.nnue = build_accumulator(self)
-            self.debug_feature_indexes = debug_features_set(self)
+            self.nnue[color] = build_accumulator(self, color)
+            self.debug_feature_indexes[color] = debug_features_set(self, color)
             return None
-        self.nnue += feature_table[HalfKPIndex(piece_type, color, square, self.king_sq[1 ^ color])]
-        self.debug_feature_indexes.add(HalfKPIndex(piece_type, color, square, self.king_sq[1 ^ color]))
+        self.nnue[color] += feature_table[HalfKPIndex(piece_type, color, square, self.king_sq[color])]
+        self.debug_feature_indexes[color].add(HalfKPIndex(piece_type, color, square, self.king_sq[color]))
         print("adding feature")
-        debug_feature_index(HalfKPIndex(piece_type, color, square, self.king_sq[1 ^ color]))
+        debug_feature_index(HalfKPIndex(piece_type, color, square, self.king_sq[color]))
         return None
 
     def remove_piece_at(self, square):
@@ -114,10 +115,14 @@ class Board:
         self.occupancy_color[piece_color] &= ~bit
         self.occupancy &= ~bit
         self.hash ^= ZobristHasher.get_table_value(piece_color, piece_type, square)
-        self.nnue -= feature_table[HalfKPIndex(piece_type, piece_color, square, self.king_sq[1 ^ piece_color])]
-        self.debug_feature_indexes.remove(HalfKPIndex(piece_type, piece_color, square, self.king_sq[1 ^ piece_color]))
+
+
+        self.nnue[piece_color] -= feature_table[HalfKPIndex(piece_type, piece_color, square, self.king_sq[piece_color])]
+        print(self.debug_feature_indexes[piece_color])
+        debug_feature_index(HalfKPIndex(piece_type, piece_color, square, self.king_sq[piece_color]))
+        self.debug_feature_indexes[piece_color].remove(HalfKPIndex(piece_type, piece_color, square, self.king_sq[piece_color]))
         print("removing feature")
-        debug_feature_index(HalfKPIndex(piece_type, piece_color, square, self.king_sq[1 ^ piece_color]))
+        debug_feature_index(HalfKPIndex(piece_type, piece_color, square, self.king_sq[piece_color]))
         return piece_type, piece_color
 
     def attacks_mask(self, square: Square):
@@ -252,11 +257,11 @@ class Board:
         piece, piece_color = self.remove_piece_at(move.from_square)
         captured_piece, captured_piece_color = self.remove_piece_at(move.to_square)
 
-        #handle promotion
+        # handle promotion
         if move.promotion:
             piece = move.promotion
 
-        #handle castling
+        # handle castling
         if piece == KING and abs(move.to_square - move.from_square) == 2:
             if move.to_square > move.from_square:
                 self.remove_piece_at(H1 if self.turn == WHITE else H8)
@@ -266,7 +271,7 @@ class Board:
                 self.set_piece_at(D1 if self.turn == WHITE else D8, ROOK, self.turn)
 
 
-        #handle pawn moves
+        # handle pawn moves
         if piece == PAWN:
             diff = move.to_square - move.from_square
 
@@ -282,7 +287,7 @@ class Board:
                 captured_piece = move.to_square + shift
 
 
-        #update castling rights
+        # update castling rights
         if piece == KING or piece == ROOK:
             self.hash ^= ZobristHasher.castling_rights[self.castling_rights]
             castling_val = CASTLING_RIGHTS_UPDATE_BY_SQUARE.get(move.from_square, 0)
@@ -299,14 +304,11 @@ class Board:
 
         if self.turn == BLACK:
             self.full_moves += 1
-
-
         # update the turn
         self.turn ^= 1
 
         self.hash ^= ZobristHasher.black_turn
-
-        #update repetition table
+        # update repetition table
         if self.repetition_table.get(self.hash):
             self.repetition_table[self.hash] += 1
         else:
@@ -324,20 +326,20 @@ class Board:
 
         # nnue assertion check
         try:
-            np.testing.assert_almost_equal(self.nnue, build_accumulator(self), decimal=5)
+            np.testing.assert_almost_equal(self.nnue[self.turn ^ 1], build_accumulator(self, self.turn ^ 1), decimal=5)
         except BaseException as err:
-            differnece = self.debug_feature_indexes.symmetric_difference(debug_features_set(self))
+            difference = self.debug_feature_indexes[self.turn ^ 1].symmetric_difference(debug_features_set(self))
             print("differences")
-            for f in differnece:
+            for f in difference:
                 debug_feature_index(f)
             print("sets")
-            print(self.debug_feature_indexes)
-            print(debug_features_set(self))
+            print(self.debug_feature_indexes[self.turn ^ 1])
+            print(debug_features_set(self, self.turn ^ 1))
 
             print("accumulators")
-            print(self.nnue)
-            print(build_accumulator(self)[0])
-            print(self.nnue - build_accumulator(self)[0])
+            print(self.nnue[self.turn ^ 1])
+            print(build_accumulator(self, self.turn ^ 1))
+            print(self.nnue[self.turn ^ 1] - build_accumulator(self, self.turn ^ 1))
             raise err
 
     def pop(self):
@@ -353,18 +355,17 @@ class Board:
             moves = self.attacks_mask(from_square) & ~self.occupancy_color[self.turn] & to_mask
             yield from_square, moves
 
-
-        #generate pawns moves
+        # generate pawns moves
         ally_pawns = self.pawns & self.occupancy_color[self.turn] & from_mask
         if not ally_pawns:
             return
 
-        #captures
+        # captures
         for from_square in scan_backward_bb(ally_pawns):
             targets = BB_PAWN_ATTACKS[self.turn][from_square] & self.occupancy_color[1 ^ self.turn] & to_mask
             yield from_square, targets
 
-        #advances
+        # advances
         if self.turn == WHITE:
             single_moves = ally_pawns << 8 & ~self.occupancy
             double_moves = single_moves << 8 & ~self.occupancy & BB_RANK_4
@@ -380,7 +381,7 @@ class Board:
             from_square = to_square + (-16 if self.turn == WHITE else 16)
             yield from_square, 1 << to_square
 
-        #generate en passant
+        # generate en passant
         if not self.ep_square or (1 << self.ep_square) & self.occupancy & to_mask:
             return
 
@@ -447,7 +448,6 @@ class Board:
                         yield Move(from_square, to_square, QUEEN)
                     else:
                         yield Move(from_square, to_square)
-
 
     def generate_evasions_mask(self, *, from_mask=BB_ALL, to_mask=BB_ALL):
         king_mask = self.kings & self.occupancy_color[self.turn]
@@ -581,7 +581,6 @@ class Board:
         else:
             raise UnrecognisedSanMove(san)
 
-
     @classmethod
     def from_fen(cls, fen: str):
         bit_board = cls()
@@ -599,7 +598,6 @@ class Board:
                     piece_type = PIECE_SYM.index(piece.lower())
                     bit_board.set_piece_at(square, piece_type, piece_colour)
                     empty += 1
-
 
         if sections[1] == "w":
             bit_board.turn = WHITE
@@ -622,23 +620,20 @@ class Board:
         bit_board.full_moves = int(sections[5])
 
         bit_board.hash = ZobristHasher.hash(bit_board)
-        bit_board.nnue, bit_board.debug_feature_indexes = build_accumulator(bit_board), debug_features_set(bit_board)
 
-        # if nnue:
-        #     try:
-        #         bit_board.nnue = build_accumulator(bit_board)
-        #     except NameError:
-        #         raise ImportError("Requires nnue_util file to be imported first")
-        try:
-            np.testing.assert_allclose(bit_board.nnue, build_accumulator(bit_board), rtol=1e-5, atol=1e-5)
-        except BaseException as err:
-            print("sets")
-            print(bit_board.debug_feature_indexes.symmetric_difference(debug_features_set(bit_board)))
-            print(bit_board.nnue)
-            print(build_accumulator(bit_board))
-            print(bit_board.nnue - build_accumulator(bit_board))
-            raise err
-
+        print("\nthis is the debug")
+        bit_board.nnue = [build_accumulator(bit_board, WHITE), build_accumulator(bit_board, BLACK)]
+        bit_board.debug_feature_indexes = [debug_features_set(bit_board, WHITE), debug_features_set(bit_board, BLACK)]
+        #
+        # try:
+        #     np.testing.assert_allclose(bit_board.nnue, [build_accumulator(bit_board, WHITE), build_accumulator(bit_board, BLACK)], rtol=1e-5, atol=1e-5)
+        # except BaseException as err:
+        #     print("sets")
+        #     print(bit_board.debug_feature_indexes[WHITE].symmetric_difference(debug_features_set(bit_board, WHITE)))
+        #     print(bit_board.debug_feature_indexes[BLACK].symmetric_difference(debug_features_set(bit_board, BLACK)))
+        #     print(bit_board.nnue)
+        #     raise err
+        print(bit_board.debug_feature_indexes)
 
         return bit_board
 
@@ -776,7 +771,7 @@ class _BitBoardState:
         bitboard.occupancy = self.occupancy_color[WHITE] | self.occupancy_color[BLACK]
         bitboard.turn ^= 1
 
-        bitboard,nnue = self.nnue
+        bitboard, nnue = self.nnue
 
     def __repr__(self):
         return f"{self.hash}"

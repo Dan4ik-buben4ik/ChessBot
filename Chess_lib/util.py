@@ -182,6 +182,22 @@ def square_rank(square):
 def square_file(square):
     return square & 7
 
+# def vertical_flip(bitboard):
+#     """
+#     takes the bard and flips it vertically
+#     """
+#     bitboard = ((bitboard >> 8) & 0x00FF00FF00FF00FF) | ((bitboard & 0x00FF00FF00FF00FF) << 8)
+#     bitboard = ((bitboard >> 16) & 0x0000FFFF0000FFFF) | ((bitboard & 0x0000FFFF0000FFFF) << 16)
+#     bitboard = (bitboard >> 32) | (bitboard << 32)
+#     return bitboard
+
+def horizontal_flip_square(square: Square):
+    return square ^ 7
+
+def vertical_flip_square(square: Square):
+    return square ^ 56
+
+
 
 def scan_forward_bb(bitboard):
     """yields squares"""
@@ -534,22 +550,25 @@ def generate_feature_table(size):
 feature_table = generate_feature_table((6 * 2 * 64 * 64, 128))
 
 
-def build_accumulator(board):
+def build_accumulator(board, color):
     features_vector = np.zeros(128)
+    print(f"accumulator for {COLOR_NAME[color]}")
     # print("adding features")
-    for sq in scan_backward_bb(board.occupancy):
+    for sq in scan_backward_bb(board.occupancy_color[color]):
         piece_type, piece_color = board.piece_at(sq), board.color_at(sq)
         # print(PIECE_NAME[piece_type], SQUARE_NAMES[sq])
 
-        features_vector += feature_table[HalfKPIndex(piece_type, piece_color, sq, board.king_sq[1 ^ piece_color])]
+        features_vector += feature_table[HalfKPIndex(piece_type, piece_color, sq, board.king_sq[piece_color])]
+
+    print(f"end accumulator for {COLOR_NAME[color]}")
 
     return features_vector
 
-def debug_features_set(board):
+def debug_features_set(board, color):
     debug_set = set()
-    for sq in scan_backward_bb(board.occupancy):
+    for sq in scan_backward_bb(board.occupancy_color[color]):
         piece_type, piece_color = board.piece_at(sq), board.color_at(sq)
-        debug_set.add(HalfKPIndex(piece_type, piece_color, sq, board.king_sq[1 ^ piece_color]))
+        debug_set.add(HalfKPIndex(piece_type, piece_color, sq, board.king_sq[piece_color]))
     return debug_set
 
 def debug_feature_index(index):
@@ -558,7 +577,7 @@ def debug_feature_index(index):
     left = int(index >> 12)
     color = int(left > 6)
     piece_type = (left % 6) + 1
-    print(f"piece type: {PIECE_NAME[piece_type]} | piece square: {SQUARE_NAMES[piece_square]} | piece color: {COLOR_NAME[color]} | opp king sq: {SQUARE_NAMES[king_sq]}")
+    print(f"piece type: {PIECE_NAME[piece_type]} | piece square: {SQUARE_NAMES[piece_square]} | piece color: {COLOR_NAME[color]} | king sq: {SQUARE_NAMES[king_sq]}")
 
 def back_propagation_of_accumulator(board, output_grad, learning_rate):
     for sq in scan_backward_bb(board.occupancy):
@@ -567,11 +586,16 @@ def back_propagation_of_accumulator(board, output_grad, learning_rate):
         feature_table[HalfKPIndex(piece_type, piece_color, sq, board.king_sq[1 ^ piece_color])] -= output_grad * learning_rate
 
 
-def HalfKPIndex(piece_type, piece_color, piece_square, opponent_king):
+def HalfKPIndex(piece_type, piece_color, piece_square, king):
+    if piece_color == BLACK:
+        piece_square ^= 56
+        king ^= 56
+    print(
+        f"piece type: {PIECE_NAME[piece_type]} | piece square: {SQUARE_NAMES[piece_square]} | piece color: {COLOR_NAME[piece_color]} | king sq: {SQUARE_NAMES[king]}")
     return (
         ((piece_color * 6) + piece_type-1) << 12 |
         piece_square << 6 |
-        opponent_king
+        king
     )
 
 

@@ -73,6 +73,10 @@ Step 5: Half KA
 - add the relevance to both kings
 - thus 2 accumulates and 2x the features
 
+
+for now, also vertical flip of the king for opponent
+
+
 - vertical flip, for the black, the board if flipped essentially, thus e8 becomes e1
 - horizontal flip (we make sure the king is on e-h side and get the weights then)
 - to balance the castling issue, I can add a castling feature in step 6

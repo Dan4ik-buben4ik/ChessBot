@@ -22,15 +22,16 @@ bit_board.construct()
 # - pgn
 
 
+#
+# while True:
+#     legal = list(bit_board.generate_legal_moves())
+#     print("possible moves")
+#     print(legal)
+#
+#     move = bit_board.parse_san(input("san: "))
+#     bit_board.push(move)
+#     bit_board.construct()
+#     print(bit_board.outcome())
 
-while True:
-    legal = list(bit_board.generate_legal_moves())
-    print("possible moves")
-    print(legal)
-
-    move = bit_board.parse_san(input("san: "))
-    bit_board.push(move)
-    bit_board.construct()
-    print(bit_board.outcome())
 
 
