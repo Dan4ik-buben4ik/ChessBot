@@ -36,6 +36,25 @@ class Board:
     nnue = [np.zeros(128), np.zeros(128)]
     debug_feature_indexes = [set(), set()]
 
+    # def context_accumulator(self, color):
+    #     global pinned_feature_table, pinner_feature_table, checks_feature_table
+    #
+    #     acc = np.zeros(128)
+    #     opponent_color = 1 ^ color
+    #
+    #     pinned, pinner, ray = self.pinned(self.king_sq[opponent_color], color)
+    #
+    #     for pinned_sq in scan_forward_bb(pinned):
+    #         pinner_sq, pinner = pop_lsb(pinner)
+    #         piece_type = self.piece_at(pinned_sq)
+    #         acc += pinned_feature_table[pinned_sq * 12 * 64 + pinner_sq * 12 + piece_type * 2 + color]
+    #         acc += pinner_feature_table[self.king_sq[opponent_color] * 12 * 64 + pinner_sq * 12 + piece_type * 2 + color]
+    #
+    #     for checker_sq in scan_backward_bb(self.attackers_mask(self.king_sq[color], opponent_color, self.occupancy_color[opponent_color])):
+    #         acc += checks_feature_table[opponent_color + self.piece_at(checker_sq) * 2 + checker_sq * 12]
+    #
+    #     return acc
+
 
     def piece_at(self, square):
         bit = 1 << square
@@ -409,7 +428,7 @@ class Board:
         king_square = msb_square(king_mask)
 
         opposite_color = 1 ^ self.turn
-        pinned, msb_pinned_rays = self.pinned(king_square, self.turn)
+        pinned, pinners, msb_pinned_rays = self.pinned(king_square, self.turn)
         checkers = self.attackers_mask(king_square, opposite_color)
         if checkers:
             evasion_mask = self.generate_evasions_mask(from_mask=from_mask, to_mask=to_mask)
@@ -488,14 +507,16 @@ class Board:
         possible_pinners &= self.occupancy_color[opponent_color]
         # attackers mask? possibly
         pinned = BB_EMPTY
+        pinners = BB_EMPTY
         pinned_ray = []
         for square in scan_forward_bb(possible_pinners):
             potential_blockers = BB_BETWEEN[king_sq][square] & self.occupancy
             if potential_blockers.bit_count() == 1:
                 pinned |= potential_blockers & self.occupancy_color[color]
                 pinned_ray.append(BB_BETWEEN[king_sq][square] | 1 << square)
+                pinners |= 1 << square
 
-        return pinned, pinned_ray
+        return pinned, pinners, pinned_ray
 
 
     def san_without_suffix(self, move):

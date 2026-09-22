@@ -57,6 +57,38 @@ Step 10: Training
 - use mcts and self-play for training
 
 Step 11: add everything to the engine
+"""
+
+"""
+Extended steps:
+
+Step 6: Contextual features
+- keep a few features
+- the accumulator becomes a giant summ with a weight
+
+features to add
+- pins
+- castling right (4 neurons) * 
+- ep file (8 neurons or 1 if using activation) * 
+- checks
+- pawn structure (1 neuron) * 
+- game state -> internally like stockfish
+
+layers wise
+* external layer
+- castling (4)
+- ep (8 by file)
+
+128 vector
+- checks - key: Color | piece type | square
+- pinned - key: Color | piece type | from sq | to square
+- pinner - key: Color | piece type | from square | to square
+
+- for a ray? Positional Polynomial Hashing (If you must use a single math formula).
+
+pawn structure -> external ml
+
+game state -> internal layer
 
 """
 import abc
@@ -69,31 +101,15 @@ from .loader import Board
 
 
 """ Plan for tmrw
-Step 6: Contextual features
-- keep a few features
-- the accumulator becomes a giant summ with a weight
+Step 7: Pawn structure
+- white + black pawns form features using a ML that would generate a 128 vector of features
+- cnn
+- later turn it into an encoder
+- would only be updates when a pawn moves
 
-features to add
-- pins
-- castling right (4 neurons)
-- ep file (8 neurons or 1 if using activation)
-- checks
-- pawn structure
-- game state -> internally like stockfish
-
-layers wise
-* external layer
-- castling (4)
-- ep (8 by file)
-
-
-128 vector
-- checks - key: Color | piece type | square
-- pinned ray - key: ray | color | square
-
-pawn structure -> external ml
-
-game state -> internal layer
+ + internal game state 
+ + castling (4 neurons)
+ + ep (8 neurons)
 """
 
 
@@ -146,6 +162,22 @@ def CReLu(input_vector, c=64):
 
 def CReLu_prime(output_vector, c=64):
     return np.where((output_vector > 0) & (output_vector < c), 1.0, 0.0)
+
+
+class PawnStructureNN:
+    """
+    input layer is 128 (64 white, 64 black)
+
+    Outputs a single neuron
+
+
+    """
+    network = [
+        DenseLayer.from_size(128, 64),
+        ActivationLayer(CReLu, CReLu_prime),
+        DenseLayer.from_size(32, 32),
+    ]
+
 
 
 

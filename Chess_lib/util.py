@@ -546,7 +546,20 @@ def generate_feature_table(size):
     return np.random.randn(*size)
 
 
+"""
+128 vector
+- features KA - key: Color | piece type | sq | king sq
+- checks - key: Color | piece type | square
+- pinned - key: Color | piece type | square | from square
+- pinner - key: Color | piece type | square | to square
+"""
+
 feature_table = generate_feature_table((6 * 2 * 64 * 64, 128))
+
+# checks_feature_table = generate_feature_table((2 * 6 * 64))
+# pinned_feature_table = generate_feature_table((2 * 6 * 64 * 64))
+# pinner_feature_table = generate_feature_table((2 * 6 * 64 * 64))
+
 
 
 # TODO: think of ways to optimise
