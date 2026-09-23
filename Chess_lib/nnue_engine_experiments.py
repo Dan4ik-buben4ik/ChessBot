@@ -102,10 +102,15 @@ from .loader import Board
 
 """ Plan for tmrw
 Step 7: Pawn structure
-- white + black pawns form features using a ML that would generate a 128 vector of features
+
+- custom convolution function
+- custom correlation function
 - cnn
+- leaking relu for activation
+- white + black pawns form features using a ML that would generate a 128 vector of features
 - later turn it into an encoder
 - would only be updates when a pawn moves
+
 
  + internal game state 
  + castling (4 neurons)
@@ -164,20 +169,28 @@ def CReLu_prime(output_vector, c=64):
     return np.where((output_vector > 0) & (output_vector < c), 1.0, 0.0)
 
 
-class PawnStructureNN:
-    """
-    input layer is 128 (64 white, 64 black)
+# class PawnStructureNN:
+#     """
+#     input layer is 128 (64 white, 64 black)
+#
+#     Outputs a single neuron
+#
+#
+#     """
+#     network = [
+#         DenseLayer.from_size(128, 64),
+#         ActivationLayer(CReLu, CReLu_prime),
+#         DenseLayer.from_size(32, 32),
+#     ]
 
-    Outputs a single neuron
+class ConvolutionalLayer(Layer):
+    def __init__(self, input_dimensions, output_dimensions, kernel_size, kernel_number):
 
+    def forward(self, input_vector):
+        pass
 
-    """
-    network = [
-        DenseLayer.from_size(128, 64),
-        ActivationLayer(CReLu, CReLu_prime),
-        DenseLayer.from_size(32, 32),
-    ]
-
+    def backward(self, output_grad_vector, learning_rate):
+        pass
 
 
 
