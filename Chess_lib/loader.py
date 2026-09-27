@@ -1,9 +1,11 @@
 from .util import *
+from .nn import PawnStructCNN
 
 import re
 import numpy as np
 import numpy.random
 import numpy.testing
+
 
 class Board:
     #slots later?
@@ -34,6 +36,7 @@ class Board:
 
     # engine related
     nnue = [np.zeros(128), np.zeros(128)]
+    pawn_nn = np.zeros(8)
     debug_feature_indexes = [set(), set()]
 
     # def context_accumulator(self, color):
@@ -327,6 +330,10 @@ class Board:
             self.hash ^= ZobristHasher.castling_rights[self.castling_rights]
 
         self.set_piece_at(move.to_square, piece, piece_color)
+
+        # update pawn nn values
+        if piece == PAWN or captured_piece == PAWN:
+            self.pawn_nn = PawnStructCNN.forward(bitboards_to_plane(self.pawns & self.occupancy_color[self.turn], self.pawns & self.occupancy_color[1 ^ self.turn]))
 
         # update the move clocks
         if piece == PAWN or captured_piece:
@@ -766,7 +773,7 @@ class Board:
 class _BitBoardState:
     __slots__ = (
         "pawns", "knights", "bishops", "rooks", "queens", "kings", "occupancy_color", "castling_rights",
-        "ep_square", "half_moves", "full_moves", "hash", "nnue",
+        "ep_square", "half_moves", "full_moves", "hash", "nnue", "pawn_nn",
     )
 
     def __init__(self, bitboard):
@@ -786,6 +793,7 @@ class _BitBoardState:
         self.hash = bitboard.hash
 
         self.nnue = bitboard.nnue
+        self.pawn_nn = bitboard.pawn_nn
 
     def restore(self, bitboard):
         bitboard.pawns = self.pawns
@@ -805,7 +813,8 @@ class _BitBoardState:
         bitboard.occupancy = self.occupancy_color[WHITE] | self.occupancy_color[BLACK]
         bitboard.turn ^= 1
 
-        bitboard, nnue = self.nnue
+        bitboard.nnue = self.nnue
+        bitboard.pawn_nn = self.pawn_nn
 
     def __repr__(self):
         return f"{self.hash}"

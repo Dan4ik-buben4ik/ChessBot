@@ -1,5 +1,8 @@
 from Chess_lib import *
 from Chess_lib.util import *
+from Chess_lib.nn import *
+from Chess_lib.nn_maths import *
+from Chess_lib.engine import Engine
 
 
 # only queens and kings: "3qk3/8/8/8/8/8/8/3QK3 w - - 0 1"
@@ -14,24 +17,36 @@ from Chess_lib.util import *
 # diagonal pin : "4k3/8/8/8/7q/8/5N2/4K3 w KQkq - 0 1"
 # empty : "8/8/8/8/8/8/8/8 w - - 0 1"
 
-bit_board = Board.from_fen("3k3r3/8/8/8/8/8/8/R3K3 w - - 0 1")
-bit_board.construct()
+# bit_board = Board.from_fen("3k3r3/8/8/8/8/8/8/R3K3 w - - 0 1")
+# bit_board.construct()
+#
+# # PLAN
+# # - half kp set up
+# # - pgn
+#
+#
+#
+# while True:
+#     legal = list(bit_board.generate_legal_moves())
+#     print("possible moves")
+#     print(legal)
+#
+#     move = bit_board.parse_san(input("san: "))
+#     bit_board.push(move)
+#     bit_board.construct()
+#     print(bit_board.outcome())
 
-# PLAN
-# - half kp set up
-# - pgn
 
 
+bit_board = Board.from_fen("k7/8/8/8/8/8/8/R3K3 b - - 0 1")
+engine = Engine(bit_board, 100, -100, 1)
 
-while True:
-    legal = list(bit_board.generate_legal_moves())
-    print("possible moves")
-    print(legal)
+best_move = engine.generate()
+print("best move")
+print(best_move)
 
-    move = bit_board.parse_san(input("san: "))
-    bit_board.push(move)
-    bit_board.construct()
-    print(bit_board.outcome())
-
+# test = np.random.randn(2, 8, 8)
+# print(test)
+# res = engine.forward_cnn(test)
 
 

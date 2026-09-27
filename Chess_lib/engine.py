@@ -5,6 +5,7 @@ from typing import TypeAlias
 from .util import *
 from .loader import Board
 from .logger import *
+from .nn import *
 
 
 Material: TypeAlias = int
@@ -138,12 +139,6 @@ def move_ordering(board: Board, moves: list[Move], tt_move=None):
     )
 
 
-#TODO: rewrite to use NNUE and HALFKP
-class StaticEvaluation:
-    @classmethod
-    def evaluate(cls, board: Board):
-        raise NotImplementedError
-
 
 logger = SearchLogger()
 class Engine:
@@ -175,8 +170,8 @@ class Engine:
         original_alpha = alpha
         original_beta = beta
         color = 1 if board.turn == WHITE else -1
-        if board.game_end_check()[0]:
-            return StaticEvaluation.evaluate(board) * color
+        if board.outcome() != GameResult.ONGOING:
+            return EvaluationNNUE.forward(board)[0] * color
 
         if depth == 0:
             return self._QuiescenceSearch(board, -beta, -alpha) * color
@@ -240,7 +235,7 @@ class Engine:
             print(f"engine considers: {move} | depth: 0")
             logger.log_intro(move, 0)
             board.push(move)
-            evaluation = StaticEvaluation.evaluate(board) * color
+            evaluation = EvaluationNNUE.forward(board)[0] * color
             print(f"static evaluation for move {move} at depth 0: {evaluation * color}\n")
             logger.log_outro(evaluation * color)
             board.pop()
@@ -253,6 +248,7 @@ class Engine:
 
         return best
 
+    @timer
     def generate(self):
         best_score = -math.inf
         best_move = None
@@ -268,6 +264,7 @@ class Engine:
                 evaluation = -self._AlphaBetaSearch(self.board, -beta, -alpha, self.depth - 1)
             except BaseException as exp:
                 print(logger.parent_path)
+                raise exp
                 logger.view_dict()
                 logger.view_dict()
                 logger.view_dict()
@@ -293,8 +290,7 @@ class Engine:
         self.transposition_table[self.board.hash] = TTEntree(self.depth, best_score, flag, best_move)
 
         logger.log_outro(best_score)
-
-
+        logger.view_dict()
         return best_move
 
     def evaluate(self):

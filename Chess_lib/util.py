@@ -542,8 +542,10 @@ class ZobristHasher:
 
 # -----------------------------------------------------------------------------------------------------------------------------
 # Engine Related
-def generate_feature_table(size):
-    return np.random.randn(*size)
+
+NP_RNG_SEED = 0
+def generate_feature_table(rng, size):
+    return rng.standard_normal(size)
 
 
 """
@@ -553,8 +555,9 @@ def generate_feature_table(size):
 - pinned - key: Color | piece type | square | from square
 - pinner - key: Color | piece type | square | to square
 """
+table_rng = np.random.default_rng(NP_RNG_SEED)
 
-feature_table = generate_feature_table((6 * 2 * 64 * 64, 128))
+feature_table = generate_feature_table(table_rng, (6 * 2 * 64 * 64, 128))
 
 # checks_feature_table = generate_feature_table((2 * 6 * 64))
 # pinned_feature_table = generate_feature_table((2 * 6 * 64 * 64))
@@ -565,7 +568,7 @@ feature_table = generate_feature_table((6 * 2 * 64 * 64, 128))
 # TODO: think of ways to optimise
 def build_accumulator(board, color):
     features_vector = np.zeros(128)
-    print(f"accumulator for {COLOR_NAME[color]}")
+    # print(f"accumulator for {COLOR_NAME[color]}")
     # print("adding features")
     for sq in scan_backward_bb(board.occupancy):
         piece_type, piece_color = board.piece_at(sq), board.color_at(sq)
@@ -573,7 +576,7 @@ def build_accumulator(board, color):
 
         features_vector += feature_table[Half_KA_Index(color == BLACK, piece_type, piece_color == color, sq, board.king_sq[color])]
 
-    print(f"end accumulator for {COLOR_NAME[color]}")
+    # print(f"end accumulator for {COLOR_NAME[color]}")
 
     return features_vector
 
@@ -611,8 +614,8 @@ def Half_KA_Index(flip: bool, piece_type, ally: bool, piece_square, king):
         piece_square ^= 7
         king ^= 7
 
-    print(
-        f"piece type: {PIECE_NAME[piece_type]} | piece square: {SQUARE_NAMES[piece_square]} | ally color: {ally} | king sq: {SQUARE_NAMES[king]}")
+    # print(
+    #     f"piece type: {PIECE_NAME[piece_type]} | piece square: {SQUARE_NAMES[piece_square]} | ally color: {ally} | king sq: {SQUARE_NAMES[king]}")
     return (
         ((ally * 6) + piece_type-1) << 12 |
         piece_square << 6 |
@@ -620,8 +623,13 @@ def Half_KA_Index(flip: bool, piece_type, ally: bool, piece_square, king):
     )
 
 
-
-
+def bitboards_to_plane(*bitboards):
+    depth = len(bitboards)
+    plane = np.zeros((depth, 64), dtype=np.float32)
+    for i, bb in enumerate(bitboards):
+        for j in scan_backward_bb(bb):
+            plane[i, j] = 1
+    return plane.reshape(depth, 8, 8)
 
 
 
