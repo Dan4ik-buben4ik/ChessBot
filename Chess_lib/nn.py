@@ -4,52 +4,6 @@
 
 
 """
-Plan: To create a complex NNUE evaluation function
-
-Step 1: Infrastructure
-- return: positive is good for the white, negative is bad for the white
-- Board.nnue_state to hold the white and black accumulates separately
-- create a base function for the state (build_accumulator)
-
-Step 2: small nn
-- get the hang of it and prove that it works
-- size nn: 128 -> 32 -> 32 -> 1
-- feature = piece + square
-- total 768 possible features (as 12 pieces x 64 squares)
-- board -> feature -> accumulator -> nn -> score pipeline
-
-Step 3: accumulator on go
-- make the accumulator updatable by move (so no re-computing)
-- goal board.nnue == build_accumulator
-
-Step 4: Half KP
-- add the king position into the picture
-- so feature = king square (opposite) + piece type + piece color + square
-- 64 x 64 x 6 x 2 features (keep the pawns separate)
-
------------- working engine ----------------
-
-Step 5: Half KA
-- add the relevance to both kings
-- thus 2 accumulates and 2x the features
-
-
-Step 6: Contextual features
-- keep a few features
-- Half KA features, Ray features, Pin features, Attack/defence features?, king safety features
-- the accumulator becomes a giant summ with a weight
-
-Step 7: Pawn structure
-- white + black pawns form features using a ML that would generate a 128 vector of features
-- later turn it into an encoder
-- would only be updates when a pawn moves
-
-Step 8: Combine Everything
-- combine everything
-- decide if some should be concatenated or added
-
-Step 9: experiment with the NNue
-- maybe do the different sizes of layers
 
 Step 10: Training
 - train the model using top evaluations and positions from chess com
@@ -60,6 +14,10 @@ Step 11: add everything to the engine
 
 Step 12:
 - rewrite everything to work on the gpu, using opencl and creating class GPUArray
+- includes writting a buffer to send the task to gpu in groups
+
+Step 13
+- creating a states pool object, that re-uses the board states. Should be linked to a buffer, as per breadth search.
 """
 
 """
@@ -126,12 +84,6 @@ Step 7: Pawn structure
 
 
 
-def debug(func):
-    def wrapper(*args, **kwargs):
-        res = func(*args, **kwargs)
-        print(res)
-        return res
-    return wrapper
 
 class Layer(abc.ABC):
     input = None
@@ -182,7 +134,6 @@ class ActivationLayer(Layer):
     def backward(self, output_grad_vector, learning_rate):
         return np.multiply(output_grad_vector, self.activation_prime(self.input))
 
-@debug
 def CReLu(input_vector, c=64):
     return np.clip(input_vector, -c, c)
 
@@ -262,8 +213,8 @@ class ReshapeLayer(Layer):
         self.output_shape = output_shape
 
     def forward(self, input):
-        print(input.shape)
-        print(self.output_shape)
+        # print(input.shape)
+        # print(self.output_shape)
         return np.reshape(input, self.output_shape)
 
     def backward(self, output_grad_vector, learning_rate):
@@ -355,7 +306,7 @@ class EvaluationNNUE:
         castling = np.zeros(4)
         for i in scan_backward_bb(board.castling_rights):
             castling[i] = 1
-        print(f"dimensions: {board.nnue[0].shape}, {board.nnue[1].shape}, {nn_attackers_array.shape}, {board.pawn_nn.shape}, {castling.shape}")
+        # print(f"dimensions: {board.nnue[0].shape}, {board.nnue[1].shape}, {nn_attackers_array.shape}, {board.pawn_nn.shape}, {castling.shape}")
         return np.concatenate((board.nnue[0], board.nnue[1], nn_attackers_array, board.pawn_nn, castling))
 
     @classmethod

@@ -582,9 +582,10 @@ def build_accumulator(board, color):
 
 def debug_features_set(board, color):
     debug_set = set()
+    king_sq = board.king_sq[color]
     for sq in scan_backward_bb(board.occupancy):
         piece_type, piece_color = board.piece_at(sq), board.color_at(sq)
-        debug_set.add(Half_KA_Index(color == BLACK, piece_type, piece_color == color, sq, board.king_sq[color]))
+        debug_set.add(Half_KA_Index(color == BLACK, piece_type, piece_color == color, sq, king_sq))
     return debug_set
 
 def debug_feature_index(index):
@@ -604,13 +605,23 @@ def back_propagation_of_accumulator(board, output_grad, learning_rate):
 
 
 def Half_KA_Index(flip: bool, piece_type, ally: bool, piece_square, king):
+    """
+
+    :param flip: responsible for vertical mirroring (used when the feature is tied to black king)
+    :param piece_type: piece type in int
+    :param ally: is an ally of the accumulator king colour
+    :param piece_square: sq
+    :param king: king sq for the accumulator
+    :return: index for Half KA features table
+    """
+
     # vertical mirroring
     if flip:
         piece_square ^= 56
         king ^= 56
 
     # horizontal flip
-    if (king ^ 7) < 4:
+    if (king & 7) < 4:
         piece_square ^= 7
         king ^= 7
 

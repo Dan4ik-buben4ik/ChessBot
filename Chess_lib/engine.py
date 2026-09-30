@@ -289,8 +289,6 @@ class Engine:
 
         self.transposition_table[self.board.hash] = TTEntree(self.depth, best_score, flag, best_move)
 
-        logger.log_outro(best_score)
-        logger.view_dict()
         return best_move
 
     def evaluate(self):

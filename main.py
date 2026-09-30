@@ -2,7 +2,7 @@ from Chess_lib import *
 from Chess_lib.util import *
 from Chess_lib.nn import *
 from Chess_lib.nn_maths import *
-from Chess_lib.engine import Engine
+from Chess_lib.engine import Engine, logger
 
 
 # only queens and kings: "3qk3/8/8/8/8/8/8/3QK3 w - - 0 1"
@@ -37,16 +37,16 @@ from Chess_lib.engine import Engine
 #     print(bit_board.outcome())
 
 
-
-bit_board = Board.from_fen("k7/8/8/8/8/8/8/R3K3 b - - 0 1")
-engine = Engine(bit_board, 100, -100, 1)
+bit_board = Board.from_fen("r2k4/8/8/8/8/8/8/R3K3 b - - 0 1")
+engine = Engine(bit_board, 100, -100, 10)
 
 best_move = engine.generate()
 print("best move")
 print(best_move)
+# print(len(logger.data.keys()))
 
-# test = np.random.randn(2, 8, 8)
-# print(test)
-# res = engine.forward_cnn(test)
+
+
+
 
 

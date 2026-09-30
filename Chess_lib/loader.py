@@ -6,6 +6,8 @@ import numpy as np
 import numpy.random
 import numpy.testing
 
+print()
+
 
 class Board:
     #slots later?
@@ -86,6 +88,7 @@ class Board:
             return None
 
     def set_piece_at(self, square, piece_type, color):
+        # print(f"\nadd piece ({COLOR_NAME[color]} {PIECE_NAME[piece_type]}) on {SQUARE_NAMES[square]}")
         bit = 1 << square
         if piece_type == PAWN:
             self.pawns |= bit
@@ -104,28 +107,36 @@ class Board:
         self.occupancy |= bit
         self.hash ^= ZobristHasher.get_table_value(color, piece_type, square)
 
+        # if the king moved, the whole accumulator for the king's colour needs to be re-done
         if piece_type == KING:
             self.king_sq[color] = square
             self.nnue[color] = build_accumulator(self, color)
-            self.debug_feature_indexes[color] = debug_features_set(self, color)
+            # self.debug_feature_indexes[color] = debug_features_set(self, color)
+            # print(f"build feature set for colour {COLOR_NAME[color]}\nNew features:")
+            # print(self.debug_feature_indexes[color])
+            # for i in self.debug_feature_indexes[color]:
+            #     debug_feature_index(i)
             opponent_color = 1 ^ color
-            opponent_feature_index = Half_KA_Index(opponent_color == BLACK, KING, opponent_color, square, self.king_sq[opponent_color])
+            opponent_feature_index = Half_KA_Index(opponent_color == BLACK, KING, False, square, self.king_sq[opponent_color])
             self.nnue[opponent_color] += feature_table[opponent_feature_index]
-            self.debug_feature_indexes[opponent_color].add(opponent_feature_index)
+            # print(f"\nAdded feature to colour {COLOR_NAME[1 ^ color]}")
+            # debug_feature_index(opponent_feature_index)
+            # self.debug_feature_indexes[opponent_color].add(opponent_feature_index)
             return None
         feature_table_white_index = Half_KA_Index(False, piece_type, color == WHITE, square, self.king_sq[WHITE])
         feature_table_black_index = Half_KA_Index(True, piece_type, color == BLACK, square, self.king_sq[BLACK])
         self.nnue[WHITE] += feature_table[feature_table_white_index]
-        self.debug_feature_indexes[WHITE].add(feature_table_white_index)
+        # self.debug_feature_indexes[WHITE].add(feature_table_white_index)
 
         self.nnue[BLACK] += feature_table[feature_table_black_index]
-        self.debug_feature_indexes[BLACK].add(feature_table_black_index)
-        print("adding feature")
-        debug_feature_index(feature_table_white_index)
-        debug_feature_index(feature_table_black_index)
+        # self.debug_feature_indexes[BLACK].add(feature_table_black_index)
+        # print("adding feature")
+        # debug_feature_index(feature_table_white_index)
+        # debug_feature_index(feature_table_black_index)
         return None
 
     def remove_piece_at(self, square):
+        # print(f"\nRemove piece at sq {SQUARE_NAMES[square]}")
         piece_type = self.piece_at(square)
         piece_color = self.color_at(square)
         bit = 1 << square
@@ -150,14 +161,16 @@ class Board:
 
         feature_table_white_index = Half_KA_Index(False, piece_type, piece_color == WHITE, square, self.king_sq[WHITE])
         feature_table_black_index = Half_KA_Index(True, piece_type, piece_color == BLACK, square, self.king_sq[BLACK])
+
+        # print("removing feature")
+        # debug_feature_index(feature_table_white_index)
+        # debug_feature_index(feature_table_black_index)
+
         self.nnue[WHITE] -= feature_table[feature_table_white_index]
-        self.debug_feature_indexes[WHITE].remove(feature_table_white_index)
+        # self.debug_feature_indexes[WHITE].remove(feature_table_white_index)
 
         self.nnue[BLACK] -= feature_table[feature_table_black_index]
-        self.debug_feature_indexes[BLACK].remove(feature_table_black_index)
-        print("removing feature")
-        debug_feature_index(feature_table_white_index)
-        debug_feature_index(feature_table_black_index)
+        # self.debug_feature_indexes[BLACK].remove(feature_table_black_index)
         return piece_type, piece_color
 
     def attacks_mask(self, square: Square):
@@ -247,6 +260,10 @@ class Board:
         self.pop()
         return res
 
+    def is_move_possible_check(self, move):
+        """not as precise as Board.is_move_check, but it is much faster as we don't need to push the move"""
+        raise NotImplementedError
+
     def has_legal_moves(self):
         return next(self.generate_legal_moves(), None) is not None
 
@@ -279,8 +296,25 @@ class Board:
     def push(self, move):
         """ assume the move is perfectly legal
         """
+        # print()
+        # print("pushing from")
+        # print(move.uci())
+        # self.construct()
+        #
+        # print(PIECE_NAME[self.piece_at(move.from_square)])
+        # bitprint(self.occupancy_color[0])
+        # print()
+        # bitprint(self.kings | self.rooks)
+
 
         # update history
+        # print("\nHistory appending debug")
+        # print("Occupancy")
+        # bitprint(self.occupancy)
+        #
+        # print("Kings")
+        # bitprint(self.kings)
+        # print(f"\nPush move: {move.uci()}")
         self.history.append(_BitBoardState(self))
 
         # update en passant
@@ -288,7 +322,6 @@ class Board:
         if self.ep_square:
             self.hash ^= ZobristHasher.en_passant[self.ep_square % 8]
             self.ep_square = None
-
         piece, piece_color = self.remove_piece_at(move.from_square)
         captured_piece, captured_piece_color = self.remove_piece_at(move.to_square)
 
@@ -364,29 +397,28 @@ class Board:
             raise err
 
         # nnue assertion check
-        try:
-            np.testing.assert_almost_equal(self.nnue[self.turn ^ 1], build_accumulator(self, self.turn ^ 1), decimal=5)
-        except BaseException as err:
-            difference = self.debug_feature_indexes[self.turn ^ 1].symmetric_difference(debug_features_set(self))
-            print("differences")
-            for f in difference:
-                debug_feature_index(f)
-            print("sets")
-            print(self.debug_feature_indexes[self.turn ^ 1])
-            print(debug_features_set(self, self.turn ^ 1))
-
-            print("accumulators")
-            print(self.nnue[self.turn ^ 1])
-            print(build_accumulator(self, self.turn ^ 1))
-            print(self.nnue[self.turn ^ 1] - build_accumulator(self, self.turn ^ 1))
-            raise err
+        for assert_color in range(2):
+            print(f"After Push Assertion test for colour {COLOR_NAME[assert_color]}", end="")
+            try:
+                np.testing.assert_almost_equal(self.nnue[assert_color], build_accumulator(self, assert_color), decimal=5)
+                print(" - Passed")
+            except BaseException:
+                print(" - Failed")
+                # difference = self.debug_feature_indexes[assert_color].symmetric_difference(debug_features_set(self, assert_color))
+                # print("differences")
+                # for f in difference:
+                #     debug_feature_index(f)
+                # print("sets")
+                # print(self.debug_feature_indexes[assert_color])
+                # print(debug_features_set(assert_color, assert_color))
+                raise BaseException
 
     def pop(self):
         if not self.history:
             return False
         prev_state = self.history.pop()
         prev_state.restore(self)
-        return True
+        return prev_state
 
     def generate_pseudo_legal_moves(self, *, from_mask=BB_ALL, to_mask=BB_ALL) -> (Square, BitBoard):
         non_pawns = self.occupancy_color[self.turn] & ~self.pawns & from_mask
@@ -662,9 +694,9 @@ class Board:
 
         bit_board.hash = ZobristHasher.hash(bit_board)
 
-        print("\nthis is the debug")
+        # print("\nthis is the debug")
         bit_board.nnue = [build_accumulator(bit_board, WHITE), build_accumulator(bit_board, BLACK)]
-        bit_board.debug_feature_indexes = [debug_features_set(bit_board, WHITE), debug_features_set(bit_board, BLACK)]
+        # bit_board.debug_feature_indexes = [debug_features_set(bit_board, WHITE), debug_features_set(bit_board, BLACK)]
         #
         # try:
         #     np.testing.assert_allclose(bit_board.nnue, [build_accumulator(bit_board, WHITE), build_accumulator(bit_board, BLACK)], rtol=1e-5, atol=1e-5)
@@ -674,8 +706,16 @@ class Board:
         #     print(bit_board.debug_feature_indexes[BLACK].symmetric_difference(debug_features_set(bit_board, BLACK)))
         #     print(bit_board.nnue)
         #     raise err
-        print(bit_board.debug_feature_indexes)
+        # print(bit_board.debug_feature_indexes)
 
+        # print("---" * 12, "Finished init from fen", "---" * 12)
+        # print("White features")
+        # for i in bit_board.debug_feature_indexes[0]:
+        #     debug_feature_index(i)
+        # print("BLACK features")
+        # for i in bit_board.debug_feature_indexes[1]:
+        #     debug_feature_index(i)
+        # print()
         return bit_board
 
 
@@ -772,12 +812,12 @@ class Board:
 
 class _BitBoardState:
     __slots__ = (
-        "pawns", "knights", "bishops", "rooks", "queens", "kings", "occupancy_color", "castling_rights",
-        "ep_square", "half_moves", "full_moves", "hash", "nnue", "pawn_nn",
+        "pawns", "knights", "bishops", "rooks", "queens", "kings", "occupancy_white", "occupancy_black", "castling_rights",
+        "ep_square", "half_moves", "full_moves", "hash", "white_accumulator", "black_accumulator", "pawn_nn",
+        # "debug_feature_set_white", "debug_feature_set_black",
     )
 
     def __init__(self, bitboard):
-        # slots later?
         self.pawns = bitboard.pawns
         self.knights = bitboard.knights
         self.bishops = bitboard.bishops
@@ -785,15 +825,20 @@ class _BitBoardState:
         self.queens = bitboard.queens
         self.kings = bitboard.kings
 
-        self.occupancy_color = bitboard.occupancy_color
+        self.occupancy_white = bitboard.occupancy_color[0]
+        self.occupancy_black = bitboard.occupancy_color[1]
         self.castling_rights = bitboard.castling_rights
         self.ep_square: Square | None = bitboard.ep_square
         self.half_moves = bitboard.half_moves
         self.full_moves = bitboard.full_moves
         self.hash = bitboard.hash
 
-        self.nnue = bitboard.nnue
+        self.white_accumulator = bitboard.nnue[0].copy()
+        self.black_accumulator = bitboard.nnue[1].copy()
         self.pawn_nn = bitboard.pawn_nn
+
+        # self.debug_feature_set_white = tuple(bitboard.debug_feature_indexes[0])
+        # self.debug_feature_set_black = tuple(bitboard.debug_feature_indexes[1])
 
     def restore(self, bitboard):
         bitboard.pawns = self.pawns
@@ -803,18 +848,21 @@ class _BitBoardState:
         bitboard.queens = self.queens
         bitboard.kings = self.kings
 
-        bitboard.occupancy_color = self.occupancy_color
+        bitboard.occupancy_color = [self.occupancy_white, self.occupancy_black]
         bitboard.castling_rights = self.castling_rights
         bitboard.ep_square = self.ep_square
         bitboard.half_moves = self.half_moves
         bitboard.full_moves = self.full_moves
         bitboard.hash = self.hash
 
-        bitboard.occupancy = self.occupancy_color[WHITE] | self.occupancy_color[BLACK]
+        bitboard.occupancy = self.occupancy_white | self.occupancy_black
         bitboard.turn ^= 1
 
-        bitboard.nnue = self.nnue
+        bitboard.king_sq = [(self.kings & self.occupancy_white).bit_length()-1, (self.kings & self.occupancy_black).bit_length()-1]
+        bitboard.nnue = [self.white_accumulator, self.black_accumulator]
         bitboard.pawn_nn = self.pawn_nn
+
+        # bitboard.debug_feature_indexes = [set(self.debug_feature_set_white), set(self.debug_feature_set_black)]
 
     def __repr__(self):
         return f"{self.hash}"
