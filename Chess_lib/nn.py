@@ -1,4 +1,4 @@
-#TODO: write a NNue evaluator
+
 
 # Half KA v2
 
@@ -55,8 +55,6 @@ game state -> internal layer
 import abc
 import numpy as np
 import numpy.random
-
-
 from .util import *
 # from .loader import Board
 from .nn_maths import *
@@ -81,9 +79,6 @@ Step 7: Pawn structure
 
 # consider static rng later
 # SEED = 0
-
-
-
 
 class Layer(abc.ABC):
     input = None
@@ -283,7 +278,7 @@ class AttackersCNN:
 
 class EvaluationNNUE:
     network = [
-        DenseLayer(284, 32),
+        DenseLayer(292, 32),
         ActivationLayer(CReLu, CReLu_prime),
         DenseLayer(32, 32),
         ActivationLayer(CReLu, CReLu_prime),
@@ -291,7 +286,7 @@ class EvaluationNNUE:
         ActivationLayer(CReLu, CReLu_prime),
         DenseLayer(32, 1)
     ]
-    input_shape = (284, )
+    input_shape = (292, )
     output_shape = (1, )
 
     @classmethod
@@ -306,8 +301,11 @@ class EvaluationNNUE:
         castling = np.zeros(4)
         for i in scan_backward_bb(board.castling_rights):
             castling[i] = 1
+        ep = [0 for _ in range(8)]
+        if board.ep_square:
+            ep[board.ep_square & 7] = 1
         # print(f"dimensions: {board.nnue[0].shape}, {board.nnue[1].shape}, {nn_attackers_array.shape}, {board.pawn_nn.shape}, {castling.shape}")
-        return np.concatenate((board.nnue[0], board.nnue[1], nn_attackers_array, board.pawn_nn, castling))
+        return np.concatenate((board.nnue[0], board.nnue[1], nn_attackers_array, board.pawn_nn, castling, ep))
 
     @classmethod
     def forward(cls, position):
