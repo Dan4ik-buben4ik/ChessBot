@@ -2,7 +2,7 @@ from Chess_lib import *
 from Chess_lib.util import *
 from Chess_lib.nn import *
 from Chess_lib.nn_maths import *
-from Chess_lib.engine import Engine, logger
+from Chess_lib.engine import *
 
 
 # only queens and kings: "3qk3/8/8/8/8/8/8/3QK3 w - - 0 1"
@@ -48,144 +48,41 @@ from Chess_lib.engine import Engine, logger
 
 # task to make a buffer that sends batches of size MAX SIZE in a function send_request
 #
-import time
-import random
-import math
-import asyncio
-import collections
-
+""" 
+PLAN:
+ - make the logger working for the debug
+ - Work on GPU NN evaluation
+ - read a few articles on the chess attention and add them if can to nn
+ - start training model
+ - look for ways to optimise (aka the dfs batching and gpu batching - maybe incremental batching? )
+ - connect gpu to the searcher.
+ 
 
 """
-- minmax reaches the leaf, creating a local trail of bitboard states
-- when reaching the leaf, it sends an evaluation request to buffer
-- as well as the current board state object?
-- when buffer is full, it halts minmax and sends the batch to the GPU
-- GPU evaluates it and returns the evaluations to the leaves
-- the issues is that when the evaluation is returned, the engine would already check a position that is 1-2 moves different.
-  Possible solution is to store a move trail and update the tree manually??? how to do that?
-"""
 
-class Board:
-    moves = []
-    def push(self, move):
-        self.moves.append(move)
-        print(f"\nPushed a move {move}")
-    def pop(self):
-        self.moves.pop()
-        print(f"Popped the last move\n")
-    def copy(self):
-        return sum(self.moves)
+from Chess_lib import *
+from Chess_lib.engine import *
 
-def move_gen():
-    yield from [random.randint(1, 10000) for _ in range(random.randint(1, 20))]
-
-
-class GPU:
-    @staticmethod
-    async def evaluate(batch, length):
-        print("Processing Requests")
-        await asyncio.sleep(2)
-        print("Finished Processing Requests")
-        return [random.random() for _ in range(length)]
-
-async def search(board, depth, loop, buffer):
-    if depth == 1:
-        return await evaluate_max_depth(board, loop, buffer)
-    print(f"Searching at depth-until-bottom ({depth})")
-    best = -math.inf
-    for move in move_gen():
-        board.push(move)
-        eval = await search(board, depth-1, loop, buffer)
-        board.pop()
-
-        best = max(eval, best)
-    return best
-
-async def evaluate_max_depth(board, loop: asyncio.AbstractEventLoop, buffer: asyncio.Queue):
-    print("reach max depth")
-    result_buffer = []
-    for move in move_gen():
-        board.push(move)
-        future = loop.create_future()
-        request = board.copy()
-        result_buffer.append(future)
-        await buffer.put((request, future))
-        board.pop()
-
-    best = -math.inf
-    print("waiting for results")
-    for next_ready_future in asyncio.as_completed(result_buffer):
-        result = await next_ready_future
-        best = max(best, result)
-    print("got all results")
-    return best
-
-async def batch_processor(request_queue: asyncio.Queue, max_batch_size: int, gpu: GPU, timeout:float=2):
-    batch = []
-
-    while True:
-        if not batch:
-            item = await request_queue.get()
-            if item is None:
-                request_queue.task_done()
-                return
-            batch.append(item)
-            request_queue.task_done()
-
-        while len(batch) < max_batch_size:
-            try:
-                item = await asyncio.wait_for(request_queue.get(), timeout=timeout)
-                if item is None:
-                    request_queue.task_done()
-                    if batch:
-                        results = await gpu.evaluate(batch, len(batch))
-                        print("got results from gpu")
-                        for item, res in zip(batch, results):
-                            _, future = item
-                            future.set_result(res)
-                        print("set results to futures")
-                    return
-
-                batch.append(item)
-                request_queue.task_done()
-
-            except asyncio.TimeoutError:
-                break
-
-        if batch:
-            results = await gpu.evaluate(batch, len(batch))
-            print("got results from gpu")
-            for item, res in zip(batch, results):
-                _, future = item
-                future.set_result(res)
-                # if not future.done():
-                #     # call_soon не переключает контекст на клиента мгновенно.
-                #     # Он просто регистрирует событие завершения. Воркер спокойно дойдет до конца цикла!
-                #     loop.call_soon(future.set_result, res)
-            print("set results to futures")
-            batch = []
-
-
-async def evaluate_board():
-    max_size = 10
-    loop = asyncio.get_running_loop()
-    buffer = asyncio.Queue(max_size)
-    gpu = GPU()
-    buffer_task = asyncio.create_task(batch_processor(buffer, max_size, gpu, 0.5))
-
-    board = Board()
-    res = await search(board, 1, loop, buffer)
-    print(f"result = {res}")
-
-    await buffer.put(None)
-    await buffer_task
-
-
-# need a way to segregate by 5s
+board = Board.from_fen("3k4/8/8/8/8/8/8/4K3 b - - 0 1")
 start = time.time()
-asyncio.run(evaluate_board())
+asyncio.run(evaluate(board, -1000, 1000, 2))
 end = time.time()
 print(f"took {end-start:.2f} sec")
+
+
+# print("\npush d8d7")
+# board.push(Move.from_uci("d8d7"), add_history=False)
+# board.construct()
+# temp = Board()
+# temp.copy_from(board)
+# print(temp.is_move_check(Move.from_uci("e1d1")))
+# print("\npush e1d1")
+# board.push(Move.from_uci("e1d1"))
+# board.construct()
+
+
+# for 2 node dfs, optimal set up is depth 7. WE need to find a way to adapt it (depth higher, less nodes in beginnig, else more nodes)
+# need to time gpu to see the most efficient work load batch
 
 
 

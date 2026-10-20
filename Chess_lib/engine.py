@@ -1,6 +1,7 @@
 import dataclasses
 import math
 from typing import TypeAlias
+import asyncio
 
 from .util import *
 from .loader import Board
@@ -132,165 +133,263 @@ def _move_order_score(board: Board, move: Move, tt_move=None):
 
 
 def move_ordering(board: Board, moves: list[Move], tt_move=None):
-    return sorted(
+    print("move ordering start")
+    board.construct()
+    yield from sorted(
         moves,
         key=lambda x: _move_order_score(board, x, tt_move),
         reverse=True
     )
 
 
+async def async_as_completed(aws):
+    done_queue = asyncio.Queue()
 
-logger = SearchLogger()
-class Engine:
-    def __init__(self, board, alpha, beta, depth):
-        self.board = board
-        self.init_alpha = alpha
-        self.init_beta = beta
-        self.depth = depth
-        self.transposition_table = {}
+    tasks = [asyncio.ensure_future(aw) for aw in set(aws)]
 
-    def _AlphaBetaSearch(self, board, alpha, beta, depth):
-        entry_move = None
-        #checks if the position had already been analysed
-        entry = self.transposition_table.get(board.hash)
-        if entry and entry.depth >= depth:
-            entry_move = entry.best_move
+    for task in tasks:
+        task.add_done_callback(done_queue.put_nowait)
 
-            if entry.flag == TTFlag.EXACT:
-                return entry.score
-            elif entry.flag == TTFlag.LOWER_BOUND:
-                alpha = max(alpha, entry.score)
-            elif entry.flag == TTFlag.UPPER_BOUND:
-                beta = min(beta, entry.score)
-
-            if alpha > beta:
-                return entry.score
+    for _ in range(len(tasks)):
+        yield await done_queue.get()
 
 
-        original_alpha = alpha
-        original_beta = beta
-        color = 1 if board.turn == WHITE else -1
-        if board.outcome() != GameResult.ONGOING:
-            return EvaluationNNUE.forward(board)[0] * color
+class ObjectPool:
+    def __init__(self, size, object_type):
+        if not isinstance(object_type, type):
+            raise TypeError("object_type is expected be a type object")
 
-        if depth == 0:
-            return self._QuiescenceSearch(board, -beta, -alpha) * color
+        self._queue = asyncio.Queue()
+        self._count = size
+        self._type = object_type
+        for _ in range(size):
+            self._queue.put_nowait(object_type())
 
-        best = -math.inf
-        best_move = None
-        for move in move_ordering(board, list(board.generate_legal_moves()), entry_move):
-            # print(f"engine considers: {move} | depth: {depth}")
-            logger.log_intro(move, depth)
-            board.push(move)
+    async def borrow_obj(self):
+        if self._count == 0:
+            new_obj = self._type
+            return new_obj()
+        self._count -= 1
+        return await self._queue.get()
 
-            evaluation = -self._AlphaBetaSearch(board, -beta, -alpha, depth - 1)
+    def return_obj(self, item):
+        if not isinstance(item, self._type):
+            raise TypeError(f"Expect the item to be of a type {self._type}")
+        self._count += 1
+        self._queue.put_nowait(item)
 
-            # print(f"static evaluation for move {move} at depth {depth}: {evaluation}\n")
-            logger.log_outro(evaluation)
-            board.pop()
 
+async def search(board, alpha, beta, depth, loop, buffer, obj_pool, tt, req_cycle=2):
+    entry_move = None
+    # checks if the position had already been analysed.
+    entry = tt.get(board.hash)
+    if entry and entry.depth >= depth:
+        entry_move = entry.best_move
+
+        if entry.flag == TTFlag.EXACT:
+            return entry.score
+        elif entry.flag == TTFlag.LOWER_BOUND:
+            alpha = max(alpha, entry.score)
+        elif entry.flag == TTFlag.UPPER_BOUND:
+            beta = min(beta, entry.score)
+
+        if alpha > beta:
+            return entry.score
+
+    # sets up the variables needed post evaluation
+    original_alpha = alpha
+    original_beta = beta
+    color = 1 if board.turn == WHITE else -1
+    # if board.outcome() != GameResult.ONGOING:
+    #     return EvaluationNNUE.forward(board)[0] * color
+    print(f"Searching at depth-until-bottom ({depth})")
+    if depth == 1:
+        return await evaluate_max_depth(board, -beta, -alpha, loop, buffer, obj_pool, tt) * color
+    best = -math.inf
+    best_move = None
+    board_state = BitBoardState.from_board(board)
+    task_buffer = []
+    working = True
+    move_gen = move_ordering(board, list(board.generate_legal_moves()), entry_move)
+    while working:
+        print(f"starting a cycle with step: {req_cycle}")
+        for _ in range(req_cycle):
+            move = next(move_gen, None)
+            if move is None:
+                working = False
+                break
+
+            temp_board = await obj_pool.borrow_obj()
+            print(f"Borrowing object {temp_board}")
+            temp_board.restore(board_state)
+
+            print(f"trying to push move {move.uci()}")
+            temp_board.push(move, add_history=False)
+            print(f"pushed move {move.uci()}")
+
+            temp_board.construct()
+            task = asyncio.create_task(search(temp_board, -beta, -alpha, depth-1, loop, buffer, obj_pool, tt))
+            task.metadata = move.uci()
+            task_buffer.append(task)
+
+
+        print("starting to wait for responce")
+        async for next_ready_future in async_as_completed(task_buffer):
+            # move = next_ready_future.metadata
+            evaluation = await next_ready_future
+            print("Got a response")
+            evaluation *= color
             if evaluation > best:
                 best = evaluation
-                best_move = move
+                best_move = next_ready_future.metadata
+
 
             alpha = max(alpha, evaluation)
 
             if alpha >= beta:
+                working = False
                 break
+        task_buffer.clear()
 
-        #records the position into the table
-        if best <= original_alpha:
-            flag = TTFlag.UPPER_BOUND
-        elif best >= original_beta:
-            flag = TTFlag.LOWER_BOUND
-        else:
-            flag = TTFlag.EXACT
+    best_move = Move.from_uci(best_move)
 
-        self.transposition_table[board.hash] = TTEntree(depth, best, flag, best_move)
+    # records the position into the table
+    if best <= original_alpha:
+        flag = TTFlag.UPPER_BOUND
+    elif best >= original_beta:
+        flag = TTFlag.LOWER_BOUND
+    else:
+        flag = TTFlag.EXACT
 
-        return best
+    tt[board.hash] = TTEntree(depth, best, flag, best_move)
+    print(f"returning object {board}")
+    obj_pool.return_obj(board)
 
-    def _QuiescenceSearch(self, board: Board, alpha, beta):
-        entry_move = None
-        entry = self.transposition_table.get(board.hash)
-        if entry and entry.depth > 0:
-            entry_move = entry.best_move
 
-            if entry.flag == TTFlag.EXACT:
-                return entry.score
-            elif entry.flag == TTFlag.LOWER_BOUND:
-                alpha = max(alpha, entry.score)
-            elif entry.flag == TTFlag.UPPER_BOUND:
-                beta = min(beta, entry.score)
+    return best
 
-            if alpha > beta:
-                return entry.score
+async def evaluate_max_depth(board, alpha, beta, loop: asyncio.AbstractEventLoop, buffer: asyncio.Queue, obj_pool, tt, req_cycle=5):
+    print("Max depth reach")
+    entry_move = None
+    # checks if the position had already been analysed.
+    entry = tt.get(board.hash)
+    if entry and entry.depth >= 0:
+        entry_move = entry.best_move
 
-        color = 1 if board.turn == WHITE else -1
-        best = -math.inf
+        if entry.flag == TTFlag.EXACT:
+            return entry.score
+        elif entry.flag == TTFlag.LOWER_BOUND:
+            alpha = max(alpha, entry.score)
+        elif entry.flag == TTFlag.UPPER_BOUND:
+            beta = min(beta, entry.score)
 
-        for move in move_ordering(board, list(board.generate_legal_moves()), entry_move):
-            if board.is_capture(move) or board.is_move_check(move):
-                continue
-            print(f"engine considers: {move} | depth: 0")
-            logger.log_intro(move, 0)
-            board.push(move)
-            evaluation = EvaluationNNUE.forward(board)[0] * color
-            print(f"static evaluation for move {move} at depth 0: {evaluation * color}\n")
-            logger.log_outro(evaluation * color)
-            board.pop()
+        if alpha > beta:
+            return entry.score
 
-            best = max(best, evaluation)
+    result_buffer = []
+    print("starting to send requests")
+    for move in move_ordering(board, list(board.generate_legal_moves()), entry_move):
+        print(f"max depth move ({move.uci()})")
+        print()
+        board.push(move)
+        print("pushed the move")
+        future = loop.create_future()
+        request = EvaluationNNUE.build_input(board)
+        result_buffer.append(future)
+        await buffer.put((request, future))
+        board.pop()
+        print("sent a request")
 
-            alpha = max(alpha, evaluation)
-            if alpha >= beta:
-                break
+    print(f"returning object {board}")
+    obj_pool.return_obj(board)
 
-        return best
 
-    @timer
-    def generate(self):
-        best_score = -math.inf
-        best_move = None
+    best = -math.inf
+    print("starting to wait for the responce")
+    for next_ready_future in asyncio.as_completed(result_buffer):
+        result = await next_ready_future
+        print("working on the futures objects")
+        best = max(best, result)
 
-        alpha = self.init_alpha
-        beta = self.init_beta
+        alpha = max(alpha, result)
+        if alpha >= beta:
+            break
 
-        for move in self.board.generate_legal_moves():
-            print(f"engine considers: {move} | depth: {self.depth}")
-            logger.log_intro(move, self.depth)
-            self.board.push(move)
+    return best
+
+async def batch_processor(request_queue: asyncio.Queue, max_batch_size: int, gpu: GPU, timeout:float=0.5):
+    # make the batch input to GPU w/o future objects
+    batch = []
+
+    while True:
+        if not batch:
+            # try:
+            item = await request_queue.get()
+            if item is None:
+                request_queue.task_done()
+                return
+            batch.append(item)
+            request_queue.task_done()
+            # except asyncio.TimeoutError:
+            #     print("buffer is waiting")
+            #     print(f"{len(asyncio.all_tasks())} are running")
+            #     print(f"batch: {batch}")
+            #     raise
+            #     await asyncio.sleep(0)
+
+        while len(batch) < max_batch_size:
             try:
-                evaluation = -self._AlphaBetaSearch(self.board, -beta, -alpha, self.depth - 1)
-            except BaseException as exp:
-                print(logger.parent_path)
-                raise exp
-                logger.view_dict()
-                logger.view_dict()
-                logger.view_dict()
-                raise exp
-            print(f"static evaluation for move {move} at depth {self.depth}: {evaluation}\n")
-            self.board.pop()
-            logger.log_outro(evaluation)
+                item = await asyncio.wait_for(request_queue.get(), timeout=timeout)
+                if item is None:
+                    request_queue.task_done()
+                    if batch:
+                        results = await gpu.evaluate(batch, len(batch))
+                        print("got results from gpu")
+                        for item, res in zip(batch, results):
+                            _, future = item
+                            future.set_result(res)
+                        print("set results to futures")
+                    return
+
+                batch.append(item)
+                request_queue.task_done()
+
+            except asyncio.TimeoutError:
+                break
+
+        if batch:
+            results = await gpu.evaluate(batch, len(batch))
+            print("got results from gpu")
+            for item, res in zip(batch, results):
+                _, future = item
+                future.set_result(res)
+                # if not future.done():
+                #     # call_soon не переключает контекст на клиента мгновенно.
+                #     # Он просто регистрирует событие завершения. Воркер спокойно дойдет до конца цикла!
+                #     loop.call_soon(future.set_result, res)
+            print("set results to futures")
+            batch = []
 
 
-            if evaluation > best_score:
-                best_score = evaluation
-                best_move = move
+async def evaluate(board, alpha, beta, depth, req_cycle=2):
+    max_size = 10
 
-            alpha = max(alpha, evaluation)
+    transposition_table = {}
+    loop = asyncio.get_running_loop()
+    buffer = asyncio.Queue()
+    gpu = GPU()
+    buffer_task = asyncio.create_task(batch_processor(buffer, max_size, gpu, 0.1))
+    obj_pool = ObjectPool(max_size, type(board))
 
-        if best_score <= self.init_alpha:
-            flag = TTFlag.UPPER_BOUND
-        elif best_score >= self.init_beta:
-            flag = TTFlag.LOWER_BOUND
-        else:
-            flag = TTFlag.EXACT
+    color = 1 if board.turn == WHITE else -1
+    temp_board = await obj_pool.borrow_obj()
+    temp_board.copy_from(board)
 
-        self.transposition_table[self.board.hash] = TTEntree(self.depth, best_score, flag, best_move)
+    res = await search(board, alpha, beta, depth, loop, buffer, obj_pool, transposition_table, req_cycle) * color
+    print(f"result = {res}")
 
-        return best_move
+    await buffer.put(None)
+    await buffer_task
 
-    def evaluate(self):
-        color = 1 if self.board.turn == WHITE else -1
-        return self._AlphaBetaSearch(self.board, self.init_alpha, self.init_beta, self.depth) * color
+
+# TODO: make depth incremental (going up by 1)

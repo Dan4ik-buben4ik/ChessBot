@@ -308,8 +308,7 @@ class EvaluationNNUE:
         return np.concatenate((board.nnue[0], board.nnue[1], nn_attackers_array, board.pawn_nn, castling, ep))
 
     @classmethod
-    def forward(cls, position):
-        input_vector = cls.build_input(position)
+    def forward(cls, input_vector):
         if input_vector.shape != cls.input_shape:
             print(f"input vector is of wrong size")
             print(input_vector.shape)
@@ -329,5 +328,11 @@ class EvaluationNNUE:
             error_gard_vector = layer.backward(error_gard_vector, learning_rate)
 
 
-
+class GPU:
+    @staticmethod
+    async def evaluate(batch, length):
+        res = []
+        for request, future in batch:
+            res.append(EvaluationNNUE.forward(request))
+        return res
 
