@@ -5,26 +5,6 @@ NN Training
 ├── Self-play
 ├── MCTS
 
-NN Optimisation
-- memory state pre-load and allocation
-- gpu batches
-
-TODO NOW
-1) local board state stack for search and accumulators (len max depth + 1 and store teh data in the pre-located board state variables?
-2) batch request data. When the position hits evaluation, the request with data will go to buffer
-3) in the buffer, create a pre-allocated evaluation request pool, where each request is given an index.
-4) iterative deepening. When hitting the end, we could start
-
-
-workflow now
-- minmax reaches the leaf, creating a local trail of bitboard states
-- when reaching the leaf, it sends an evaluation request to buffer
-- as well as the current board state object?
-- when buffer is full, it halts minmax and sends the batch to the GPU
-- GPU evaluates it and returns the evaluations to the leaves
-- the issues is that when the evaluation is returned, the engine would already check a position that is 1-2 moves different.
-  Possible solution is to store a move trail and update the tree manually??? how to do that?
-
 
 
 [ ] AlphaBeta runs on it

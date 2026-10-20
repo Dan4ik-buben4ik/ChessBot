@@ -655,8 +655,6 @@ feature_table = generate_feature_table(table_rng, (6 * 2 * 64 * 64, 128))
 # pinner_feature_table = generate_feature_table((2 * 6 * 64 * 64))
 
 
-
-# TODO: think of ways to optimise
 def build_accumulator(board, color):
     features_vector = np.zeros(128)
     # print(f"accumulator for {COLOR_NAME[color]}")

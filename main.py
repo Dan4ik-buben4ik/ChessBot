@@ -50,14 +50,13 @@ from Chess_lib.engine import *
 #
 """ 
 PLAN:
- - make the logger working for the debug
  - Work on GPU NN evaluation
  - read a few articles on the chess attention and add them if can to nn
  - start training model
  - look for ways to optimise (aka the dfs batching and gpu batching - maybe incremental batching? )
  - connect gpu to the searcher.
  
-
+*** Start writing docs for finished functions
 """
 
 from Chess_lib import *

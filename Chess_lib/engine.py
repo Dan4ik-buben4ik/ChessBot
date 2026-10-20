@@ -9,95 +9,96 @@ from .logger import *
 from .nn import *
 
 
-Material: TypeAlias = int
-#all in centipawns
-PAWN_MATERIAL: Material = 100
-KNIGHT_MATERIAL: Material = 300
-BISHOP_MATERIAL: Material = 300
-ROOK_MATERIAL: Material = 500
-QUEEN_MATERIAL: Material = 900
-
-PieceSquareTable: TypeAlias = list
-KNIGHT_PST: PieceSquareTable = [
-    -5, -4, -3, -2, -2, -3, -4, -5,
-    -4, -2,  0,  1,  1,  0, -2, -4,
-    -3,  0,  2,  3,  3,  2,  0, -3,
-    -2,  1,  3,  4,  4,  3,  1, -2,
-    -2,  1,  3,  4,  4,  3,  1, -2,
-    -3,  0,  2,  3,  3,  2,  0, -3,
-    -4, -2,  0,  1,  1,  0, -2, -4,
-    -5, -4, -3, -2, -2, -3, -4, -5
-]
-
-BISHOP_PST = [
-    -3, -2, -1, -1, -1, -1, -2, -3,
-    -2, -1,  0,  1,  1,  0, -1, -2,
-    -1,  0,  1,  2,  2,  1,  0, -1,
-     0,  1,  3,  4,  4,  3,  1,  0,
-     0,  1,  3,  4,  4,  3,  1,  0,
-    -1,  0,  1,  2,  2,  1,  0, -1,
-    -2, -1,  0,  1,  1,  0, -1, -2,
-    -3, -2, -1, -1, -1, -1, -2, -3
-]
-
-ROOK_PST = [
-     5,  5,  5,  5,  5,  5,  5,  5,
-    20, 20, 20, 20, 20, 20, 20, 20,
-     0,  0,  0,  5,  5,  0,  0,  0,
-     0,  0,  0,  5,  5,  0,  0,  0,
-     0,  0,  0,  5,  5,  0,  0,  0,
-     0,  0,  0,  5,  5,  0,  0,  0,
-    15, 15, 15, 15, 15, 15, 15, 15,
-     5,  5,  5,  5,  5,  5,  5,  5
-]
-
-QUEEN_PST = [
-    -3, -2, -1, -1, -1, -1, -2, -3,
-    -2, -1,  0,  1,  1,  0, -1, -2,
-    -1,  0,  1,  2,  2,  1,  0, -1,
-     0,  1,  3,  4,  4,  3,  1,  0,
-     0,  1,  3,  4,  4,  3,  1,  0,
-    -1,  0,  1,  2,  2,  1,  0, -1,
-    -2, -1,  0,  1,  1,  0, -1, -2,
-    -3, -2, -1, -1, -1, -1, -2, -3
-]
-
-KING_OPENING_PST = [
-     5,  4,  3,  0,  1,  2,  4,  5,
-     1,  0, -1, -1, -1, -1,  0,  1,
-    -1, -2, -3, -4, -4, -3, -2, -1,
-    -2, -3, -4, -5, -5, -4, -3, -2,
-    -2, -3, -4, -5, -5, -4, -3, -2,
-    -1, -2, -3, -4, -4, -3, -2, -1,
-     1,  0, -1, -1, -1, -1,  0,  1,
-     5,  4,  3,  0,  1,  2,  4,  5,
-]
-
-KING_ENDGAME_PST = [
-    -3, -2, -1, -1, -1, -1, -2, -3,
-    -2, -1,  0,  1,  1,  0, -1, -2,
-    -1,  0,  1,  2,  2,  1,  0, -1,
-     0,  1,  3,  4,  4,  3,  1,  0,
-     0,  1,  3,  4,  4,  3,  1,  0,
-    -1,  0,  1,  2,  2,  1,  0, -1,
-    -2, -1,  0,  1,  1,  0, -1, -2,
-    -3, -2, -1, -1, -1, -1, -2, -3
-]
-
-
-
-bishop_pair = 30
-doubled_pawn = - 15
-isolated_pawn = -20
-passed_pawn = 45
-mobility = 3
-activity_scale = 0.02
-king_open_file = -50
-rook_open_file = 20
-tempo = 10
+# Material: TypeAlias = int
+# #all in centipawns
+# PAWN_MATERIAL: Material = 100
+# KNIGHT_MATERIAL: Material = 300
+# BISHOP_MATERIAL: Material = 300
+# ROOK_MATERIAL: Material = 500
+# QUEEN_MATERIAL: Material = 900
+#
+# PieceSquareTable: TypeAlias = list
+# KNIGHT_PST: PieceSquareTable = [
+#     -5, -4, -3, -2, -2, -3, -4, -5,
+#     -4, -2,  0,  1,  1,  0, -2, -4,
+#     -3,  0,  2,  3,  3,  2,  0, -3,
+#     -2,  1,  3,  4,  4,  3,  1, -2,
+#     -2,  1,  3,  4,  4,  3,  1, -2,
+#     -3,  0,  2,  3,  3,  2,  0, -3,
+#     -4, -2,  0,  1,  1,  0, -2, -4,
+#     -5, -4, -3, -2, -2, -3, -4, -5
+# ]
+#
+# BISHOP_PST = [
+#     -3, -2, -1, -1, -1, -1, -2, -3,
+#     -2, -1,  0,  1,  1,  0, -1, -2,
+#     -1,  0,  1,  2,  2,  1,  0, -1,
+#      0,  1,  3,  4,  4,  3,  1,  0,
+#      0,  1,  3,  4,  4,  3,  1,  0,
+#     -1,  0,  1,  2,  2,  1,  0, -1,
+#     -2, -1,  0,  1,  1,  0, -1, -2,
+#     -3, -2, -1, -1, -1, -1, -2, -3
+# ]
+#
+# ROOK_PST = [
+#      5,  5,  5,  5,  5,  5,  5,  5,
+#     20, 20, 20, 20, 20, 20, 20, 20,
+#      0,  0,  0,  5,  5,  0,  0,  0,
+#      0,  0,  0,  5,  5,  0,  0,  0,
+#      0,  0,  0,  5,  5,  0,  0,  0,
+#      0,  0,  0,  5,  5,  0,  0,  0,
+#     15, 15, 15, 15, 15, 15, 15, 15,
+#      5,  5,  5,  5,  5,  5,  5,  5
+# ]
+#
+# QUEEN_PST = [
+#     -3, -2, -1, -1, -1, -1, -2, -3,
+#     -2, -1,  0,  1,  1,  0, -1, -2,
+#     -1,  0,  1,  2,  2,  1,  0, -1,
+#      0,  1,  3,  4,  4,  3,  1,  0,
+#      0,  1,  3,  4,  4,  3,  1,  0,
+#     -1,  0,  1,  2,  2,  1,  0, -1,
+#     -2, -1,  0,  1,  1,  0, -1, -2,
+#     -3, -2, -1, -1, -1, -1, -2, -3
+# ]
+#
+# KING_OPENING_PST = [
+#      5,  4,  3,  0,  1,  2,  4,  5,
+#      1,  0, -1, -1, -1, -1,  0,  1,
+#     -1, -2, -3, -4, -4, -3, -2, -1,
+#     -2, -3, -4, -5, -5, -4, -3, -2,
+#     -2, -3, -4, -5, -5, -4, -3, -2,
+#     -1, -2, -3, -4, -4, -3, -2, -1,
+#      1,  0, -1, -1, -1, -1,  0,  1,
+#      5,  4,  3,  0,  1,  2,  4,  5,
+# ]
+#
+# KING_ENDGAME_PST = [
+#     -3, -2, -1, -1, -1, -1, -2, -3,
+#     -2, -1,  0,  1,  1,  0, -1, -2,
+#     -1,  0,  1,  2,  2,  1,  0, -1,
+#      0,  1,  3,  4,  4,  3,  1,  0,
+#      0,  1,  3,  4,  4,  3,  1,  0,
+#     -1,  0,  1,  2,  2,  1,  0, -1,
+#     -2, -1,  0,  1,  1,  0, -1, -2,
+#     -3, -2, -1, -1, -1, -1, -2, -3
+# ]
+#
+#
+#
+# bishop_pair = 30
+# doubled_pawn = - 15
+# isolated_pawn = -20
+# passed_pawn = 45
+# mobility = 3
+# activity_scale = 0.02
+# king_open_file = -50
+# rook_open_file = 20
+# tempo = 10
 
 #transposition table
 class TTFlag(enum.Enum):
+    # TODO: change to type allias
     __slots__ = ()
     UPPER_BOUND = 0
     LOWER_BOUND = 1
@@ -119,7 +120,7 @@ def _move_order_score(board: Board, move: Move, tt_move=None):
     if move == tt_move:
         score += 10
 
-    if board.is_move_check(move):
+    if board.is_move_check(move): # TODO: make lazy, so no push/pop
         score += 5
 
     if board.is_capture(move):
@@ -179,7 +180,50 @@ class ObjectPool:
         self._queue.put_nowait(item)
 
 
-async def search(board, alpha, beta, depth, loop, buffer, obj_pool, tt, req_cycle=2):
+class SearchLogger:
+    data = {
+        "root": {"moves": [], "move evaluations": [], "evaluation": 0, "depth": 0}
+    }
+    nodes = 0
+
+
+    def log_intro(self, root, move: str, depth):
+        self.nodes += 1
+        new_path = f"{root}/{move}"
+        self.data[root]["moves"].append(move)
+        self.data[root]["depth"] = depth
+
+        self.data[new_path] = {"moves": [], "move evaluations": [], "evaluation": 0, "depth": 0}
+        return new_path
+
+    def log_outro(self, path, evaluation):
+        new_path = "/".join(path.split("/")[:-1])
+        self.data[path]["evaluation"] = evaluation
+        if new_path:
+            self.data[new_path]["move evaluations"].append(evaluation)
+
+
+    def print_dict(self):
+        with open("log.txt", "w", encoding="utf-8") as file:
+            file.write(json.dumps(self.data, indent=4))
+            file.write("\n")
+            file.flush()
+        # print(json.dumps(self.data, indent=4))
+
+    def view_dict(self):
+        try:
+            path = input("\nInput the path to check the values: ")
+            temp = self.data[path]
+            print(f"path: {path}")
+            print(f"moves: {temp['moves']}")
+            print(f"path evaluation: {temp['evaluation']}")
+            print(f"move evaluations: {temp['move evaluations']}")
+            print(f"depth: {temp['depth']}")
+        except BaseException:
+            print("There is no such path")
+
+
+async def search(board, alpha, beta, depth, loop, buffer, obj_pool, tt, req_cycle=2, *, logger: SearchLogger, root: str="root"):
     entry_move = None
     # checks if the position had already been analysed.
     entry = tt.get(board.hash)
@@ -204,13 +248,15 @@ async def search(board, alpha, beta, depth, loop, buffer, obj_pool, tt, req_cycl
     #     return EvaluationNNUE.forward(board)[0] * color
     print(f"Searching at depth-until-bottom ({depth})")
     if depth == 1:
-        return await evaluate_max_depth(board, -beta, -alpha, loop, buffer, obj_pool, tt) * color
+        return await evaluate_max_depth(board, -beta, -alpha, loop, buffer, obj_pool, tt, logger=logger, root=root) * color
     best = -math.inf
     best_move = None
     board_state = BitBoardState.from_board(board)
     task_buffer = []
     working = True
     move_gen = move_ordering(board, list(board.generate_legal_moves()), entry_move)
+
+
     while working:
         print(f"starting a cycle with step: {req_cycle}")
         for _ in range(req_cycle):
@@ -218,6 +264,8 @@ async def search(board, alpha, beta, depth, loop, buffer, obj_pool, tt, req_cycl
             if move is None:
                 working = False
                 break
+            # logging logic
+            branch = logger.log_intro(root, move.uci(), depth)
 
             temp_board = await obj_pool.borrow_obj()
             print(f"Borrowing object {temp_board}")
@@ -228,7 +276,7 @@ async def search(board, alpha, beta, depth, loop, buffer, obj_pool, tt, req_cycl
             print(f"pushed move {move.uci()}")
 
             temp_board.construct()
-            task = asyncio.create_task(search(temp_board, -beta, -alpha, depth-1, loop, buffer, obj_pool, tt))
+            task = asyncio.create_task(search(temp_board, -beta, -alpha, depth-1, loop, buffer, obj_pool, tt, logger=logger, root=branch))
             task.metadata = move.uci()
             task_buffer.append(task)
 
@@ -252,6 +300,7 @@ async def search(board, alpha, beta, depth, loop, buffer, obj_pool, tt, req_cycl
         task_buffer.clear()
 
     best_move = Move.from_uci(best_move)
+    logger.log_outro(root, best)
 
     # records the position into the table
     if best <= original_alpha:
@@ -268,7 +317,7 @@ async def search(board, alpha, beta, depth, loop, buffer, obj_pool, tt, req_cycl
 
     return best
 
-async def evaluate_max_depth(board, alpha, beta, loop: asyncio.AbstractEventLoop, buffer: asyncio.Queue, obj_pool, tt, req_cycle=5):
+async def evaluate_max_depth(board, alpha, beta, loop: asyncio.AbstractEventLoop, buffer: asyncio.Queue, obj_pool, tt, req_cycle=5, *, logger: SearchLogger, root: str):
     print("Max depth reach")
     entry_move = None
     # checks if the position had already been analysed.
@@ -309,11 +358,12 @@ async def evaluate_max_depth(board, alpha, beta, loop: asyncio.AbstractEventLoop
     for next_ready_future in asyncio.as_completed(result_buffer):
         result = await next_ready_future
         print("working on the futures objects")
-        best = max(best, result)
+        best = max(best, result.item())
 
-        alpha = max(alpha, result)
+        alpha = max(alpha, best)
         if alpha >= beta:
             break
+    logger.log_outro(root, best)
 
     return best
 
@@ -371,7 +421,7 @@ async def batch_processor(request_queue: asyncio.Queue, max_batch_size: int, gpu
             batch = []
 
 
-async def evaluate(board, alpha, beta, depth, req_cycle=2):
+async def evaluate(board, alpha, beta, depth, req_cycle=2, *, debug=False):
     max_size = 10
 
     transposition_table = {}
@@ -384,12 +434,15 @@ async def evaluate(board, alpha, beta, depth, req_cycle=2):
     color = 1 if board.turn == WHITE else -1
     temp_board = await obj_pool.borrow_obj()
     temp_board.copy_from(board)
-
-    res = await search(board, alpha, beta, depth, loop, buffer, obj_pool, transposition_table, req_cycle) * color
+    logger = SearchLogger()
+    res = await search(board, alpha, beta, depth, loop, buffer, obj_pool, transposition_table, req_cycle, logger=logger) * color
     print(f"result = {res}")
 
     await buffer.put(None)
     await buffer_task
+
+    for _ in range(3):
+        logger.view_dict()
 
 
 # TODO: make depth incremental (going up by 1)
