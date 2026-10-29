@@ -3,100 +3,14 @@ import math
 from typing import TypeAlias
 import asyncio
 
-from .util import *
 from .loader import Board
-from .logger import *
 from .nn import *
 
 
-# Material: TypeAlias = int
-# #all in centipawns
-# PAWN_MATERIAL: Material = 100
-# KNIGHT_MATERIAL: Material = 300
-# BISHOP_MATERIAL: Material = 300
-# ROOK_MATERIAL: Material = 500
-# QUEEN_MATERIAL: Material = 900
-#
-# PieceSquareTable: TypeAlias = list
-# KNIGHT_PST: PieceSquareTable = [
-#     -5, -4, -3, -2, -2, -3, -4, -5,
-#     -4, -2,  0,  1,  1,  0, -2, -4,
-#     -3,  0,  2,  3,  3,  2,  0, -3,
-#     -2,  1,  3,  4,  4,  3,  1, -2,
-#     -2,  1,  3,  4,  4,  3,  1, -2,
-#     -3,  0,  2,  3,  3,  2,  0, -3,
-#     -4, -2,  0,  1,  1,  0, -2, -4,
-#     -5, -4, -3, -2, -2, -3, -4, -5
-# ]
-#
-# BISHOP_PST = [
-#     -3, -2, -1, -1, -1, -1, -2, -3,
-#     -2, -1,  0,  1,  1,  0, -1, -2,
-#     -1,  0,  1,  2,  2,  1,  0, -1,
-#      0,  1,  3,  4,  4,  3,  1,  0,
-#      0,  1,  3,  4,  4,  3,  1,  0,
-#     -1,  0,  1,  2,  2,  1,  0, -1,
-#     -2, -1,  0,  1,  1,  0, -1, -2,
-#     -3, -2, -1, -1, -1, -1, -2, -3
-# ]
-#
-# ROOK_PST = [
-#      5,  5,  5,  5,  5,  5,  5,  5,
-#     20, 20, 20, 20, 20, 20, 20, 20,
-#      0,  0,  0,  5,  5,  0,  0,  0,
-#      0,  0,  0,  5,  5,  0,  0,  0,
-#      0,  0,  0,  5,  5,  0,  0,  0,
-#      0,  0,  0,  5,  5,  0,  0,  0,
-#     15, 15, 15, 15, 15, 15, 15, 15,
-#      5,  5,  5,  5,  5,  5,  5,  5
-# ]
-#
-# QUEEN_PST = [
-#     -3, -2, -1, -1, -1, -1, -2, -3,
-#     -2, -1,  0,  1,  1,  0, -1, -2,
-#     -1,  0,  1,  2,  2,  1,  0, -1,
-#      0,  1,  3,  4,  4,  3,  1,  0,
-#      0,  1,  3,  4,  4,  3,  1,  0,
-#     -1,  0,  1,  2,  2,  1,  0, -1,
-#     -2, -1,  0,  1,  1,  0, -1, -2,
-#     -3, -2, -1, -1, -1, -1, -2, -3
-# ]
-#
-# KING_OPENING_PST = [
-#      5,  4,  3,  0,  1,  2,  4,  5,
-#      1,  0, -1, -1, -1, -1,  0,  1,
-#     -1, -2, -3, -4, -4, -3, -2, -1,
-#     -2, -3, -4, -5, -5, -4, -3, -2,
-#     -2, -3, -4, -5, -5, -4, -3, -2,
-#     -1, -2, -3, -4, -4, -3, -2, -1,
-#      1,  0, -1, -1, -1, -1,  0,  1,
-#      5,  4,  3,  0,  1,  2,  4,  5,
-# ]
-#
-# KING_ENDGAME_PST = [
-#     -3, -2, -1, -1, -1, -1, -2, -3,
-#     -2, -1,  0,  1,  1,  0, -1, -2,
-#     -1,  0,  1,  2,  2,  1,  0, -1,
-#      0,  1,  3,  4,  4,  3,  1,  0,
-#      0,  1,  3,  4,  4,  3,  1,  0,
-#     -1,  0,  1,  2,  2,  1,  0, -1,
-#     -2, -1,  0,  1,  1,  0, -1, -2,
-#     -3, -2, -1, -1, -1, -1, -2, -3
-# ]
-#
-#
-#
-# bishop_pair = 30
-# doubled_pawn = - 15
-# isolated_pawn = -20
-# passed_pawn = 45
-# mobility = 3
-# activity_scale = 0.02
-# king_open_file = -50
-# rook_open_file = 20
-# tempo = 10
 
 #transposition table
+
+
 class TTFlag(enum.Enum):
     # TODO: change to type allias
     __slots__ = ()
@@ -134,13 +48,13 @@ def _move_order_score(board: Board, move: Move, tt_move=None):
 
 
 def move_ordering(board: Board, moves: list[Move], tt_move=None):
-    print("move ordering start")
-    board.construct()
-    yield from sorted(
+    moves = sorted(
         moves,
         key=lambda x: _move_order_score(board, x, tt_move),
         reverse=True
     )
+    print(moves)
+    yield from moves
 
 
 async def async_as_completed(aws):
@@ -204,6 +118,7 @@ class SearchLogger:
 
 
     def print_dict(self):
+        import json
         with open("log.txt", "w", encoding="utf-8") as file:
             file.write(json.dumps(self.data, indent=4))
             file.write("\n")
@@ -224,6 +139,13 @@ class SearchLogger:
 
 
 async def search(board, alpha, beta, depth, loop, buffer, obj_pool, tt, req_cycle=2, *, logger: SearchLogger, root: str="root"):
+    color = 1 if board.turn == WHITE else -1
+    outcome = board.outcome()
+    if outcome == GameResult.CHECKMATE:
+        return INF * color
+    elif outcome != GameResult.ONGOING:
+        return 0
+
     entry_move = None
     # checks if the position had already been analysed.
     entry = tt.get(board.hash)
@@ -248,8 +170,8 @@ async def search(board, alpha, beta, depth, loop, buffer, obj_pool, tt, req_cycl
     #     return EvaluationNNUE.forward(board)[0] * color
     print(f"Searching at depth-until-bottom ({depth})")
     if depth == 1:
-        return await evaluate_max_depth(board, -beta, -alpha, loop, buffer, obj_pool, tt, logger=logger, root=root) * color
-    best = -math.inf
+        return await evaluate_max_depth(board, -beta, -alpha, loop, buffer, tt, req_cycle, logger=logger, root=root) * color
+    best = -INF
     best_move = None
     board_state = BitBoardState.from_board(board)
     task_buffer = []
@@ -271,24 +193,26 @@ async def search(board, alpha, beta, depth, loop, buffer, obj_pool, tt, req_cycl
             print(f"Borrowing object {temp_board}")
             temp_board.restore(board_state)
 
-            print(f"trying to push move {move.uci()}")
+            # print(f"trying to push move {move.uci()}")
             temp_board.push(move, add_history=False)
             print(f"pushed move {move.uci()}")
 
             temp_board.construct()
-            task = asyncio.create_task(search(temp_board, -beta, -alpha, depth-1, loop, buffer, obj_pool, tt, logger=logger, root=branch))
+            task = asyncio.create_task(search(temp_board, -beta, -alpha, depth-1, loop, buffer, obj_pool, tt, req_cycle=req_cycle, logger=logger, root=branch))
             task.metadata = move.uci()
             task_buffer.append(task)
 
 
-        print("starting to wait for responce")
+        # print("starting to wait for responce")
         async for next_ready_future in async_as_completed(task_buffer):
             # move = next_ready_future.metadata
             evaluation = await next_ready_future
-            print("Got a response")
+
+            # print("Got a response")
             evaluation *= color
             if evaluation > best:
                 best = evaluation
+
                 best_move = next_ready_future.metadata
 
 
@@ -311,13 +235,13 @@ async def search(board, alpha, beta, depth, loop, buffer, obj_pool, tt, req_cycl
         flag = TTFlag.EXACT
 
     tt[board.hash] = TTEntree(depth, best, flag, best_move)
-    print(f"returning object {board}")
+    # print(f"returning object {board}")
     obj_pool.return_obj(board)
 
 
     return best
 
-async def evaluate_max_depth(board, alpha, beta, loop: asyncio.AbstractEventLoop, buffer: asyncio.Queue, obj_pool, tt, req_cycle=5, *, logger: SearchLogger, root: str):
+async def evaluate_max_depth(board, alpha, beta, loop: asyncio.AbstractEventLoop, buffer: asyncio.Queue, tt, req_cycle=1, *, logger: SearchLogger, root: str):
     print("Max depth reach")
     entry_move = None
     # checks if the position had already been analysed.
@@ -335,36 +259,46 @@ async def evaluate_max_depth(board, alpha, beta, loop: asyncio.AbstractEventLoop
         if alpha > beta:
             return entry.score
 
+    best = -INF
+    working = True
     result_buffer = []
-    print("starting to send requests")
-    for move in move_ordering(board, list(board.generate_legal_moves()), entry_move):
-        print(f"max depth move ({move.uci()})")
-        print()
-        board.push(move)
-        print("pushed the move")
-        future = loop.create_future()
-        request = EvaluationNNUE.build_input(board)
-        result_buffer.append(future)
-        await buffer.put((request, future))
-        board.pop()
-        print("sent a request")
+    move_gen = move_ordering(board, list(board.generate_legal_moves()), entry_move)
+    # print("starting to send requests")
+    while working:
+        print(f"starting a cycle with step: {req_cycle}")
+        for _ in range(req_cycle):
+            move = next(move_gen, None)
+            if move is None:
+                working = False
+                break
+            # logging logic
+            # branch = logger.log_intro(root, move.uci(), depth)
 
-    print(f"returning object {board}")
-    obj_pool.return_obj(board)
+            # print(f"trying to push move {move.uci()}")
+            print(f"max depth move ({move.uci()})")
+            print()
+            board.push(move)
 
+            request = EvaluationNNUE.build_input(board)
+            future = loop.create_future()
+            future.metadata = move.uci()
 
-    best = -math.inf
-    print("starting to wait for the responce")
-    for next_ready_future in asyncio.as_completed(result_buffer):
-        result = await next_ready_future
-        print("working on the futures objects")
-        best = max(best, result.item())
+            result_buffer.append(future)
+            await buffer.put((request, future))
+            board.pop()
+    # print("starting to wait for the responce")
+        async for next_ready_future in async_as_completed(result_buffer):
+            result = await next_ready_future
+            print(f"got result for move: {next_ready_future.metadata}")
+            # print("working on the futures objects")
+            print(result)
+            best = max(best, result)
 
-        alpha = max(alpha, best)
+            alpha = max(alpha, best)
         if alpha >= beta:
             break
     logger.log_outro(root, best)
-
+    print("quit max depth")
     return best
 
 async def batch_processor(request_queue: asyncio.Queue, max_batch_size: int, gpu: GPU, timeout:float=0.5):
@@ -374,6 +308,11 @@ async def batch_processor(request_queue: asyncio.Queue, max_batch_size: int, gpu
     while True:
         if not batch:
             # try:
+            print("\nwaiting for request_queue")
+            loop = asyncio.get_running_loop()
+            print(asyncio.all_tasks(loop))
+            print(batch)
+            print()
             item = await request_queue.get()
             if item is None:
                 request_queue.task_done()
@@ -391,6 +330,7 @@ async def batch_processor(request_queue: asyncio.Queue, max_batch_size: int, gpu
             try:
                 item = await asyncio.wait_for(request_queue.get(), timeout=timeout)
                 if item is None:
+                    print("None is passed, done")
                     request_queue.task_done()
                     if batch:
                         results = await gpu.evaluate(batch, len(batch))
@@ -398,6 +338,7 @@ async def batch_processor(request_queue: asyncio.Queue, max_batch_size: int, gpu
                         for item, res in zip(batch, results):
                             _, future = item
                             future.set_result(res)
+                            print(future.metadata)
                         print("set results to futures")
                     return
 
@@ -407,12 +348,16 @@ async def batch_processor(request_queue: asyncio.Queue, max_batch_size: int, gpu
             except asyncio.TimeoutError:
                 break
 
+        print(f"len batch is < {max_batch_size} ({len(batch)})")
         if batch:
+            print(f"is batch empty: {batch == []}")
             results = await gpu.evaluate(batch, len(batch))
+            print("gpu had evaluated")
             print("got results from gpu")
             for item, res in zip(batch, results):
                 _, future = item
                 future.set_result(res)
+
                 # if not future.done():
                 #     # call_soon не переключает контекст на клиента мгновенно.
                 #     # Он просто регистрирует событие завершения. Воркер спокойно дойдет до конца цикла!
@@ -421,7 +366,7 @@ async def batch_processor(request_queue: asyncio.Queue, max_batch_size: int, gpu
             batch = []
 
 
-async def evaluate(board, alpha, beta, depth, req_cycle=2, *, debug=False):
+async def evaluate(board, alpha, beta, depth, req_cycle=1):
     max_size = 10
 
     transposition_table = {}
@@ -438,11 +383,44 @@ async def evaluate(board, alpha, beta, depth, req_cycle=2, *, debug=False):
     res = await search(board, alpha, beta, depth, loop, buffer, obj_pool, transposition_table, req_cycle, logger=logger) * color
     print(f"result = {res}")
 
+    print("\nputting None")
     await buffer.put(None)
     await buffer_task
 
-    for _ in range(3):
-        logger.view_dict()
+    # for _ in range(3):
+    #     logger.view_dict()
 
 
 # TODO: make depth incremental (going up by 1)
+
+async def best_move_cpu(board, depth):
+    alpha = -INF
+    beta = INF
+    max_size = 10
+
+    transposition_table = {}
+    loop = asyncio.get_running_loop()
+    buffer = asyncio.Queue()
+    gpu = GPU()
+    buffer_task = asyncio.create_task(batch_processor(buffer, max_size, gpu, 0.1))
+    obj_pool = ObjectPool(max_size, type(board))
+
+    color = 1 if board.turn == WHITE else -1
+    temp_board = await obj_pool.borrow_obj()
+    temp_board.copy_from(board)
+    logger = SearchLogger()
+    eval = await search(board, alpha, beta, depth, loop, buffer, obj_pool, transposition_table, logger=logger) * color
+    print("finish searching")
+    await buffer.put(None)
+    await buffer_task
+
+    if transposition_table.get(board.hash, None):
+        best_move = transposition_table.get(board.hash, None).best_move
+    else:
+        best_move = None
+
+    return best_move, eval
+
+
+
+

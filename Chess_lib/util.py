@@ -444,9 +444,9 @@ class BitBoardState:
         self.hash = 0
         self.turn = 0
 
-        self.white_accumulator = np.zeros(128)
-        self.black_accumulator = np.zeros(128)
-        self.pawn_nn = np.zeros(8)
+        self.white_accumulator = np.zeros((128, 1))
+        self.black_accumulator = np.zeros((128, 1))
+        self.pawn_nn = np.zeros((8, 1))
 
         self.debug_feature_set_white = tuple()
         self.debug_feature_set_black = tuple()
@@ -536,7 +536,7 @@ class Move:
     @classmethod
     def from_uci(cls, uci):
         if not isinstance(uci, str):
-            raise TypeError("Expected input of type String")
+            raise TypeError(f"Expected input of type String. Given type: {type(uci)}")
         if not (4 <= len(uci) <= 5):
             raise InvalidMoveException(f"Invalid uci {uci}")
 
@@ -633,10 +633,13 @@ class ZobristHasher:
 
 # -----------------------------------------------------------------------------------------------------------------------------
 # Engine Related
+# TODO: change to some huge number. right now, for the training purpose, good enough
+import math
+INF = math.inf
 
 NP_RNG_SEED = 0
 def generate_feature_table(rng, size):
-    return rng.standard_normal(size)
+    return rng.random(size)
 
 
 """
@@ -648,7 +651,7 @@ def generate_feature_table(rng, size):
 """
 table_rng = np.random.default_rng(NP_RNG_SEED)
 
-feature_table = generate_feature_table(table_rng, (6 * 2 * 64 * 64, 128))
+feature_table = generate_feature_table(table_rng, (6 * 2 * 64 * 64, 128, 1))
 
 # checks_feature_table = generate_feature_table((2 * 6 * 64))
 # pinned_feature_table = generate_feature_table((2 * 6 * 64 * 64))
@@ -656,7 +659,7 @@ feature_table = generate_feature_table(table_rng, (6 * 2 * 64 * 64, 128))
 
 
 def build_accumulator(board, color):
-    features_vector = np.zeros(128)
+    features_vector = np.zeros((128, 1))
     # print(f"accumulator for {COLOR_NAME[color]}")
     # print("adding features")
     for sq in scan_backward_bb(board.occupancy):

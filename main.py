@@ -17,72 +17,61 @@ from Chess_lib.engine import *
 # diagonal pin : "4k3/8/8/8/7q/8/5N2/4K3 w KQkq - 0 1"
 # empty : "8/8/8/8/8/8/8/8 w - - 0 1"
 
-# bit_board = Board.from_fen("3k3r3/8/8/8/8/8/8/R3K3 w - - 0 1")
-# bit_board.construct()
-#
-# # PLAN
-# # - half kp set up
-# # - pgn
-#
-#
-#
-# while True:
-#     legal = list(bit_board.generate_legal_moves())
-#     print("possible moves")
-#     print(legal)
-#
-#     move = bit_board.parse_san(input("san: "))
-#     bit_board.push(move)
-#     bit_board.construct()
-#     print(bit_board.outcome())
-
-#
-# bit_board = Board.from_fen("r2k4/8/8/8/8/8/8/R3K3 b - - 0 1")
-# engine = Engine(bit_board, 100, -100, 10)
-#
-# best_move = engine.generate()
-# print("best move")
-# print(best_move)
-# # print(len(logger.data.keys()))
-
-
-# task to make a buffer that sends batches of size MAX SIZE in a function send_request
 #
 """ 
 PLAN:
- - Work on GPU NN evaluation
- - read a few articles on the chess attention and add them if can to nn
+- if checkmate, return inf val or 0 if draw
+- account for the error, and save the weights
+- Prep the model for back propagation
  - start training model
+ 
+ 
+ 
+ 
+ 
+ - think of GAB?
+  - Work on GPU NN evaluation
  - look for ways to optimise (aka the dfs batching and gpu batching - maybe incremental batching? )
  - connect gpu to the searcher.
+ 
+ IDEA (for after the GPU code)
+ - Geometric Attention Bias for move ordering
+ - Uses the GAB for a pure policy (gives % prob to all moves) every n nodes (3 but decide later via testing)
+ - This could speed the search and lessen the number of nodes searching
+ LIMITATION
+ - Can cause the GPU resource sharing issue
+ - would only be called n moves, before the gpu starts evaluating. THen locks and blocks any requests (checkable before sending requests)
+ - Issue with incremental depth
  
 *** Start writing docs for finished functions
 """
 
 from Chess_lib import *
 from Chess_lib.engine import *
+import numpy as np
+import numpy.random
 
-board = Board.from_fen("3k4/8/8/8/8/8/8/4K3 b - - 0 1")
-start = time.time()
-asyncio.run(evaluate(board, -1000, 1000, 2))
-end = time.time()
-print(f"took {end-start:.2f} sec")
+import time
 
 
-# print("\npush d8d7")
-# board.push(Move.from_uci("d8d7"), add_history=False)
+# board = Board.from_fen("7k/Q7/8/8/8/8/8/4K3 w - - 0 1")
 # board.construct()
-# temp = Board()
-# temp.copy_from(board)
-# print(temp.is_move_check(Move.from_uci("e1d1")))
-# print("\npush e1d1")
-# board.push(Move.from_uci("e1d1"))
-# board.construct()
+#
+# move = Move.from_uci(input("move: "))
+# board.push(move)
+#
+# start = time.time()
+# asyncio.run(evaluate(board, -1000, 1000, 2))
+# end = time.time()
+# print(f"took {end-start:.2f} sec")
 
-
-# for 2 node dfs, optimal set up is depth 7. WE need to find a way to adapt it (depth higher, less nodes in beginnig, else more nodes)
-# need to time gpu to see the most efficient work load batch
-
+# res = EvaluationNNUE.forward(np.zeros(EvaluationNNUE.input_shape))
+# print(res)
+#
+# grad = np.array([10])
+# learning_rate = 0.1
+# EvaluationNNUE.back_propagation(grad, learning_rate)
+# # test that the back prop works
 
 
 

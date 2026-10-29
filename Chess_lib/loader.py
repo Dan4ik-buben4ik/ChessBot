@@ -38,8 +38,8 @@ class Board:
         self.repetition_table = {}
 
         # engine related
-        self.nnue = [np.zeros(128), np.zeros(128)]
-        self.pawn_nn = np.zeros(8)
+        self.nnue = [np.zeros((128, 1)), np.zeros((128, 1))]
+        self.pawn_nn = np.zeros((8, 1))
         self.debug_feature_indexes = [set(), set()]
 
 
@@ -70,7 +70,7 @@ class Board:
             return None
 
     def set_piece_at(self, square, piece_type, color):
-        print(f"\nadd piece ({COLOR_NAME[color]} {PIECE_NAME[piece_type]}) on {SQUARE_NAMES[square]}")
+        # print(f"\nadd piece ({COLOR_NAME[color]} {PIECE_NAME[piece_type]}) on {SQUARE_NAMES[square]}")
         bit = 1 << square
         if piece_type == PAWN:
             self.pawns |= bit
@@ -322,7 +322,7 @@ class Board:
         #
         # print("Kings")
         # bitprint(self.kings)
-        print(f"\nPush move: {move.uci()}, turn {COLOR_NAME[self.turn]}")
+        # print(f"\nPush move: {move.uci()}, turn {COLOR_NAME[self.turn]}")
 
 
 
@@ -413,12 +413,12 @@ class Board:
 
         # nnue assertion check
         for assert_color in range(2):
-            print(f"After Push Assertion test for colour {COLOR_NAME[assert_color]}", end="")
+            # print(f"After Push Assertion test for colour {COLOR_NAME[assert_color]}", end="")
             try:
                 np.testing.assert_almost_equal(self.nnue[assert_color], build_accumulator(self, assert_color), decimal=5)
-                print(" - Passed\n")
+                # print(" - Passed\n")
             except BaseException:
-                print(" - Failed")
+                print(f"After Push Assertion test for colour {COLOR_NAME[assert_color]}", " - Failed")
                 difference = self.debug_feature_indexes[assert_color].symmetric_difference(debug_features_set(self, assert_color))
                 print("differences")
                 for f in difference:
