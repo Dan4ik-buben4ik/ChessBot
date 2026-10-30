@@ -1,11 +1,9 @@
-import dataclasses
 import math
 from typing import TypeAlias
-import asyncio
+import enum
 
 from .util import *
 from .loader import Board
-from .logger import *
 from .nn import *
 
 
@@ -96,13 +94,11 @@ from .nn import *
 # rook_open_file = 20
 # tempo = 10
 
-#transposition table
-class TTFlag(enum.Enum):
-    # TODO: change to type allias
-    __slots__ = ()
-    UPPER_BOUND = 0
-    LOWER_BOUND = 1
-    EXACT = 2
+#transposition table flags
+TTFlag: TypeAlias = int
+UPPER_BOUND = 0
+LOWER_BOUND = 1
+EXACT = 2
 
 
 class TTEntree:
@@ -134,8 +130,6 @@ def _move_order_score(board: Board, move: Move, tt_move=None):
 
 
 def move_ordering(board: Board, moves: list[Move], tt_move=None):
-    print("move ordering start")
-    board.construct()
     yield from sorted(
         moves,
         key=lambda x: _move_order_score(board, x, tt_move),
@@ -143,41 +137,8 @@ def move_ordering(board: Board, moves: list[Move], tt_move=None):
     )
 
 
-async def async_as_completed(aws):
-    done_queue = asyncio.Queue()
-
-    tasks = [asyncio.ensure_future(aw) for aw in set(aws)]
-
-    for task in tasks:
-        task.add_done_callback(done_queue.put_nowait)
-
-    for _ in range(len(tasks)):
-        yield await done_queue.get()
 
 
-class ObjectPool:
-    def __init__(self, size, object_type):
-        if not isinstance(object_type, type):
-            raise TypeError("object_type is expected be a type object")
-
-        self._queue = asyncio.Queue()
-        self._count = size
-        self._type = object_type
-        for _ in range(size):
-            self._queue.put_nowait(object_type())
-
-    async def borrow_obj(self):
-        if self._count == 0:
-            new_obj = self._type
-            return new_obj()
-        self._count -= 1
-        return await self._queue.get()
-
-    def return_obj(self, item):
-        if not isinstance(item, self._type):
-            raise TypeError(f"Expect the item to be of a type {self._type}")
-        self._count += 1
-        self._queue.put_nowait(item)
 
 
 class SearchLogger:
@@ -205,6 +166,7 @@ class SearchLogger:
 
     def print_dict(self):
         with open("log.txt", "w", encoding="utf-8") as file:
+            import json
             file.write(json.dumps(self.data, indent=4))
             file.write("\n")
             file.flush()
@@ -223,18 +185,27 @@ class SearchLogger:
             print("There is no such path")
 
 
-async def search(board, alpha, beta, depth, loop, buffer, obj_pool, tt, req_cycle=2, *, logger: SearchLogger, root: str="root"):
+def search(board, alpha, beta, depth, boundary, tt, *, logger: SearchLogger, root: str="root"):
+    color = 1 if board.turn == WHITE else -1
+    outcome = board.outcome()
+    print(outcome)
+    if outcome == GameResult.CHECKMATE:
+        return INF * color
+    elif outcome != GameResult.ONGOING:
+        return 0
+
     entry_move = None
     # checks if the position had already been analysed.
     entry = tt.get(board.hash)
     if entry and entry.depth >= depth:
+        print(entry.depth, depth, entry.depth >= depth)
         entry_move = entry.best_move
 
-        if entry.flag == TTFlag.EXACT:
+        if entry.flag == EXACT:
             return entry.score
-        elif entry.flag == TTFlag.LOWER_BOUND:
+        elif entry.flag == LOWER_BOUND:
             alpha = max(alpha, entry.score)
-        elif entry.flag == TTFlag.UPPER_BOUND:
+        elif entry.flag == UPPER_BOUND:
             beta = min(beta, entry.score)
 
         if alpha > beta:
@@ -243,206 +214,92 @@ async def search(board, alpha, beta, depth, loop, buffer, obj_pool, tt, req_cycl
     # sets up the variables needed post evaluation
     original_alpha = alpha
     original_beta = beta
-    color = 1 if board.turn == WHITE else -1
-    # if board.outcome() != GameResult.ONGOING:
-    #     return EvaluationNNUE.forward(board)[0] * color
-    print(f"Searching at depth-until-bottom ({depth})")
-    if depth == 1:
-        return await evaluate_max_depth(board, -beta, -alpha, loop, buffer, obj_pool, tt, logger=logger, root=root) * color
-    best = -math.inf
+
+    if board.outcome() != GameResult.ONGOING:
+        input_vector = EvaluationNNUE.build_input(board)
+        return EvaluationNNUE.forward(input_vector) * color
+    print(f"Searching at depth ({depth}) with boundary: {boundary}")
+
     best_move = None
-    board_state = BitBoardState.from_board(board)
-    task_buffer = []
-    working = True
-    move_gen = move_ordering(board, list(board.generate_legal_moves()), entry_move)
-
-
-    while working:
-        print(f"starting a cycle with step: {req_cycle}")
-        for _ in range(req_cycle):
-            move = next(move_gen, None)
-            if move is None:
-                working = False
-                break
-            # logging logic
-            branch = logger.log_intro(root, move.uci(), depth)
-
-            temp_board = await obj_pool.borrow_obj()
-            print(f"Borrowing object {temp_board}")
-            temp_board.restore(board_state)
-
-            print(f"trying to push move {move.uci()}")
-            temp_board.push(move, add_history=False)
-            print(f"pushed move {move.uci()}")
-
-            temp_board.construct()
-            task = asyncio.create_task(search(temp_board, -beta, -alpha, depth-1, loop, buffer, obj_pool, tt, logger=logger, root=branch))
-            task.metadata = move.uci()
-            task_buffer.append(task)
-
-
-        print("starting to wait for responce")
-        async for next_ready_future in async_as_completed(task_buffer):
-            # move = next_ready_future.metadata
-            evaluation = await next_ready_future
-            print("Got a response")
-            evaluation *= color
-            if evaluation > best:
-                best = evaluation
-                best_move = next_ready_future.metadata
-
-
-            alpha = max(alpha, evaluation)
-
-            if alpha >= beta:
-                working = False
-                break
-        task_buffer.clear()
-
-    best_move = Move.from_uci(best_move)
-    logger.log_outro(root, best)
-
-    # records the position into the table
-    if best <= original_alpha:
-        flag = TTFlag.UPPER_BOUND
-    elif best >= original_beta:
-        flag = TTFlag.LOWER_BOUND
-    else:
-        flag = TTFlag.EXACT
-
-    tt[board.hash] = TTEntree(depth, best, flag, best_move)
-    print(f"returning object {board}")
-    obj_pool.return_obj(board)
-
-
-    return best
-
-async def evaluate_max_depth(board, alpha, beta, loop: asyncio.AbstractEventLoop, buffer: asyncio.Queue, obj_pool, tt, req_cycle=5, *, logger: SearchLogger, root: str):
-    print("Max depth reach")
-    entry_move = None
-    # checks if the position had already been analysed.
-    entry = tt.get(board.hash)
-    if entry and entry.depth >= 0:
-        entry_move = entry.best_move
-
-        if entry.flag == TTFlag.EXACT:
-            return entry.score
-        elif entry.flag == TTFlag.LOWER_BOUND:
-            alpha = max(alpha, entry.score)
-        elif entry.flag == TTFlag.UPPER_BOUND:
-            beta = min(beta, entry.score)
-
-        if alpha > beta:
-            return entry.score
-
-    result_buffer = []
-    print("starting to send requests")
+    best = -INF
     for move in move_ordering(board, list(board.generate_legal_moves()), entry_move):
-        print(f"max depth move ({move.uci()})")
+        print(f"depth {depth} move ({move.uci()})")
         print()
         board.push(move)
-        print("pushed the move")
-        future = loop.create_future()
-        request = EvaluationNNUE.build_input(board)
-        result_buffer.append(future)
-        await buffer.put((request, future))
+
+        if depth >= boundary:
+            print("hit boundary")
+            input_vector = EvaluationNNUE.build_input(board)
+            evaluation = EvaluationNNUE.forward(input_vector).item()
+
+        else:
+            print("searching deeper")
+            branch = logger.log_intro(root, move.uci(), depth)
+            evaluation = -search(board, -beta, -alpha, depth+1, boundary, tt, logger=logger, root=branch)
         board.pop()
-        print("sent a request")
 
-    print(f"returning object {board}")
-    obj_pool.return_obj(board)
-
-
-    best = -math.inf
-    print("starting to wait for the responce")
-    for next_ready_future in asyncio.as_completed(result_buffer):
-        result = await next_ready_future
-        print("working on the futures objects")
-        best = max(best, result.item())
+        if evaluation > best:
+            best = evaluation
+            best_move = move
 
         alpha = max(alpha, best)
         if alpha >= beta:
             break
+
     logger.log_outro(root, best)
+
+    # records the position into the table
+    if best <= original_alpha:
+        flag = UPPER_BOUND
+    elif best >= original_beta:
+        flag = LOWER_BOUND
+    else:
+        flag = EXACT
+
+    tt[board.hash] = TTEntree(depth, best, flag, best_move.uci())
 
     return best
 
-async def batch_processor(request_queue: asyncio.Queue, max_batch_size: int, gpu: GPU, timeout:float=0.5):
-    # make the batch input to GPU w/o future objects
-    batch = []
-
-    while True:
-        if not batch:
-            # try:
-            item = await request_queue.get()
-            if item is None:
-                request_queue.task_done()
-                return
-            batch.append(item)
-            request_queue.task_done()
-            # except asyncio.TimeoutError:
-            #     print("buffer is waiting")
-            #     print(f"{len(asyncio.all_tasks())} are running")
-            #     print(f"batch: {batch}")
-            #     raise
-            #     await asyncio.sleep(0)
-
-        while len(batch) < max_batch_size:
-            try:
-                item = await asyncio.wait_for(request_queue.get(), timeout=timeout)
-                if item is None:
-                    request_queue.task_done()
-                    if batch:
-                        results = await gpu.evaluate(batch, len(batch))
-                        print("got results from gpu")
-                        for item, res in zip(batch, results):
-                            _, future = item
-                            future.set_result(res)
-                        print("set results to futures")
-                    return
-
-                batch.append(item)
-                request_queue.task_done()
-
-            except asyncio.TimeoutError:
-                break
-
-        if batch:
-            results = await gpu.evaluate(batch, len(batch))
-            print("got results from gpu")
-            for item, res in zip(batch, results):
-                _, future = item
-                future.set_result(res)
-                # if not future.done():
-                #     # call_soon не переключает контекст на клиента мгновенно.
-                #     # Он просто регистрирует событие завершения. Воркер спокойно дойдет до конца цикла!
-                #     loop.call_soon(future.set_result, res)
-            print("set results to futures")
-            batch = []
 
 
-async def evaluate(board, alpha, beta, depth, req_cycle=2, *, debug=False):
-    max_size = 10
-
+def evaluate(board, alpha, beta, boundary_depth, *, debug=False):
     transposition_table = {}
-    loop = asyncio.get_running_loop()
-    buffer = asyncio.Queue()
-    gpu = GPU()
-    buffer_task = asyncio.create_task(batch_processor(buffer, max_size, gpu, 0.1))
-    obj_pool = ObjectPool(max_size, type(board))
 
     color = 1 if board.turn == WHITE else -1
-    temp_board = await obj_pool.borrow_obj()
+    temp_board = Board()
     temp_board.copy_from(board)
     logger = SearchLogger()
-    res = await search(board, alpha, beta, depth, loop, buffer, obj_pool, transposition_table, req_cycle, logger=logger) * color
+    res = search(board, alpha, beta, 1, boundary_depth, transposition_table, logger=logger)
+    best_move = None
+    entree = transposition_table.get(board.hash, None)
+    if entree:
+        best_move = entree.best_move
     print(f"result = {res}")
+    print(f"best move: {best_move}")
+    print(f"Positions: {logger.nodes}")
+    # for _ in range(5):
+    #     logger.view_dict()
+    return best_move, res
 
-    await buffer.put(None)
-    await buffer_task
+def incremental_evaluation(board, alpha, beta, time_out):
+    try:
+        import time
+    except ImportError:
+        pass
 
-    for _ in range(3):
-        logger.view_dict()
+    start = time.time()
+    best_move = None
+    res = 0
+    for d in range(1, 100):
+        res, best_move = evaluate(board, alpha, beta, d)
 
+        end = time.time()
+        if end - start >= time_out:
+            print(f"max depth reached {d}")
+            break
+    else:
+        print("reached depth of 100+")
+    print(f"result = {res}")
+    print(f"best move: {best_move}")
 
-# TODO: make depth incremental (going up by 1)
+    return res, best_move

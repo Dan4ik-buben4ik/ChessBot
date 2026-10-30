@@ -17,71 +17,31 @@ from Chess_lib.engine import *
 # diagonal pin : "4k3/8/8/8/7q/8/5N2/4K3 w KQkq - 0 1"
 # empty : "8/8/8/8/8/8/8/8 w - - 0 1"
 
-# bit_board = Board.from_fen("3k3r3/8/8/8/8/8/8/R3K3 w - - 0 1")
-# bit_board.construct()
-#
-# # PLAN
-# # - half kp set up
-# # - pgn
-#
-#
-#
-# while True:
-#     legal = list(bit_board.generate_legal_moves())
-#     print("possible moves")
-#     print(legal)
-#
-#     move = bit_board.parse_san(input("san: "))
-#     bit_board.push(move)
-#     bit_board.construct()
-#     print(bit_board.outcome())
-
-#
-# bit_board = Board.from_fen("r2k4/8/8/8/8/8/8/R3K3 b - - 0 1")
-# engine = Engine(bit_board, 100, -100, 10)
-#
-# best_move = engine.generate()
-# print("best move")
-# print(best_move)
-# # print(len(logger.data.keys()))
-
-
-# task to make a buffer that sends batches of size MAX SIZE in a function send_request
 #
 """ 
 PLAN:
- - Work on GPU NN evaluation
- - read a few articles on the chess attention and add them if can to nn
- - start training model
- - look for ways to optimise (aka the dfs batching and gpu batching - maybe incremental batching? )
- - connect gpu to the searcher.
- 
-*** Start writing docs for finished functions
+ - prepare training environment
+ - create a nnue reading script
+ - aka prep the weights/bias byte object to save to bin files and to initialise from
+ - prep for error conditions
+ IDEA: 
+ - INceremental engine class decorator that wraps around all of the fuction and cuases them to check the clock first
 """
 
 from Chess_lib import *
 from Chess_lib.engine import *
+import time
 
-board = Board.from_fen("3k4/8/8/8/8/8/8/4K3 b - - 0 1")
+board = Board.from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
 start = time.time()
-asyncio.run(evaluate(board, -1000, 1000, 2))
+# incremental_evaluation(board, -10000, 10000, 25)
+evaluate(board, -10000, 10000, 4)
+
 end = time.time()
 print(f"took {end-start:.2f} sec")
 
 
-# print("\npush d8d7")
-# board.push(Move.from_uci("d8d7"), add_history=False)
-# board.construct()
-# temp = Board()
-# temp.copy_from(board)
-# print(temp.is_move_check(Move.from_uci("e1d1")))
-# print("\npush e1d1")
-# board.push(Move.from_uci("e1d1"))
-# board.construct()
 
-
-# for 2 node dfs, optimal set up is depth 7. WE need to find a way to adapt it (depth higher, less nodes in beginnig, else more nodes)
-# need to time gpu to see the most efficient work load batch
 
 
 

@@ -423,7 +423,7 @@ PROMOTION_MASK = 0b111
 class BitBoardState:
     __slots__ = (
         "pawns", "knights", "bishops", "rooks", "queens", "kings", "occupancy_white", "occupancy_black", "castling_rights",
-        "ep_square", "half_moves", "full_moves", "hash", "turn" , "white_accumulator", "black_accumulator", "pawn_nn",
+        "ep_square", "half_moves", "full_moves", "hash", "turn", "repetition_table", "white_accumulator", "black_accumulator", "pawn_nn",
         "debug_feature_set_white", "debug_feature_set_black",
     )
 
@@ -444,9 +444,11 @@ class BitBoardState:
         self.hash = 0
         self.turn = 0
 
-        self.white_accumulator = np.zeros(128)
-        self.black_accumulator = np.zeros(128)
-        self.pawn_nn = np.zeros(8)
+        self.repetition_table = {}
+
+        self.white_accumulator = np.zeros((128, 1))
+        self.black_accumulator = np.zeros((128, 1))
+        self.pawn_nn = np.zeros((8, 1))
 
         self.debug_feature_set_white = tuple()
         self.debug_feature_set_black = tuple()
@@ -474,6 +476,8 @@ class BitBoardState:
         self.hash = bitboard.hash
         self.turn = bitboard.turn
 
+        self.repetition_table = bitboard.repetition_table.copy()
+
         np.copyto(self.white_accumulator, bitboard.nnue[0])
         np.copyto(self.black_accumulator, bitboard.nnue[1])
         np.copyto(self.pawn_nn, bitboard.pawn_nn)
@@ -498,6 +502,8 @@ class BitBoardState:
 
         bitboard.occupancy = self.occupancy_white | self.occupancy_black
         bitboard.turn = self.turn
+
+        bitboard.repetition_table = self.repetition_table.copy()
 
         bitboard.king_sq = [(self.kings & self.occupancy_white).bit_length()-1, (self.kings & self.occupancy_black).bit_length()-1]
         np.copyto(bitboard.nnue[0], self.white_accumulator)
@@ -634,9 +640,12 @@ class ZobristHasher:
 # -----------------------------------------------------------------------------------------------------------------------------
 # Engine Related
 
+# Declaring Constants
+import math
+INF = math.inf # change to a ridiculously high number later
 NP_RNG_SEED = 0
-def generate_feature_table(rng, size):
-    return rng.standard_normal(size)
+def generate_feature_table(rng, shape):
+    return rng.random(shape)
 
 
 """
@@ -648,7 +657,7 @@ def generate_feature_table(rng, size):
 """
 table_rng = np.random.default_rng(NP_RNG_SEED)
 
-feature_table = generate_feature_table(table_rng, (6 * 2 * 64 * 64, 128))
+feature_table = generate_feature_table(table_rng, (6 * 2 * 64 * 64, 128, 1))
 
 # checks_feature_table = generate_feature_table((2 * 6 * 64))
 # pinned_feature_table = generate_feature_table((2 * 6 * 64 * 64))
@@ -656,7 +665,7 @@ feature_table = generate_feature_table(table_rng, (6 * 2 * 64 * 64, 128))
 
 
 def build_accumulator(board, color):
-    features_vector = np.zeros(128)
+    features_vector = np.zeros((128, 1))
     # print(f"accumulator for {COLOR_NAME[color]}")
     # print("adding features")
     for sq in scan_backward_bb(board.occupancy):
