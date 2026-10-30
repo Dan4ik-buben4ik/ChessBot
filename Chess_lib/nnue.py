@@ -19,7 +19,7 @@ For the files we would assume this structure:
 """
 
 MAGIC = b"CHNN"
-SUPPORTED_VERSIONS = (0)
+SUPPORTED_VERSIONS = (0,)
 
 
 def write_to_file(file_name: str | None, version, arrays_dict):
@@ -33,7 +33,7 @@ def write_to_file(file_name: str | None, version, arrays_dict):
 
             name_bytes = name.encode("utf-8")
             f.write(struct.pack("<H", len(name)))
-            f.write(bytes(name))
+            f.write(name_bytes)
 
             f.write(struct.pack("<B", arr.ndim))
             f.write(struct.pack("<" + "I" * arr.ndim, *arr.shape))
@@ -77,3 +77,4 @@ def read_file(file_name):
                 raise ValueError(f"Truncated array: {name}")
 
             arrays_dict[name] = data.reshape(shape).copy()
+    return arrays_dict

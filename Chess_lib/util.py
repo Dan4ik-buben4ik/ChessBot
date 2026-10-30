@@ -6,6 +6,8 @@ import numpy as np
 import numpy.random
 from typing import TypeAlias
 
+from .nnue import read_file
+
 
 # Errors
 class InvalidMoveException(BaseException):

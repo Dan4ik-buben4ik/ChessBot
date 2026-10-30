@@ -21,8 +21,6 @@ from Chess_lib.engine import *
 """ 
 PLAN:
  - prepare training environment
- - create a nnue reading script
- - aka prep the weights/bias byte object to save to bin files and to initialise from
  - prep for error conditions
  IDEA: 
  - INceremental engine class decorator that wraps around all of the fuction and cuases them to check the clock first
@@ -33,12 +31,13 @@ from Chess_lib.engine import *
 import time
 
 board = Board.from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
-start = time.time()
-# incremental_evaluation(board, -10000, 10000, 25)
-evaluate(board, -10000, 10000, 4)
+# start = time.time()
+# # incremental_evaluation(board, -10000, 10000, 25)
+# evaluate(board, -10000, 10000, 4)
+#
+# end = time.time()
+# print(f"took {end-start:.2f} sec")
 
-end = time.time()
-print(f"took {end-start:.2f} sec")
 
 
 
