@@ -43,6 +43,7 @@ class Board:
         self.debug_feature_indexes = [set(), set()]
 
 
+
     def piece_at(self, square):
         bit = 1 << square
         if bit & self.pawns:
@@ -298,6 +299,13 @@ class Board:
 
         return GameResult.ONGOING
 
+    def update_pawn_nn(self):
+        print("Update pawn nn")
+        print(bitboards_to_plane(self.pawns & self.occupancy_color[self.turn],
+                           self.pawns & self.occupancy_color[1 ^ self.turn]))
+        self.pawn_nn = PawnStructCNN.forward(bitboards_to_plane(self.pawns & self.occupancy_color[self.turn], self.pawns & self.occupancy_color[1 ^ self.turn]))
+        assert np.isfinite(self.pawn_nn).all()
+
 
     def push(self, move, *, add_history=True):
         """ assume the move is perfectly legal
@@ -359,7 +367,7 @@ class Board:
 
         # update pawn nn values
         if piece == PAWN or captured_piece == PAWN:
-            self.pawn_nn = PawnStructCNN.forward(bitboards_to_plane(self.pawns & self.occupancy_color[self.turn], self.pawns & self.occupancy_color[1 ^ self.turn]))
+            self.update_pawn_nn()
 
         # update the move clocks
         if piece == PAWN or captured_piece:
@@ -762,6 +770,7 @@ class Board:
         # for i in bit_board.debug_feature_indexes[1]:
         #     debug_feature_index(i)
         # print()
+        bit_board.update_pawn_nn()
         return bit_board
 
 
@@ -825,6 +834,7 @@ class Board:
 
         # half moves and full moves
         fen += f" {self.half_moves} {self.full_moves}"
+
 
         return fen
 

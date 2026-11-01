@@ -22,7 +22,7 @@ MAGIC = b"CHNN"
 SUPPORTED_VERSIONS = (0,)
 
 
-def write_to_file(file_name: str | None, version, arrays_dict):
+def write_nnue(file_name: str | None, version, arrays_dict):
     with open(file_name, "wb") as f:
         # Headers
         f.write(MAGIC)
@@ -39,7 +39,7 @@ def write_to_file(file_name: str | None, version, arrays_dict):
             f.write(struct.pack("<" + "I" * arr.ndim, *arr.shape))
             f.write(arr.tobytes())
 
-def read_file(file_name):
+def read_nnue(file_name):
     arrays_dict = {}
 
     with open(file_name, "rb") as f:

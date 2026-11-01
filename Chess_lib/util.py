@@ -6,7 +6,7 @@ import numpy as np
 import numpy.random
 from typing import TypeAlias
 
-from .nnue import read_file
+from .nnue import read_nnue
 
 
 # Errors
@@ -643,12 +643,14 @@ class ZobristHasher:
 # Engine Related
 
 # Declaring Constants
-import math
-INF = math.inf # change to a ridiculously high number later
+INF = np.inf # change to a ridiculously high number later
 NP_RNG_SEED = 0
 def generate_feature_table(rng, shape):
     return rng.random(shape)
 
+def innit_half_ka(file_name):
+    arr_dict = read_nnue(file_name)
+    return arr_dict["Half_KA_Table"]
 
 """
 128 vector
@@ -658,8 +660,11 @@ def generate_feature_table(rng, shape):
 - pinner - key: Color | piece type | square | to square
 """
 table_rng = np.random.default_rng(NP_RNG_SEED)
-
-feature_table = generate_feature_table(table_rng, (6 * 2 * 64 * 64, 128, 1))
+try:
+    feature_table = innit_half_ka("nn_version_001.nnue")
+except FileNotFoundError as e:
+    feature_table = generate_feature_table(table_rng, (6 * 2 * 64 * 64, 128, 1))
+    print(f"Cant find the file, generating random table")
 
 # checks_feature_table = generate_feature_table((2 * 6 * 64))
 # pinned_feature_table = generate_feature_table((2 * 6 * 64 * 64))

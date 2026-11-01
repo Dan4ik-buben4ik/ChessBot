@@ -31,7 +31,7 @@ import numpy.random
 from .util import *
 # from .loader import Board
 from .nn_maths import *
-from .nnue import write_to_file, read_file
+from .nnue import write_nnue, read_nnue
 
 
 """ Plan for tmrw
@@ -56,6 +56,7 @@ RNG_SEED = 0
 RNG = np.random.default_rng(RNG_SEED)
 
 
+
 class InvalidShape(BaseException):
     def __init__(self, txt):
         super().__init__(txt)
@@ -77,9 +78,13 @@ class DenseLayer(Layer):
         self.input_shape = (input_size, 1)
         self.output_shape = (output_size, 1)
 
+        # Uses normal distribution and standard derivation to initialise the weights in the most optimal way for the leaky ReLu
+        alpha = 0.01
         global RNG
-        self.weights = 2 * RNG.random((output_size, input_size)) - 1
-        self.bias = 2 * RNG.random(self.output_shape) - 1
+        std = np.sqrt(2 / ((1 + alpha ** 2) * input_size))
+        self.weights = RNG.normal(0, std, (output_size, input_size)).astype(np.float32)
+        self.bias = np.zeros(self.output_shape, dtype=np.float32)
+
 
 
 
@@ -87,15 +92,42 @@ class DenseLayer(Layer):
         if input_vector.shape != self.input_shape:
             raise InvalidShape(f"Invalid shape for the input. Expected {self.input_shape} but given {input_vector.shape}")
         self.input = input_vector
+        print("DEnse weights")
+        print(self.weights.shape, input_vector.shape, self.bias.shape)
+        # print(self.weights)
+        # print("Dense input vector")
+        # print(input_vector.shape)
+
+        print(np.dot(self.weights, input_vector))
         return np.dot(self.weights, input_vector) + self.bias
 
     def backward(self, output_grad_vector: np.ndarray, learning_rate: float) -> np.ndarray:
         if output_grad_vector.shape != self.output_shape:
             raise InvalidShape(f"Invalid gradient shape. Expected {self.output_shape} but given {output_grad_vector.shape}")
+        # print(type(self.input))
         weights_grad = np.dot(output_grad_vector, self.input.T)
+        input_grad = np.dot(self.weights.T, output_grad_vector)
+        #
+        # update = weights_grad * learning_rate
+        # print("weights dtype:", self.weights.dtype)
+        # print("update dtype:", update.dtype)
+        #
+        # print("weight max:", np.max(np.abs(self.weights.astype(np.float64))))
+        # print("update max:", np.max(np.abs(update.astype(np.float64))))
+        #
+        # # Check the actual result using float64 temporarily
+        # test = self.weights.astype(np.float64) - update.astype(np.float64)
+        #
+        # print("test max:", np.max(np.abs(test)))
+        # print("test finite:", np.isfinite(test).all())
+        #
+        # #
         self.weights -= weights_grad * learning_rate
         self.bias -= output_grad_vector * learning_rate
-        return np.dot(self.weights.T, output_grad_vector)
+
+        assert np.isfinite(self.weights).all()
+        assert np.isfinite(self.bias).all()
+        return input_grad
 
     def update_params(self, new_weights, new_bias):
         if new_weights.shape != self.weights.shape or new_bias.shape != self.bias.shape:
@@ -119,18 +151,18 @@ class ActivationLayer(Layer):
         return self.activation(input_vector)
 
     def backward(self, output_grad_vector, learning_rate):
+        # print(self.activation_prime(self.input))
+        # print(np.multiply(output_grad_vector, self.activation_prime(self.input)))
         return np.multiply(output_grad_vector, self.activation_prime(self.input))
 
     def __repr__(self):
         return f"Activation Layer of function {self.activation.__name__}"
 
+def leaky_ReLu(input_vector, alpha=0.01):
+    return np.maximum(alpha * input_vector, input_vector)
 
-def CReLu(input_vector, c=5000):
-    return np.clip(input_vector, -c, c)
-
-
-def CReLu_prime(output_vector, c=5000):
-    return np.where((output_vector > -c) & (output_vector < c), 1.0, 0.0)
+def leaky_ReLu_prime(input_vector, alpha=0.01):
+    return np.where(input_vector > 0, 1.0, alpha).astype(np.float32)
 
 
 class ConvolutionalLayer(Layer):
@@ -188,6 +220,8 @@ class ConvolutionalLayer(Layer):
 
         self.kernels -= kernel_gradient * learning_rate
         self.bias -= output_grad_matrice * learning_rate
+        assert np.isfinite(self.kernels).all()
+        assert np.isfinite(self.bias).all()
         return input_gradient
 
     def update_params(self, new_kernels, new_bias):
@@ -211,34 +245,94 @@ class ReshapeLayer(Layer):
 
 
 class PawnStructCNN:
-    def __init__(self):
-        self.network = [
-            ConvolutionalLayer((2, 8, 8), 5, 2),
-            ReshapeLayer((2, 4, 4), (2 * 4 * 4, 1)),
-            ActivationLayer(CReLu, CReLu_prime),
-            DenseLayer(32, 16),
-            ActivationLayer(CReLu, CReLu_prime),
-            DenseLayer(16, 8),
-        ]
+    version = 1
+    network = [
+        ConvolutionalLayer((2, 8, 8), 5, 2),
+        ReshapeLayer((2, 4, 4), (2 * 4 * 4, 1)),
+        ActivationLayer(leaky_ReLu, leaky_ReLu_prime),
+        DenseLayer(32, 16),
+        ActivationLayer(leaky_ReLu, leaky_ReLu_prime),
+        DenseLayer(16, 8),
+    ]
 
-        self.input_shape = (2, 8, 8)
-        self.output_shape = (8, 1)
+    input_shape = (2, 8, 8)
+    output_shape = (8, 1)
 
-    def forward(self, input_matrice):
-        if input_matrice.shape != self.input_shape:
-            raise InvalidShape(f"Invalid shape for the input. Expected {self.input_shape} but given {input_matrice.shape}")
-        for layer in self.network:
+    @classmethod
+    def forward(cls, input_matrice):
+        if input_matrice.shape != cls.input_shape:
+            raise InvalidShape(f"Invalid shape for the input. Expected {cls.input_shape} but given {input_matrice.shape}")
+        print("Pawn CNN FOrward")
+        for layer in cls.network:
+            assert np.isfinite(input_matrice).all()
+            print(layer)
+            print(input_matrice.shape)
             input_matrice = layer.forward(input_matrice)
+            print("output")
+            print(input_matrice.shape)
 
         return input_matrice
 
-    def backward_propagation(self, error_gard_vector: np.ndarray, learning_rate: float):
-        if error_gard_vector.shape != self.output_shape:
-            raise InvalidShape(f"Invalid shape for the input. Expected {self.output_shape} but given {error_gard_vector.shape}")
 
-        for layer in self.network[::-1]:
+    @classmethod
+    def backward_propagation(cls, error_gard_vector: np.ndarray, learning_rate: float):
+        if error_gard_vector.shape != cls.output_shape:
+            raise InvalidShape(f"Invalid shape for the input. Expected {cls.output_shape} but given {error_gard_vector.shape}")
+
+        for layer in cls.network[::-1]:
             error_gard_vector = layer.backward(error_gard_vector, learning_rate)
         return
+
+    @classmethod
+    def from_file(cls, file_path):
+        """
+        system of writing the layers:
+        {nn name} + "_" + {layer name} + "_" + {num of occurance - from top} + "_" + {type of array}
+
+        :param file_path:
+        :return:
+        """
+        arr_dict = read_nnue(file_path)
+        occurance_dict = {}
+        print(arr_dict.keys())
+
+        for layer in cls.network:
+            if not isinstance(layer, DenseLayer | ConvolutionalLayer):
+                continue
+            layer_name = layer.__class__.__name__
+            occ = occurance_dict.get(layer_name, 0)
+
+            key = "_".join((cls.__name__, layer_name, str(occ)))
+
+            weights = arr_dict[f"{key}_weights"] # I cant be bothered renaming to kernels for thr convolution so bear with it
+            bias = arr_dict[f"{key}_bias"]
+            layer.update_params(weights, bias)
+
+            occurance_dict[layer_name] = occ + 1
+
+    @classmethod
+    def to_file(cls, file_path):
+        arr_dict = {}
+        occurance_dict = {}
+        for layer in cls.network:
+            if not isinstance(layer, DenseLayer | ConvolutionalLayer):
+                continue
+            layer_name = layer.__class__.__name__
+            occ = occurance_dict.get(layer_name, 0)
+
+            key = "_".join((cls.__name__, layer_name, str(occ)))
+            if isinstance(layer, ConvolutionalLayer):
+                arr_dict[f"{key}_weights"] = layer.kernels
+            else:
+                arr_dict[f"{key}_weights"] = layer.weights
+            arr_dict[f"{key}_bias"] = layer.bias
+
+
+            occurance_dict[layer_name] = occ + 1
+
+        arr_dict["Half_KA_Table"] = feature_table
+
+        write_nnue(file_path, 1, arr_dict)
 
 
 
@@ -247,11 +341,11 @@ class EvaluationNNUE:
     def __init__(self):
         self.network = [
             DenseLayer(276, 32),
-            ActivationLayer(CReLu, CReLu_prime),
+            ActivationLayer(leaky_ReLu, leaky_ReLu_prime),
             DenseLayer(32, 32),
-            ActivationLayer(CReLu, CReLu_prime),
+            ActivationLayer(leaky_ReLu, leaky_ReLu_prime),
             DenseLayer(32, 32),
-            ActivationLayer(CReLu, CReLu_prime),
+            ActivationLayer(leaky_ReLu, leaky_ReLu_prime),
             DenseLayer(32, 1)
         ]
         self.input_shape = (276, 1)
@@ -261,8 +355,10 @@ class EvaluationNNUE:
     def forward(self, input_vector):
         if input_vector.shape != self.input_shape:
             raise InvalidShape(f"Invalid shape for the input. Expected {self.input_shape} but given {input_vector.shape}")
+        print("Forward")
         for layer in self.network:
-            # print(input_vector[0])
+            print(layer)
+            print(input_vector)
             input_vector = layer.forward(input_vector)
 
         return input_vector
@@ -272,6 +368,7 @@ class EvaluationNNUE:
             raise InvalidShape(f"Invalid shape for the input. Expected {self.output_shape} but given {error_gard_vector.shape}")
 
         for layer in self.network[::-1]:
+            print()
             print(layer)
             error_gard_vector = layer.backward(error_gard_vector, learning_rate)
 
@@ -312,13 +409,14 @@ class EvaluationNNUE:
         :return:
         """
         arrays_list = np.split(error_grad_vector, [128, 256, 264, 268])
+        print(arrays_list)
 
+        print("propagate Half KA")
         back_propagation_of_accumulator(board, arrays_list[0], learning_rate)
         back_propagation_of_accumulator(board, arrays_list[1], learning_rate)
 
-
+        print("propagating Pawn CNN")
         PawnStructCNN.backward_propagation(arrays_list[2], learning_rate)
-
 
     def from_file(self, file_path):
         """
@@ -328,7 +426,7 @@ class EvaluationNNUE:
         :param file_path:
         :return:
         """
-        arr_dict = read_file(file_path)
+        arr_dict = read_nnue(file_path)
         occurance_dict = {}
         print(arr_dict.keys())
 
@@ -367,7 +465,7 @@ class EvaluationNNUE:
 
         arr_dict["Half_KA_Table"] = feature_table
 
-        write_to_file(file_path, 1, arr_dict)
+        write_nnue(file_path, 1, arr_dict)
 
 
 
@@ -377,7 +475,7 @@ class EvaluationNNUE:
 
 
 def squared_error_loss(pred, expected):
-    return (expected - pred) ** 2
+    return (pred - expected) ** 2
 
 def squared_error_loss_prime(pred, expected):
-    return 2 * (expected - pred)
+    return 2 * (pred - expected)

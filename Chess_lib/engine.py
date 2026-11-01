@@ -185,12 +185,12 @@ class SearchLogger:
             print("There is no such path")
 
 
-def search(board, alpha, beta, depth, boundary, tt, *, logger: SearchLogger, root: str="root"):
+def search(board, engine, alpha, beta, depth, boundary, tt, *, logger: SearchLogger, root: str="root"):
     color = 1 if board.turn == WHITE else -1
     outcome = board.outcome()
     print(outcome)
     if outcome == GameResult.CHECKMATE:
-        return INF * color
+        return -INF * color
     elif outcome != GameResult.ONGOING:
         return 0
 
@@ -214,10 +214,6 @@ def search(board, alpha, beta, depth, boundary, tt, *, logger: SearchLogger, roo
     # sets up the variables needed post evaluation
     original_alpha = alpha
     original_beta = beta
-
-    if board.outcome() != GameResult.ONGOING:
-        input_vector = EvaluationNNUE.build_input(board)
-        return EvaluationNNUE.forward(input_vector) * color
     print(f"Searching at depth ({depth}) with boundary: {boundary}")
 
     best_move = None
@@ -229,13 +225,14 @@ def search(board, alpha, beta, depth, boundary, tt, *, logger: SearchLogger, roo
 
         if depth >= boundary:
             print("hit boundary")
-            input_vector = EvaluationNNUE.build_input(board)
-            evaluation = EvaluationNNUE.forward(input_vector).item()
+            input_vector = engine.build_input(board)
+            evaluation = engine.forward(input_vector).item() * color
+            print(evaluation)
 
         else:
             print("searching deeper")
             branch = logger.log_intro(root, move.uci(), depth)
-            evaluation = -search(board, -beta, -alpha, depth+1, boundary, tt, logger=logger, root=branch)
+            evaluation = -search(board, engine, -beta, -alpha, depth+1, boundary, tt, logger=logger, root=branch)
         board.pop()
 
         if evaluation > best:
@@ -262,14 +259,14 @@ def search(board, alpha, beta, depth, boundary, tt, *, logger: SearchLogger, roo
 
 
 
-def evaluate(board, alpha, beta, boundary_depth, *, debug=False):
+def evaluate(board, engine, alpha, beta, boundary_depth, *, debug=False):
     transposition_table = {}
 
     color = 1 if board.turn == WHITE else -1
     temp_board = Board()
     temp_board.copy_from(board)
     logger = SearchLogger()
-    res = search(board, alpha, beta, 1, boundary_depth, transposition_table, logger=logger)
+    res = search(board, engine, alpha, beta, 1, boundary_depth, transposition_table, logger=logger)
     best_move = None
     entree = transposition_table.get(board.hash, None)
     if entree:
@@ -279,9 +276,9 @@ def evaluate(board, alpha, beta, boundary_depth, *, debug=False):
     print(f"Positions: {logger.nodes}")
     # for _ in range(5):
     #     logger.view_dict()
-    return best_move, res
+    return Move.from_uci(best_move), res
 
-def incremental_evaluation(board, alpha, beta, time_out):
+def incremental_evaluation(board, engine, alpha, beta, time_out):
     try:
         import time
     except ImportError:
@@ -291,7 +288,7 @@ def incremental_evaluation(board, alpha, beta, time_out):
     best_move = None
     res = 0
     for d in range(1, 100):
-        res, best_move = evaluate(board, alpha, beta, d)
+        best_move, res = evaluate(board, engine, alpha, beta, d)
 
         end = time.time()
         if end - start >= time_out:
@@ -302,4 +299,4 @@ def incremental_evaluation(board, alpha, beta, time_out):
     print(f"result = {res}")
     print(f"best move: {best_move}")
 
-    return res, best_move
+    return best_move, res
