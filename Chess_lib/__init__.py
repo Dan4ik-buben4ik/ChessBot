@@ -7,7 +7,6 @@ __author__ = "Daniel Rakhmatov, Peter Luo"
 
 from .loader import Board
 from .util import *
-from .move import Move
 
 __all__ = [
     "Board",

@@ -1,13 +1,22 @@
 import random
 import enum
 import array
+import re
+import numpy as np
+import numpy.random
 from typing import TypeAlias
+
+from .nnue import read_nnue
 
 
 # Errors
 class InvalidMoveException(BaseException):
     def __init__(self, txt):
         super().__init__(txt)
+
+class UnrecognisedSanMove(BaseException):
+    def __init__(self, san):
+        super().__init__(f"Cant recognise the SAN move [{san}]")
 
 class NotImplementedError(BaseException):
     def __init__(self):
@@ -66,6 +75,7 @@ RANK_5: Rank = 4
 RANK_6: Rank = 5
 RANK_7: Rank = 6
 RANK_8: Rank = 7
+RANKS = [RANK_1, RANK_2, RANK_3, RANK_4, RANK_5, RANK_6, RANK_7, RANK_8]
 RANK_NAMES = ["1", "2", "3", "4", "5", "6", "7", "8"]
 BB_Rank = 0x0000_0000_0000_0011
 
@@ -173,6 +183,22 @@ def square_rank(square):
 
 def square_file(square):
     return square & 7
+
+# def vertical_flip(bitboard):
+#     """
+#     takes the bard and flips it vertically
+#     """
+#     bitboard = ((bitboard >> 8) & 0x00FF00FF00FF00FF) | ((bitboard & 0x00FF00FF00FF00FF) << 8)
+#     bitboard = ((bitboard >> 16) & 0x0000FFFF0000FFFF) | ((bitboard & 0x0000FFFF0000FFFF) << 16)
+#     bitboard = (bitboard >> 32) | (bitboard << 32)
+#     return bitboard
+
+def horizontal_flip_square(square: Square):
+    return square ^ 7
+
+def vertical_flip_square(square: Square):
+    return square ^ 56
+
 
 
 def scan_forward_bb(bitboard):
@@ -381,22 +407,10 @@ def lsb_square(bitboard):
 def msb_square(bitboard):
     return bitboard.bit_length() - 1
 
+# san move regex
+SAN_REGEX = re.compile(r"^([NBKRQ])?([a-h])?([1-8])?[\-x]?([a-h][1-8])(=?[nbrqkNBRQK])?[\+#]?\Z")
 
 # Useful Classes
-
-#transposition table
-class TTFlag(enum.Enum):
-    UPPER_BOUND = 0
-    LOWER_BOUND = 1
-    EXACT = 2
-
-
-class TTEntree:
-    def __init__(self, depth, score, flag, best_move):
-        self.depth = depth
-        self.score = score
-        self.flag = flag
-        self.best_move = best_move
 
 
 # Move class
@@ -408,12 +422,107 @@ FROM_MASK = 0b111111
 TO_MASK = 0b111111
 PROMOTION_MASK = 0b111
 
+class BitBoardState:
+    __slots__ = (
+        "pawns", "knights", "bishops", "rooks", "queens", "kings", "occupancy_white", "occupancy_black", "castling_rights",
+        "ep_square", "half_moves", "full_moves", "hash", "turn", "repetition_table", "white_accumulator", "black_accumulator", "pawn_nn",
+        "debug_feature_set_white", "debug_feature_set_black",
+    )
+
+    def __init__(self):
+        self.pawns = 0
+        self.knights = 0
+        self.bishops = 0
+        self.rooks = 0
+        self.queens = 0
+        self.kings = 0
+
+        self.occupancy_white = 0
+        self.occupancy_black = 0
+        self.castling_rights = 0
+        self.ep_square: Square | None = 0
+        self.half_moves = 0
+        self.full_moves = 0
+        self.hash = 0
+        self.turn = 0
+
+        self.repetition_table = {}
+
+        self.white_accumulator = np.zeros((128, 1))
+        self.black_accumulator = np.zeros((128, 1))
+        self.pawn_nn = np.zeros((8, 1))
+
+        self.debug_feature_set_white = tuple()
+        self.debug_feature_set_black = tuple()
+
+    @classmethod
+    def from_board(cls, bitboard):
+        state = cls()
+        state.update(bitboard)
+        return state
+
+    def update(self, bitboard):
+        self.pawns = bitboard.pawns
+        self.knights = bitboard.knights
+        self.bishops = bitboard.bishops
+        self.rooks = bitboard.rooks
+        self.queens = bitboard.queens
+        self.kings = bitboard.kings
+
+        self.occupancy_white = bitboard.occupancy_color[0]
+        self.occupancy_black = bitboard.occupancy_color[1]
+        self.castling_rights = bitboard.castling_rights
+        self.ep_square: Square | None = bitboard.ep_square
+        self.half_moves = bitboard.half_moves
+        self.full_moves = bitboard.full_moves
+        self.hash = bitboard.hash
+        self.turn = bitboard.turn
+
+        self.repetition_table = bitboard.repetition_table.copy()
+
+        np.copyto(self.white_accumulator, bitboard.nnue[0])
+        np.copyto(self.black_accumulator, bitboard.nnue[1])
+        np.copyto(self.pawn_nn, bitboard.pawn_nn)
+
+        self.debug_feature_set_white = tuple(bitboard.debug_feature_indexes[0])
+        self.debug_feature_set_black = tuple(bitboard.debug_feature_indexes[1])
+
+    def restore(self, bitboard):
+        bitboard.pawns = self.pawns
+        bitboard.knights = self.knights
+        bitboard.bishops = self.bishops
+        bitboard.rooks = self.rooks
+        bitboard.queens = self.queens
+        bitboard.kings = self.kings
+
+        bitboard.occupancy_color = [self.occupancy_white, self.occupancy_black]
+        bitboard.castling_rights = self.castling_rights
+        bitboard.ep_square = self.ep_square
+        bitboard.half_moves = self.half_moves
+        bitboard.full_moves = self.full_moves
+        bitboard.hash = self.hash
+
+        bitboard.occupancy = self.occupancy_white | self.occupancy_black
+        bitboard.turn = self.turn
+
+        bitboard.repetition_table = self.repetition_table.copy()
+
+        bitboard.king_sq = [(self.kings & self.occupancy_white).bit_length()-1, (self.kings & self.occupancy_black).bit_length()-1]
+        np.copyto(bitboard.nnue[0], self.white_accumulator)
+        np.copyto(bitboard.nnue[1], self.black_accumulator)
+        np.copyto(bitboard.pawn_nn, self.pawn_nn)
+
+        bitboard.debug_feature_indexes = [set(self.debug_feature_set_white), set(self.debug_feature_set_black)]
+
+    def __repr__(self):
+        return f"{self.hash}"
+
 
 class Move:
-    __slots__ = ("value",)
+    __slots__ = ("_value",)
 
     def __init__(self, from_square, to_square, promotion: PieceType = 0):
-        self.value = (
+        self._value = (
             from_square << FROM_OFFSET |
             to_square << TO_OFFSET |
             promotion << PROMOTION_OFFSET
@@ -421,19 +530,21 @@ class Move:
 
     @property
     def from_square(self):
-        return (self.value >> FROM_OFFSET) & FROM_MASK
+        return (self._value >> FROM_OFFSET) & FROM_MASK
 
     @property
     def to_square(self):
-        return (self.value >> TO_OFFSET) & TO_MASK
+        return (self._value >> TO_OFFSET) & TO_MASK
 
     @property
     def promotion(self):
-        return (self.value >> PROMOTION_OFFSET) & PROMOTION_MASK
+        return (self._value >> PROMOTION_OFFSET) & PROMOTION_MASK
 
 
     @classmethod
     def from_uci(cls, uci):
+        if not isinstance(uci, str):
+            raise TypeError("Expected input of type String")
         if not (4 <= len(uci) <= 5):
             raise InvalidMoveException(f"Invalid uci {uci}")
 
@@ -528,8 +639,120 @@ class ZobristHasher:
         else:
             print("combined issue")
 
+# -----------------------------------------------------------------------------------------------------------------------------
+# Engine Related
+
+# Declaring Constants
+INF = np.inf # change to a ridiculously high number later
+NP_RNG_SEED = 0
+def generate_feature_table(rng, shape):
+    return rng.random(shape)
+
+def innit_half_ka(file_name):
+    arr_dict = read_nnue(file_name)
+    return arr_dict["Half_KA_Table"]
+
+"""
+128 vector
+- features KA - key: Color | piece type | sq | king sq
+- checks - key: Color | piece type | square
+- pinned - key: Color | piece type | square | from square
+- pinner - key: Color | piece type | square | to square
+"""
+table_rng = np.random.default_rng(NP_RNG_SEED)
+try:
+    feature_table = innit_half_ka("nn_version_001.nnue")
+except FileNotFoundError as e:
+    feature_table = generate_feature_table(table_rng, (6 * 2 * 64 * 64, 128, 1))
+    print(f"Cant find the file, generating random table")
+
+# checks_feature_table = generate_feature_table((2 * 6 * 64))
+# pinned_feature_table = generate_feature_table((2 * 6 * 64 * 64))
+# pinner_feature_table = generate_feature_table((2 * 6 * 64 * 64))
 
 
+def build_accumulator(board, color):
+    features_vector = np.zeros((128, 1))
+    # print(f"accumulator for {COLOR_NAME[color]}")
+    # print("adding features")
+    for sq in scan_backward_bb(board.occupancy):
+        piece_type, piece_color = board.piece_at(sq), board.color_at(sq)
+        # print(PIECE_NAME[piece_type], SQUARE_NAMES[sq])
+
+        features_vector += feature_table[Half_KA_Index(color == BLACK, piece_type, piece_color == color, sq, board.king_sq[color])]
+
+    # print(f"end accumulator for {COLOR_NAME[color]}")
+
+    return features_vector
+
+def debug_features_set(board, color):
+    debug_set = set()
+    king_sq = board.king_sq[color]
+    for sq in scan_backward_bb(board.occupancy):
+        piece_type, piece_color = board.piece_at(sq), board.color_at(sq)
+        debug_set.add(Half_KA_Index(color == BLACK, piece_type, piece_color == color, sq, king_sq))
+    return debug_set
+
+def debug_feature_index(index):
+    king_sq = index & 0b111111
+    piece_square = (index >> 6) & 0b111111
+    left = int(index >> 12)
+    ally = int(left > 6)
+    piece_type = (left % 6) + 1
+    print(f"piece type: {PIECE_NAME[piece_type]} | piece square: {SQUARE_NAMES[piece_square]} | ally: {ally} | king sq: {SQUARE_NAMES[king_sq]}")
+
+def back_propagation_of_accumulator(board, output_grad, learning_rate):
+    for sq in scan_backward_bb(board.occupancy):
+        piece_type, piece_color = board.piece_at(sq), board.color_at(sq)
+
+        feature_table[Half_KA_Index(False, piece_type, piece_color==WHITE, sq, board.king_sq[WHITE])] -= output_grad * learning_rate
+        feature_table[Half_KA_Index(True, piece_type, piece_color==BLACK, sq, board.king_sq[BLACK])] -= output_grad * learning_rate
+
+
+def Half_KA_Index(flip: bool, piece_type, ally: bool, piece_square, king):
+    """
+
+    :param flip: responsible for vertical mirroring (used when the feature is tied to black king)
+    :param piece_type: piece type in int
+    :param ally: is an ally of the accumulator king colour
+    :param piece_square: sq
+    :param king: king sq for the accumulator
+    :return: index for Half KA features table
+    """
+
+    # vertical mirroring
+    if flip:
+        piece_square ^= 56
+        king ^= 56
+
+    # horizontal flip
+    if (king & 7) < 4:
+        piece_square ^= 7
+        king ^= 7
+
+    # print(
+    #     f"piece type: {PIECE_NAME[piece_type]} | piece square: {SQUARE_NAMES[piece_square]} | ally color: {ally} | king sq: {SQUARE_NAMES[king]}")
+    return (
+        ((ally * 6) + piece_type-1) << 12 |
+        piece_square << 6 |
+        king
+    )
+
+
+def bitboards_to_plane(*bitboards):
+    depth = len(bitboards)
+    plane = np.zeros((depth, 64), dtype=np.float32)
+    for i, bb in enumerate(bitboards):
+        for j in scan_backward_bb(bb):
+            plane[i, j] = 1
+    return plane.reshape(depth, 8, 8)
+
+
+
+
+
+
+# -----------------------------------------------------------------------------------------------------------------------------
 #debug
 def bitprint(bit, length=64):
     txt = bin(bit)[2:]
