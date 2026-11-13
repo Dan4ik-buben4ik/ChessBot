@@ -479,102 +479,6 @@ FROM_MASK = 0b111111
 TO_MASK = 0b111111
 PROMOTION_MASK = 0b111
 
-class BitBoardState:
-    __slots__ = (
-        "pawns", "knights", "bishops", "rooks", "queens", "kings", "occupancy_white", "occupancy_black", "castling_rights",
-        "ep_square", "half_moves", "full_moves", "hash", "turn", "repetition_table", "white_accumulator", "black_accumulator", "pawn_nn",
-        "debug_feature_set_white", "debug_feature_set_black",
-    )
-
-    def __init__(self):
-        self.pawns = 0
-        self.knights = 0
-        self.bishops = 0
-        self.rooks = 0
-        self.queens = 0
-        self.kings = 0
-
-        self.occupancy_white = 0
-        self.occupancy_black = 0
-        self.castling_rights = 0
-        self.ep_square: Square | None = 0
-        self.half_moves = 0
-        self.full_moves = 0
-        self.hash = 0
-        self.turn = 0
-
-        self.repetition_table = {}
-
-        self.white_accumulator = np.zeros((128, 1))
-        self.black_accumulator = np.zeros((128, 1))
-        self.pawn_nn = np.zeros((8, 1))
-
-        self.debug_feature_set_white = tuple()
-        self.debug_feature_set_black = tuple()
-
-    @classmethod
-    def from_board(cls, bitboard):
-        state = cls()
-        state.update(bitboard)
-        return state
-
-    def update(self, bitboard):
-        self.pawns = bitboard.pawns
-        self.knights = bitboard.knights
-        self.bishops = bitboard.bishops
-        self.rooks = bitboard.rooks
-        self.queens = bitboard.queens
-        self.kings = bitboard.kings
-
-        self.occupancy_white = bitboard.occupancy_color[0]
-        self.occupancy_black = bitboard.occupancy_color[1]
-        self.castling_rights = bitboard.castling_rights
-        self.ep_square: Square | None = bitboard.ep_square
-        self.half_moves = bitboard.half_moves
-        self.full_moves = bitboard.full_moves
-        self.hash = bitboard.hash
-        self.turn = bitboard.turn
-
-        self.repetition_table = bitboard.repetition_table.copy()
-
-        np.copyto(self.white_accumulator, bitboard.nnue[0])
-        np.copyto(self.black_accumulator, bitboard.nnue[1])
-        np.copyto(self.pawn_nn, bitboard.pawn_nn)
-
-        self.debug_feature_set_white = tuple(bitboard.debug_feature_indexes[0])
-        self.debug_feature_set_black = tuple(bitboard.debug_feature_indexes[1])
-
-    def restore(self, bitboard):
-        bitboard.pawns = self.pawns
-        bitboard.knights = self.knights
-        bitboard.bishops = self.bishops
-        bitboard.rooks = self.rooks
-        bitboard.queens = self.queens
-        bitboard.kings = self.kings
-
-        bitboard.occupancy_color = [self.occupancy_white, self.occupancy_black]
-        bitboard.castling_rights = self.castling_rights
-        bitboard.ep_square = self.ep_square
-        bitboard.half_moves = self.half_moves
-        bitboard.full_moves = self.full_moves
-        bitboard.hash = self.hash
-
-        bitboard.occupancy = self.occupancy_white | self.occupancy_black
-        bitboard.turn = self.turn
-
-        bitboard.repetition_table = self.repetition_table.copy()
-
-        bitboard.king_sq = [(self.kings & self.occupancy_white).bit_length()-1, (self.kings & self.occupancy_black).bit_length()-1]
-        np.copyto(bitboard.nnue[0], self.white_accumulator)
-        np.copyto(bitboard.nnue[1], self.black_accumulator)
-        np.copyto(bitboard.pawn_nn, self.pawn_nn)
-
-        bitboard.debug_feature_indexes = [set(self.debug_feature_set_white), set(self.debug_feature_set_black)]
-
-    def __repr__(self):
-        return f"{self.hash}"
-
-
 class Move:
     __slots__ = ("_value",)
 
@@ -622,6 +526,103 @@ class Move:
     def __repr__(self):
         return self.uci()
 
+
+
+
+class BitBoardState:
+    __slots__ = (
+        "pawns", "knights", "bishops", "rooks", "queens", "kings", "occupancy_white", "occupancy_black", "castling_rights",
+        "ep_square", "half_moves", "full_moves", "hash", "turn", "repetition_table", "white_accumulator", "black_accumulator", "pawn_nn",
+        # "debug_feature_set_white", "debug_feature_set_black",
+    )
+
+    def __init__(self):
+        self.pawns = 0
+        self.knights = 0
+        self.bishops = 0
+        self.rooks = 0
+        self.queens = 0
+        self.kings = 0
+
+        self.occupancy_white = 0
+        self.occupancy_black = 0
+        self.castling_rights = 0
+        self.ep_square: Square | None = 0
+        self.half_moves = 0
+        self.full_moves = 0
+        self.hash = 0
+        self.turn = 0
+
+        self.repetition_table = {}
+
+        self.white_accumulator = np.zeros((128, 1))
+        self.black_accumulator = np.zeros((128, 1))
+        self.pawn_nn = np.zeros((8, 1))
+
+        # self.debug_feature_set_white = tuple()
+        # self.debug_feature_set_black = tuple()
+
+    @classmethod
+    def from_board(cls, bitboard):
+        state = cls()
+        state.update(bitboard)
+        return state
+
+    def update(self, bitboard):
+        self.pawns = bitboard.pawns
+        self.knights = bitboard.knights
+        self.bishops = bitboard.bishops
+        self.rooks = bitboard.rooks
+        self.queens = bitboard.queens
+        self.kings = bitboard.kings
+
+        self.occupancy_white = bitboard.occupancy_color[0]
+        self.occupancy_black = bitboard.occupancy_color[1]
+        self.castling_rights = bitboard.castling_rights
+        self.ep_square: Square | None = bitboard.ep_square
+        self.half_moves = bitboard.half_moves
+        self.full_moves = bitboard.full_moves
+        self.hash = bitboard.hash
+        self.turn = bitboard.turn
+
+        self.repetition_table = bitboard.repetition_table.copy()
+
+        np.copyto(self.white_accumulator, bitboard.nnue[0])
+        np.copyto(self.black_accumulator, bitboard.nnue[1])
+        np.copyto(self.pawn_nn, bitboard.pawn_nn)
+
+        # self.debug_feature_set_white = tuple(bitboard.debug_feature_indexes[0])
+        # self.debug_feature_set_black = tuple(bitboard.debug_feature_indexes[1])
+
+    def restore(self, bitboard):
+        bitboard.pawns = self.pawns
+        bitboard.knights = self.knights
+        bitboard.bishops = self.bishops
+        bitboard.rooks = self.rooks
+        bitboard.queens = self.queens
+        bitboard.kings = self.kings
+
+        bitboard.occupancy_color = [self.occupancy_white, self.occupancy_black]
+        bitboard.castling_rights = self.castling_rights
+        bitboard.ep_square = self.ep_square
+        bitboard.half_moves = self.half_moves
+        bitboard.full_moves = self.full_moves
+        bitboard.hash = self.hash
+
+        bitboard.occupancy = self.occupancy_white | self.occupancy_black
+        bitboard.turn = self.turn
+
+        bitboard.repetition_table = self.repetition_table.copy()
+
+        bitboard.king_sq = [(self.kings & self.occupancy_white).bit_length()-1, (self.kings & self.occupancy_black).bit_length()-1]
+        np.copyto(bitboard.nnue[0], self.white_accumulator)
+        np.copyto(bitboard.nnue[1], self.black_accumulator)
+        np.copyto(bitboard.pawn_nn, self.pawn_nn)
+
+        # bitboard.debug_feature_indexes = [set(self.debug_feature_set_white), set(self.debug_feature_set_black)]
+
+    def __repr__(self):
+        return f"{self.hash}"
 
 # Zobrist Hashing
 class ZobristHasher:
