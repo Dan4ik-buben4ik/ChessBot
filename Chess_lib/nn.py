@@ -31,29 +31,48 @@ import numpy.random
 from .util import *
 # from .loader import Board
 from .nn_maths import *
-from .nnue import write_nnue, read_nnue
+from .file_formats import write_nnue, read_nnue
 
-
-""" Plan for tmrw
-Step 7: Pawn structure
-
-- custom convolution function
-- custom correlation function
-- cnn
-- leaking relu for activation
-- white + black pawns form features using a ML that would generate a 128 vector of features
-- later turn it into an encoder
-- would only be updates when a pawn moves
-
-
- + internal game state 
- + castling (4 neurons)
- + ep (8 neurons)
-"""
 
 # Initialization of Random Number Generator for a random initialization of weights and biases
 RNG_SEED = 0
 RNG = np.random.default_rng(RNG_SEED)
+
+# Different loss functions. Experimenting
+
+def squared_error_loss(pred, expected):
+    return (pred - expected) ** 2
+
+def squared_error_loss_prime(pred, expected):
+    return 2 * (pred - expected)
+
+def cosh_loss(pred, target, alpha=1):
+    return np.cosh(alpha * (pred - target)) - 1
+
+def cosh_loss_prime(pred, target, alpha=1):
+    return alpha * np.sinh(alpha * (pred - target))
+
+
+# different scale functions. Experimenting
+def cp_to_target(cp, k=1000):
+    return np.tanh(cp/k)
+
+def target_to_cp(ev, k=1000):
+    ev = np.clip(ev, -0.9999999999, 0.99999999999)
+    res = k * np.atanh(ev)
+    try:
+        assert np.isfinite(res)
+    except AssertionError:
+        return 10000 * np.sign(ev)
+    return int(res)
+
+def scale(x):
+    soft_sign = x/(1 + abs(x))
+    return (np.atanh(soft_sign)).astype(np.float32)
+
+def scale_inverse(x):
+    soft_sign = np.tanh(x)
+    return (soft_sign / (1 - abs(soft_sign))).astype(np.float32)
 
 
 
@@ -92,13 +111,13 @@ class DenseLayer(Layer):
         if input_vector.shape != self.input_shape:
             raise InvalidShape(f"Invalid shape for the input. Expected {self.input_shape} but given {input_vector.shape}")
         self.input = input_vector
-        print("DEnse weights")
-        print(self.weights.shape, input_vector.shape, self.bias.shape)
+        # print("DEnse weights")
+        # print(self.weights.shape, input_vector.shape, self.bias.shape)
         # print(self.weights)
         # print("Dense input vector")
         # print(input_vector.shape)
 
-        print(np.dot(self.weights, input_vector))
+        # print(np.dot(self.weights, input_vector))
         return np.dot(self.weights, input_vector) + self.bias
 
     def backward(self, output_grad_vector: np.ndarray, learning_rate: float) -> np.ndarray:
@@ -178,15 +197,18 @@ class ConvolutionalLayer(Layer):
         if from_file:
             raise NotImplementedError
 
+        alpha = 0.01
         global RNG
-        self.kernels = 2 * RNG.random(self.kernel_shape) - 1
-        self.bias = 2 * RNG.random(self.output_dimensions) - 1 #TODO: consider using only positive bias, as then no point in CReLu
+        fan_in = input_depth * kernel_size * kernel_size
+        std = np.sqrt(2 / ((1 + alpha ** 2) * fan_in))
+        self.kernels = RNG.normal(0, std, self.kernel_shape).astype(np.float32)
+        self.bias = np.zeros(self.output_dimensions, dtype=np.float32)
 
 
 
     def forward(self, input_matrice):
         if input_matrice.shape != self.input_dimensions:
-            print(input_matrice.shape, self.input_dimensions)
+            # print(input_matrice.shape, self.input_dimensions)
             raise InvalidShape(f"Invalid shape for the input. Expected {self.input_dimensions} but given {input_matrice.shape}")
         """
         the formula for forward is Y = X correlate W + B
@@ -262,14 +284,14 @@ class PawnStructCNN:
     def forward(cls, input_matrice):
         if input_matrice.shape != cls.input_shape:
             raise InvalidShape(f"Invalid shape for the input. Expected {cls.input_shape} but given {input_matrice.shape}")
-        print("Pawn CNN FOrward")
+        # print("Pawn CNN FOrward")
         for layer in cls.network:
             assert np.isfinite(input_matrice).all()
-            print(layer)
-            print(input_matrice.shape)
+            # print(layer)
+            # print(input_matrice.shape)
             input_matrice = layer.forward(input_matrice)
-            print("output")
-            print(input_matrice.shape)
+            # print("output")
+            # print(input_matrice.shape)
 
         return input_matrice
 
@@ -294,7 +316,7 @@ class PawnStructCNN:
         """
         arr_dict = read_nnue(file_path)
         occurance_dict = {}
-        print(arr_dict.keys())
+        # print(arr_dict.keys())
 
         for layer in cls.network:
             if not isinstance(layer, DenseLayer | ConvolutionalLayer):
@@ -340,11 +362,11 @@ class PawnStructCNN:
 class EvaluationNNUE:
     def __init__(self):
         self.network = [
-            DenseLayer(276, 32),
+            DenseLayer(276, 64),
             ActivationLayer(leaky_ReLu, leaky_ReLu_prime),
-            DenseLayer(32, 32),
+            DenseLayer(64, 64),
             ActivationLayer(leaky_ReLu, leaky_ReLu_prime),
-            DenseLayer(32, 32),
+            DenseLayer(64, 32),
             ActivationLayer(leaky_ReLu, leaky_ReLu_prime),
             DenseLayer(32, 1)
         ]
@@ -352,24 +374,34 @@ class EvaluationNNUE:
         self.output_shape = (1, 1)
 
 
-    def forward(self, input_vector):
+    def forward(self, input_vector, cp=True):
+        """
+        A forward propagation of the NN
+
+        Note: cp, means centipawns, meaning that the final result gets scaled by a function
+        """
         if input_vector.shape != self.input_shape:
             raise InvalidShape(f"Invalid shape for the input. Expected {self.input_shape} but given {input_vector.shape}")
-        print("Forward")
+        # print("Forward")
         for layer in self.network:
-            print(layer)
-            print(input_vector)
+            # print(layer)
+            # print(input_vector)
             input_vector = layer.forward(input_vector)
+            # if layer == self.network[0]:
+            #     print(layer)
+            #     print(layer.weights.shape)
+            #     print(layer.weights[:, 0])
+            #     print(layer.weights[:, 128])
 
-        return input_vector
+        return target_to_cp(input_vector.item())
 
     def back_propagation(self, error_gard_vector: np.ndarray, learning_rate: float, original_position: BitBoard):
         if error_gard_vector.shape != self.output_shape:
             raise InvalidShape(f"Invalid shape for the input. Expected {self.output_shape} but given {error_gard_vector.shape}")
 
         for layer in self.network[::-1]:
-            print()
-            print(layer)
+            # print()
+            # print(layer)
             error_gard_vector = layer.backward(error_gard_vector, learning_rate)
 
         self.parse_and_distribute_error_grad(error_gard_vector, original_position, learning_rate)
@@ -390,13 +422,16 @@ class EvaluationNNUE:
         :return:
         """
 
+        stm = board.turn
+
         castling = np.zeros((4, 1))
         for i in scan_backward_bb(board.castling_rights):
-            castling[i, 0] = 1
+            #
+            castling[(2 * stm + i) % 4, 0] = 1
         ep = np.zeros((8, 1))
         if board.ep_square:
             ep[board.ep_square & 7, 0] = 1
-        return np.concatenate((board.nnue[0], board.nnue[1], board.pawn_nn, castling, ep))
+        return np.concatenate((board.nnue[stm], board.nnue[stm ^ 1], board.pawn_nn, castling, ep))
 
 
     def parse_and_distribute_error_grad(self, error_grad_vector, board, learning_rate):
@@ -409,13 +444,13 @@ class EvaluationNNUE:
         :return:
         """
         arrays_list = np.split(error_grad_vector, [128, 256, 264, 268])
-        print(arrays_list)
+        # print(arrays_list)
 
-        print("propagate Half KA")
-        back_propagation_of_accumulator(board, arrays_list[0], learning_rate)
-        back_propagation_of_accumulator(board, arrays_list[1], learning_rate)
+        # print("propagate Half KA")
+        back_propagation_of_accumulator(board, WHITE, arrays_list[0], learning_rate)
+        back_propagation_of_accumulator(board, BLACK, arrays_list[1], learning_rate)
 
-        print("propagating Pawn CNN")
+        # print("propagating Pawn CNN")
         PawnStructCNN.backward_propagation(arrays_list[2], learning_rate)
 
     def from_file(self, file_path):
@@ -428,7 +463,7 @@ class EvaluationNNUE:
         """
         arr_dict = read_nnue(file_path)
         occurance_dict = {}
-        print(arr_dict.keys())
+        # print(arr_dict.keys())
 
         for layer in self.network:
             if not isinstance(layer, DenseLayer | ConvolutionalLayer):
@@ -469,13 +504,9 @@ class EvaluationNNUE:
 
 
 
+def init_engine():
 
-
-
-
-
-def squared_error_loss(pred, expected):
-    return (pred - expected) ** 2
-
-def squared_error_loss_prime(pred, expected):
-    return 2 * (pred - expected)
+    engine = EvaluationNNUE()
+    engine.from_file(ENGINE_WEIGHTS_PATH)
+    PawnStructCNN.from_file(PAWN_CNN_WEIGHTS_PATH)
+    return engine

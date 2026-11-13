@@ -300,9 +300,9 @@ class Board:
         return GameResult.ONGOING
 
     def update_pawn_nn(self):
-        print("Update pawn nn")
-        print(bitboards_to_plane(self.pawns & self.occupancy_color[self.turn],
-                           self.pawns & self.occupancy_color[1 ^ self.turn]))
+        # print("Update pawn nn")
+        # print(bitboards_to_plane(self.pawns & self.occupancy_color[self.turn],
+        #                    self.pawns & self.occupancy_color[1 ^ self.turn]))
         self.pawn_nn = PawnStructCNN.forward(bitboards_to_plane(self.pawns & self.occupancy_color[self.turn], self.pawns & self.occupancy_color[1 ^ self.turn]))
         assert np.isfinite(self.pawn_nn).all()
 
