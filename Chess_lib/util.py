@@ -1,12 +1,14 @@
 import random
+import csv
 import enum
 import array
 import re
 import numpy as np
 import numpy.random
 from typing import TypeAlias
+from pathlib import Path
 
-from .nnue import read_nnue
+from .file_formats import read_nnue
 
 
 # Errors
@@ -34,6 +36,19 @@ class GameResult(enum.Enum):
 
 
 # Constants
+# File Related Constants
+project_base_dir = Path(__file__).resolve().parent.parent
+HALF_KA_NNUE_PATH = project_base_dir / "nn_version_001.nnue"
+ENGINE_WEIGHTS_PATH = project_base_dir / "nn_version_001.nnue"
+PAWN_CNN_WEIGHTS_PATH = project_base_dir / "pawn_cnn_version_001.nnue"
+
+TRAINING_DATA_80K_PATH = project_base_dir / "TrainingData" / "80kChessData.csv"
+
+MAGIC_TABLE_PATH = Path(__file__).resolve().parent / "magic_table.bin"
+
+
+
+# Piece-Square Constants
 
 PieceType: TypeAlias = int
 PAWN: PieceType = 1
@@ -287,7 +302,7 @@ BB_ORTHOGONAL_MASK: list[BitBoard] = _create_masks([8, 1, -1, -8])
 BB_DIAGONAL_MASK: list[BitBoard] = _create_masks([7, 9, -7, -9])
 
 # reading the magic number files
-with open("Chess_Lib/magic_table.bin", "rb") as file:
+with open(MAGIC_TABLE_PATH, "rb") as file:
     ROOK_MAGIC = array.array("Q")
     ROOK_MAGIC.fromfile(file, 64)
 
@@ -410,6 +425,48 @@ def msb_square(bitboard):
 # san move regex
 SAN_REGEX = re.compile(r"^([NBKRQ])?([a-h])?([1-8])?[\-x]?([a-h][1-8])(=?[nbrqkNBRQK])?[\+#]?\Z")
 
+# fen
+def vertical_flip_fen(fen):
+    """ flips the fen vertically"""
+    # rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq e4 0 1
+    new_fen = ""
+    sections = fen.split(" ")
+
+    for row in sections[0].split("/")[::-1]:
+        for piece in row:
+            if piece.isalpha():
+                if piece.isupper():
+                    piece = piece.lower()
+                else:
+                    piece = piece.upper()
+            new_fen += piece
+        new_fen += "/"
+    new_fen = new_fen[:-1]
+    new_fen += " "
+
+    new_fen += "b " if sections[1] == "w" else "w "
+
+    castling = ""
+    if "k" in sections[2]:
+        castling += "K"
+    if "q" in sections[2]:
+        castling += "Q"
+    if "K" in sections[2]:
+        castling += "k"
+    if "Q" in sections[2]:
+        castling += "q"
+
+    new_fen += (castling + " ") if castling else "- "
+
+    if sections[3] != "-":
+        new_fen += sections[3][0] + str(9 - int(sections[3][1])) + " "
+    else:
+        new_fen += "- "
+
+    new_fen += sections[4] + " " + sections[5]
+
+    return new_fen
+
 # Useful Classes
 
 
@@ -421,102 +478,6 @@ PROMOTION_OFFSET = 12
 FROM_MASK = 0b111111
 TO_MASK = 0b111111
 PROMOTION_MASK = 0b111
-
-class BitBoardState:
-    __slots__ = (
-        "pawns", "knights", "bishops", "rooks", "queens", "kings", "occupancy_white", "occupancy_black", "castling_rights",
-        "ep_square", "half_moves", "full_moves", "hash", "turn", "repetition_table", "white_accumulator", "black_accumulator", "pawn_nn",
-        "debug_feature_set_white", "debug_feature_set_black",
-    )
-
-    def __init__(self):
-        self.pawns = 0
-        self.knights = 0
-        self.bishops = 0
-        self.rooks = 0
-        self.queens = 0
-        self.kings = 0
-
-        self.occupancy_white = 0
-        self.occupancy_black = 0
-        self.castling_rights = 0
-        self.ep_square: Square | None = 0
-        self.half_moves = 0
-        self.full_moves = 0
-        self.hash = 0
-        self.turn = 0
-
-        self.repetition_table = {}
-
-        self.white_accumulator = np.zeros((128, 1))
-        self.black_accumulator = np.zeros((128, 1))
-        self.pawn_nn = np.zeros((8, 1))
-
-        self.debug_feature_set_white = tuple()
-        self.debug_feature_set_black = tuple()
-
-    @classmethod
-    def from_board(cls, bitboard):
-        state = cls()
-        state.update(bitboard)
-        return state
-
-    def update(self, bitboard):
-        self.pawns = bitboard.pawns
-        self.knights = bitboard.knights
-        self.bishops = bitboard.bishops
-        self.rooks = bitboard.rooks
-        self.queens = bitboard.queens
-        self.kings = bitboard.kings
-
-        self.occupancy_white = bitboard.occupancy_color[0]
-        self.occupancy_black = bitboard.occupancy_color[1]
-        self.castling_rights = bitboard.castling_rights
-        self.ep_square: Square | None = bitboard.ep_square
-        self.half_moves = bitboard.half_moves
-        self.full_moves = bitboard.full_moves
-        self.hash = bitboard.hash
-        self.turn = bitboard.turn
-
-        self.repetition_table = bitboard.repetition_table.copy()
-
-        np.copyto(self.white_accumulator, bitboard.nnue[0])
-        np.copyto(self.black_accumulator, bitboard.nnue[1])
-        np.copyto(self.pawn_nn, bitboard.pawn_nn)
-
-        self.debug_feature_set_white = tuple(bitboard.debug_feature_indexes[0])
-        self.debug_feature_set_black = tuple(bitboard.debug_feature_indexes[1])
-
-    def restore(self, bitboard):
-        bitboard.pawns = self.pawns
-        bitboard.knights = self.knights
-        bitboard.bishops = self.bishops
-        bitboard.rooks = self.rooks
-        bitboard.queens = self.queens
-        bitboard.kings = self.kings
-
-        bitboard.occupancy_color = [self.occupancy_white, self.occupancy_black]
-        bitboard.castling_rights = self.castling_rights
-        bitboard.ep_square = self.ep_square
-        bitboard.half_moves = self.half_moves
-        bitboard.full_moves = self.full_moves
-        bitboard.hash = self.hash
-
-        bitboard.occupancy = self.occupancy_white | self.occupancy_black
-        bitboard.turn = self.turn
-
-        bitboard.repetition_table = self.repetition_table.copy()
-
-        bitboard.king_sq = [(self.kings & self.occupancy_white).bit_length()-1, (self.kings & self.occupancy_black).bit_length()-1]
-        np.copyto(bitboard.nnue[0], self.white_accumulator)
-        np.copyto(bitboard.nnue[1], self.black_accumulator)
-        np.copyto(bitboard.pawn_nn, self.pawn_nn)
-
-        bitboard.debug_feature_indexes = [set(self.debug_feature_set_white), set(self.debug_feature_set_black)]
-
-    def __repr__(self):
-        return f"{self.hash}"
-
 
 class Move:
     __slots__ = ("_value",)
@@ -565,6 +526,103 @@ class Move:
     def __repr__(self):
         return self.uci()
 
+
+
+
+class BitBoardState:
+    __slots__ = (
+        "pawns", "knights", "bishops", "rooks", "queens", "kings", "occupancy_white", "occupancy_black", "castling_rights",
+        "ep_square", "half_moves", "full_moves", "hash", "turn", "repetition_table", "white_accumulator", "black_accumulator", "pawn_nn",
+        # "debug_feature_set_white", "debug_feature_set_black",
+    )
+
+    def __init__(self):
+        self.pawns = 0
+        self.knights = 0
+        self.bishops = 0
+        self.rooks = 0
+        self.queens = 0
+        self.kings = 0
+
+        self.occupancy_white = 0
+        self.occupancy_black = 0
+        self.castling_rights = 0
+        self.ep_square: Square | None = 0
+        self.half_moves = 0
+        self.full_moves = 0
+        self.hash = 0
+        self.turn = 0
+
+        self.repetition_table = {}
+
+        self.white_accumulator = np.zeros((128, 1))
+        self.black_accumulator = np.zeros((128, 1))
+        self.pawn_nn = np.zeros((8, 1))
+
+        # self.debug_feature_set_white = tuple()
+        # self.debug_feature_set_black = tuple()
+
+    @classmethod
+    def from_board(cls, bitboard):
+        state = cls()
+        state.update(bitboard)
+        return state
+
+    def update(self, bitboard):
+        self.pawns = bitboard.pawns
+        self.knights = bitboard.knights
+        self.bishops = bitboard.bishops
+        self.rooks = bitboard.rooks
+        self.queens = bitboard.queens
+        self.kings = bitboard.kings
+
+        self.occupancy_white = bitboard.occupancy_color[0]
+        self.occupancy_black = bitboard.occupancy_color[1]
+        self.castling_rights = bitboard.castling_rights
+        self.ep_square: Square | None = bitboard.ep_square
+        self.half_moves = bitboard.half_moves
+        self.full_moves = bitboard.full_moves
+        self.hash = bitboard.hash
+        self.turn = bitboard.turn
+
+        self.repetition_table = bitboard.repetition_table.copy()
+
+        np.copyto(self.white_accumulator, bitboard.nnue[0])
+        np.copyto(self.black_accumulator, bitboard.nnue[1])
+        np.copyto(self.pawn_nn, bitboard.pawn_nn)
+
+        # self.debug_feature_set_white = tuple(bitboard.debug_feature_indexes[0])
+        # self.debug_feature_set_black = tuple(bitboard.debug_feature_indexes[1])
+
+    def restore(self, bitboard):
+        bitboard.pawns = self.pawns
+        bitboard.knights = self.knights
+        bitboard.bishops = self.bishops
+        bitboard.rooks = self.rooks
+        bitboard.queens = self.queens
+        bitboard.kings = self.kings
+
+        bitboard.occupancy_color = [self.occupancy_white, self.occupancy_black]
+        bitboard.castling_rights = self.castling_rights
+        bitboard.ep_square = self.ep_square
+        bitboard.half_moves = self.half_moves
+        bitboard.full_moves = self.full_moves
+        bitboard.hash = self.hash
+
+        bitboard.occupancy = self.occupancy_white | self.occupancy_black
+        bitboard.turn = self.turn
+
+        bitboard.repetition_table = self.repetition_table.copy()
+
+        bitboard.king_sq = [(self.kings & self.occupancy_white).bit_length()-1, (self.kings & self.occupancy_black).bit_length()-1]
+        np.copyto(bitboard.nnue[0], self.white_accumulator)
+        np.copyto(bitboard.nnue[1], self.black_accumulator)
+        np.copyto(bitboard.pawn_nn, self.pawn_nn)
+
+        # bitboard.debug_feature_indexes = [set(self.debug_feature_set_white), set(self.debug_feature_set_black)]
+
+    def __repr__(self):
+        return f"{self.hash}"
 
 # Zobrist Hashing
 class ZobristHasher:
@@ -644,6 +702,7 @@ class ZobristHasher:
 
 # Declaring Constants
 INF = np.inf # change to a ridiculously high number later
+MATE_SCORE = 100_000
 NP_RNG_SEED = 0
 def generate_feature_table(rng, shape):
     return rng.random(shape)
@@ -661,7 +720,7 @@ def innit_half_ka(file_name):
 """
 table_rng = np.random.default_rng(NP_RNG_SEED)
 try:
-    feature_table = innit_half_ka("nn_version_001.nnue")
+    feature_table = innit_half_ka(HALF_KA_NNUE_PATH)
 except FileNotFoundError as e:
     feature_table = generate_feature_table(table_rng, (6 * 2 * 64 * 64, 128, 1))
     print(f"Cant find the file, generating random table")
@@ -685,6 +744,12 @@ def build_accumulator(board, color):
 
     return features_vector
 
+def back_propagation_of_accumulator(board, acc_colour, output_grad, learning_rate):
+    for sq in scan_backward_bb(board.occupancy):
+        piece_type, piece_color = board.piece_at(sq), board.color_at(sq)
+
+        feature_table[Half_KA_Index(acc_colour==BLACK, piece_type, piece_color==acc_colour, sq, board.king_sq[acc_colour])] -= output_grad * learning_rate
+
 def debug_features_set(board, color):
     debug_set = set()
     king_sq = board.king_sq[color]
@@ -701,12 +766,6 @@ def debug_feature_index(index):
     piece_type = (left % 6) + 1
     print(f"piece type: {PIECE_NAME[piece_type]} | piece square: {SQUARE_NAMES[piece_square]} | ally: {ally} | king sq: {SQUARE_NAMES[king_sq]}")
 
-def back_propagation_of_accumulator(board, output_grad, learning_rate):
-    for sq in scan_backward_bb(board.occupancy):
-        piece_type, piece_color = board.piece_at(sq), board.color_at(sq)
-
-        feature_table[Half_KA_Index(False, piece_type, piece_color==WHITE, sq, board.king_sq[WHITE])] -= output_grad * learning_rate
-        feature_table[Half_KA_Index(True, piece_type, piece_color==BLACK, sq, board.king_sq[BLACK])] -= output_grad * learning_rate
 
 
 def Half_KA_Index(flip: bool, piece_type, ally: bool, piece_square, king):
@@ -746,6 +805,80 @@ def bitboards_to_plane(*bitboards):
         for j in scan_backward_bb(bb):
             plane[i, j] = 1
     return plane.reshape(depth, 8, 8)
+
+# -------------------------------------------------------------------------------------------------------------------------------------
+# nn training related
+
+# Eg of usage
+# bat = DataBatcher("chessData.csv")
+# bat.segregate_by_eval(pos_number=700_000)
+# bat.lengths()
+# lengths = [int(input(f"length {i+1}: ")) for i in range(4)]
+# bat.save(lengths, "80kChessData.csv")
+class DataBatcher:  # think about making it to help others later
+    def __init__(self, dataset_path, ):
+        self.path = dataset_path
+        self.groups = {
+            "winning": [],
+            "large_advantage": [],
+            "small_advantage": [],
+            "equal": [],
+        }
+
+    def segregate_by_eval(self, pos_number= 1):
+        with open(self.path, "r") as puzzles:
+            puzzle_reader = csv.reader(puzzles, delimiter=",")
+            next(puzzle_reader)
+            missed = 0
+            for index, puzzle in enumerate(puzzle_reader):
+                if index-missed >= pos_number:
+                    break
+
+                if puzzle[1].startswith("#"):
+                    missed +=1
+                    continue
+                fen = puzzle[0]
+                val = int(puzzle[1])
+
+                if val < -1000 or val > 1000:
+                    self.groups["winning"].append(puzzle)
+                elif val < -300 or val > 300:
+                    self.groups["large_advantage"].append(puzzle)
+                elif val < -100 or val > 100:
+                    self.groups["small_advantage"].append(puzzle)
+                else:
+                    self.groups["equal"].append(puzzle)
+
+        # for item in self.groups.values():
+        #     random.shuffle(item)
+
+    def lengths(self):
+        for g in self.groups.values():
+            print(len(g))
+
+    def save(self, lengths, file_path):
+        prep_data = []
+        for i, g in enumerate(self.groups.values()):
+            for j in range(lengths[i]):
+                try:
+                    prep_data.append(g[j])
+                    fen_flip = vertical_flip_fen(g[j][0])
+                    target_flip = str(int(g[j][1]) * -1)
+                    prep_data.append((fen_flip, target_flip))
+                except IndexError:
+                    break
+        print("shuffling data")
+        random.shuffle(prep_data)
+
+
+
+        with open(file_path, "w", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(["fen", "evaluation"])
+            writer.writerows(prep_data)
+
+
+
 
 
 

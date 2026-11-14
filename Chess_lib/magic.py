@@ -5,6 +5,8 @@ import random
 import array
 import os
 
+MAGIC_TABLE_PATH = Path(__file__).resolve().parent / "magic_table.bin"
+
 
 def find_magic_numbers(square: Square, mask: BitBoard, deltas):
     """generates the magic numbers to find the index of attacking ray per a blockers configuration"""
@@ -126,10 +128,10 @@ for square in SQUARES:
 #     print(len(BISHOP_ATTACKS[sq]) == 1 << (64 - BISHOP_SHIFT[sq]))
 
 
-if os.path.exists("magic_table.bin"):
-    os.remove("magic_table.bin")
+if os.path.exists(MAGIC_TABLE_PATH):
+    os.remove(MAGIC_TABLE_PATH)
 
-with open("magic_table.bin", "wb") as file:
+with open(MAGIC_TABLE_PATH, "wb") as file:
     array.array("Q", ROOK_MAGIC).tofile(file)
     array.array("B", ROOK_SHIFT).tofile(file)
 
@@ -147,13 +149,13 @@ with open("magic_table.bin", "wb") as file:
 
 print(
     "size:",
-    os.path.getsize("magic_table.bin") / 1024**2,
+    os.path.getsize(MAGIC_TABLE_PATH) / 1024**2,
     "MiB"
 )
 
 
 # check the reading method
-with open("magic_table.bin", "rb") as file:
+with open(MAGIC_TABLE_PATH, "rb") as file:
     qROOK_MAGIC = array.array("Q")
     qROOK_MAGIC.fromfile(file, 64)
 

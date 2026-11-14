@@ -40,7 +40,7 @@ class Board:
         # engine related
         self.nnue = [np.zeros((128, 1)), np.zeros((128, 1))]
         self.pawn_nn = np.zeros((8, 1))
-        self.debug_feature_indexes = [set(), set()]
+        # self.debug_feature_indexes = [set(), set()]
 
 
 
@@ -95,30 +95,22 @@ class Board:
             # print("THe king goes to a different side")
             self.king_sq[color] = square
             self.nnue[color] = build_accumulator(self, color)
-            self.debug_feature_indexes[color] = debug_features_set(self, color)
-            # print(f"build feature set for colour {COLOR_NAME[color]}\nNew features:")
-            # print(self.debug_feature_indexes[color])
-            # for i in self.debug_feature_indexes[color]:
-            #     debug_feature_index(i)
+            # self.debug_feature_indexes[color] = debug_features_set(self, color)
+
 
             opponent_color = 1 ^ color
             opponent_feature_index = Half_KA_Index(opponent_color == BLACK, KING, False, square, self.king_sq[opponent_color])
             self.nnue[opponent_color] += feature_table[opponent_feature_index]
-            # print(f"\nAdded feature to colour {COLOR_NAME[1 ^ color]}")
-            # debug_feature_index(opponent_feature_index)
-            self.debug_feature_indexes[opponent_color].add(opponent_feature_index)
-            # print(f"\ndebug feature set for colour {COLOR_NAME[1 ^ color]}\nFeatures:")
-            # print(self.debug_feature_indexes[1 ^ color])
-            # for i in self.debug_feature_indexes[1 ^ color]:
-            #     debug_feature_index(i)
+            # self.debug_feature_indexes[opponent_color].add(opponent_feature_index)
+
             return None
         feature_table_white_index = Half_KA_Index(False, piece_type, color == WHITE, square, self.king_sq[WHITE])
         feature_table_black_index = Half_KA_Index(True, piece_type, color == BLACK, square, self.king_sq[BLACK])
         self.nnue[WHITE] += feature_table[feature_table_white_index]
-        self.debug_feature_indexes[WHITE].add(feature_table_white_index)
+        # self.debug_feature_indexes[WHITE].add(feature_table_white_index)
 
         self.nnue[BLACK] += feature_table[feature_table_black_index]
-        self.debug_feature_indexes[BLACK].add(feature_table_black_index)
+        # self.debug_feature_indexes[BLACK].add(feature_table_black_index)
         # print("adding feature")
         # debug_feature_index(feature_table_white_index)
         # debug_feature_index(feature_table_black_index)
@@ -159,10 +151,10 @@ class Board:
 
 
         self.nnue[WHITE] -= feature_table[feature_table_white_index]
-        self.debug_feature_indexes[WHITE].remove(feature_table_white_index)
+        # self.debug_feature_indexes[WHITE].remove(feature_table_white_index)
 
         self.nnue[BLACK] -= feature_table[feature_table_black_index]
-        self.debug_feature_indexes[BLACK].remove(feature_table_black_index)
+        # self.debug_feature_indexes[BLACK].remove(feature_table_black_index)
         return piece_type, piece_color
 
     def attacks_mask(self, square: Square):
@@ -300,9 +292,9 @@ class Board:
         return GameResult.ONGOING
 
     def update_pawn_nn(self):
-        print("Update pawn nn")
-        print(bitboards_to_plane(self.pawns & self.occupancy_color[self.turn],
-                           self.pawns & self.occupancy_color[1 ^ self.turn]))
+        # print("Update pawn nn")
+        # print(bitboards_to_plane(self.pawns & self.occupancy_color[self.turn],
+        #                    self.pawns & self.occupancy_color[1 ^ self.turn]))
         self.pawn_nn = PawnStructCNN.forward(bitboards_to_plane(self.pawns & self.occupancy_color[self.turn], self.pawns & self.occupancy_color[1 ^ self.turn]))
         assert np.isfinite(self.pawn_nn).all()
 
@@ -389,40 +381,40 @@ class Board:
 
 
         # Zobrist hash assertion check
-        try:
-            assert self.hash == ZobristHasher.hash(self)
-        except AssertionError as err:
-            print("Hashing issue")
-            print(self.hash)
-            print(ZobristHasher.hash(self))
-            ZobristHasher.debug(ZobristHasher.hash(self) ^ self.hash)
-            self.construct()
-            raise err
-
-        # nnue assertion check
-        for assert_color in range(2):
-            # print(f"After Push Assertion test for colour {COLOR_NAME[assert_color]}", end="")
-            try:
-                np.testing.assert_almost_equal(self.nnue[assert_color], build_accumulator(self, assert_color), decimal=5)
-                # print(" - Passed\n")
-            except BaseException:
-                print(f"After Push Assertion test for colour {COLOR_NAME[assert_color]}", " - Failed")
-                difference = self.debug_feature_indexes[assert_color].symmetric_difference(debug_features_set(self, assert_color))
-                print("differences")
-                for f in difference:
-                    debug_feature_index(f)
-                print("sets")
-                print(self.debug_feature_indexes[assert_color])
-                print(debug_features_set(self, assert_color))
-
-                print("lists diff")
-                diff = self.nnue[assert_color] - build_accumulator(self, assert_color)
-                print()
-
-                print(f"assert colour: {COLOR_NAME[assert_color]}")
-                print(f"error on pushing move {move.uci()}")
-                self.construct()
-                raise BaseException
+        # try:
+        #     assert self.hash == ZobristHasher.hash(self)
+        # except AssertionError as err:
+        #     print("Hashing issue")
+        #     print(self.hash)
+        #     print(ZobristHasher.hash(self))
+        #     ZobristHasher.debug(ZobristHasher.hash(self) ^ self.hash)
+        #     self.construct()
+        #     raise err
+        #
+        # # nnue assertion check
+        # for assert_color in range(2):
+        #     # print(f"After Push Assertion test for colour {COLOR_NAME[assert_color]}", end="")
+        #     try:
+        #         np.testing.assert_almost_equal(self.nnue[assert_color], build_accumulator(self, assert_color), decimal=5)
+        #         # print(" - Passed\n")
+        #     except BaseException:
+        #         print(f"After Push Assertion test for colour {COLOR_NAME[assert_color]}", " - Failed")
+        #         difference = self.debug_feature_indexes[assert_color].symmetric_difference(debug_features_set(self, assert_color))
+        #         print("differences")
+        #         for f in difference:
+        #             debug_feature_index(f)
+        #         print("sets")
+        #         print(self.debug_feature_indexes[assert_color])
+        #         print(debug_features_set(self, assert_color))
+        #
+        #         print("lists diff")
+        #         diff = self.nnue[assert_color] - build_accumulator(self, assert_color)
+        #         print()
+        #
+        #         print(f"assert colour: {COLOR_NAME[assert_color]}")
+        #         print(f"error on pushing move {move.uci()}")
+        #         self.construct()
+        #         raise BaseException
 
     def pop(self):
         if not self.history:
@@ -704,8 +696,8 @@ class Board:
 
         self.history = board.history.copy()
 
-        self.debug_feature_indexes[0] = board.debug_feature_indexes[0].copy()
-        self.debug_feature_indexes[1] = board.debug_feature_indexes[1].copy()
+        # self.debug_feature_indexes[0] = board.debug_feature_indexes[0].copy()
+        # self.debug_feature_indexes[1] = board.debug_feature_indexes[1].copy()
 
 
     @classmethod

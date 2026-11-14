@@ -142,6 +142,7 @@ def move_ordering(board: Board, moves: list[Move], tt_move=None):
 
 
 class SearchLogger:
+    """ A single-evaluation logger that records the number of nodes and maps the search tree"""
     data = {
         "root": {"moves": [], "move evaluations": [], "evaluation": 0, "depth": 0}
     }
@@ -184,14 +185,29 @@ class SearchLogger:
         except BaseException:
             print("There is no such path")
 
+    def wipe(self):
+        self.data = {
+            "root": {"moves": [], "move evaluations": [], "evaluation": 0, "depth": 0}
+        }
+        self.nodes = 0
 
 def search(board, engine, alpha, beta, depth, boundary, tt, *, logger: SearchLogger, root: str="root"):
+    """ A search function that evaluates the position and finds the best move
+
+    NOTE: the functions contains a lot of print statements that are used for debugging
+    NOTE 2: this function is not to be used independently
+
+
+    """
     color = 1 if board.turn == WHITE else -1
+
+    # check if the position is the end of a branch
     outcome = board.outcome()
-    print(outcome)
     if outcome == GameResult.CHECKMATE:
-        return -INF * color
+        logger.log_outro(root, None)
+        return -MATE_SCORE + depth
     elif outcome != GameResult.ONGOING:
+        logger.log_outro(root, None)
         return 0
 
     entry_move = None
@@ -226,18 +242,26 @@ def search(board, engine, alpha, beta, depth, boundary, tt, *, logger: SearchLog
         if depth >= boundary:
             print("hit boundary")
             input_vector = engine.build_input(board)
-            evaluation = engine.forward(input_vector).item() * color
-            print(evaluation)
+            evaluation = engine.forward(input_vector, cp=True) * color
+            # print(evaluation)
 
         else:
             print("searching deeper")
             branch = logger.log_intro(root, move.uci(), depth)
             evaluation = -search(board, engine, -beta, -alpha, depth+1, boundary, tt, logger=logger, root=branch)
+            print(f"depth: {depth} | current colour: {COLOR_NAME[color]}")
+            # print(evaluation)
         board.pop()
 
         if evaluation > best:
             best = evaluation
             best_move = move
+
+        # mate distance pruning
+        if alpha >= MATE_SCORE - depth - 1:
+            return alpha
+        elif beta <= -MATE_SCORE + depth:
+            return beta
 
         alpha = max(alpha, best)
         if alpha >= beta:
@@ -259,7 +283,7 @@ def search(board, engine, alpha, beta, depth, boundary, tt, *, logger: SearchLog
 
 
 
-def evaluate(board, engine, alpha, beta, boundary_depth, *, debug=False):
+def evaluate(board, engine, alpha, beta, boundary_depth, *, debug=False) -> (Move, float | int):
     transposition_table = {}
 
     color = 1 if board.turn == WHITE else -1
@@ -271,12 +295,13 @@ def evaluate(board, engine, alpha, beta, boundary_depth, *, debug=False):
     entree = transposition_table.get(board.hash, None)
     if entree:
         best_move = entree.best_move
-    print(f"result = {res}")
-    print(f"best move: {best_move}")
-    print(f"Positions: {logger.nodes}")
+    if debug:
+        print(f"result = {res}")
+        print(f"best move: {best_move}")
+        print(f"Positions: {logger.nodes}")
     # for _ in range(5):
     #     logger.view_dict()
-    return Move.from_uci(best_move), res
+    return Move.from_uci(best_move), res, logger
 
 def incremental_evaluation(board, engine, alpha, beta, time_out):
     try:
