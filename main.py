@@ -19,9 +19,19 @@ import time
 board = Chess_lib.Board.from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
 engine = init_engine()
 
+import cProfile, pstats
+
+profiler = cProfile.Profile()
+
+
 start = time.time()
-move, evaluation, logger = Chess_lib.engine.evaluate(board, engine, -100, 100, 2)
+profiler.enable()
+move, evaluation, logger = Chess_lib.engine.evaluate(board, engine, -100, 100, 5)
+profiler.disable()
 end = time.time()
+
+stats = pstats.Stats(profiler).sort_stats('tottime')
+stats.print_stats(15)
 
 
 time_taken = end - start
