@@ -1,16 +1,16 @@
-ChessBot - A Neural Chess Engine
+# ChessBot - A Neural Chess Engine
 
-# Overview
+## Overview
 
 This is a still work in progress project, but it already has the basic engine created and currently trained. The engine uses Alpha-Beta Search, along with NNUE evaluation via Half KA and a pawn structure cnn.
 
 Current State: NN training
 
-# Future Plans
-IN future, planned to use batched gpu computations. Currently, the batching system is finished in the Dan branch, but needs more debugging and polishing before commiting
+## Future Plans
+In future, planned to use batched gpu computations. Currently, the batching system is finished in the Dan branch, but needs more debugging and polishing before commiting
 
 
-# Setup Example
+## Setup Example
 ``` Python
 import Chess_lib
 import Chess_lib.engine
