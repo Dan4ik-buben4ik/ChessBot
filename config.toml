@@ -1,0 +1,95 @@
+[setup]
+# mode can be init / load
+training = true
+magic_table_path = "magic_table.bin"
+random_seed = 0 # a number or -1 if no seed
+
+[training]
+training_data = "TrainingData/80kChessData.csv"
+pos_number = -1
+
+
+[Half_KA]
+path = "nn_version_001.nnue"
+length = 128
+data_type = "float32"
+generate_params = false
+
+
+
+
+[EvaluationNNUE]
+path = "nn_version_001.nnue"
+param_mode = "load"  # either "load" or "random"
+generate_params = false
+input_size = 276
+output_size = 1
+data_type = "float32"
+
+
+# Just the sizes of the dense layers
+[[EvaluationNNUE.layers]]
+type = "DenseLayer"
+input_size = 276
+output_size = 64
+
+[[EvaluationNNUE.layers]]
+type = "ActivationLayer"
+function = "Leaky ReLu"
+
+[[EvaluationNNUE.layers]]
+type = "DenseLayer"
+input_size = 64
+output_size = 64
+
+[[EvaluationNNUE.layers]]
+type = "ActivationLayer"
+function = "Leaky ReLu"
+
+[[EvaluationNNUE.layers]]
+type = "DenseLayer"
+input_size = 64
+output_size = 32
+
+[[EvaluationNNUE.layers]]
+type = "ActivationLayer"
+function = "Leaky ReLu"
+
+[[EvaluationNNUE.layers]]
+type = "DenseLayer"
+input_size = 32
+output_size = 1
+
+
+
+# work on later
+#[PawnStructCNN]
+#
+#[[layers]]
+#type = "Conv2D"
+#input_shape = [2, 8, 8]
+#kernel_size = 5
+#output_shape = [2, 4, 4]
+#
+#[[layers]]
+#type = "reshape"
+#input_shape = [2, 4, 4]
+#output_shape = [32, 1]
+#
+#[[layers]]
+#type = "Dense"
+#input_shape = [32, 16]
+#output_shape = [16, 1]
+#
+#[[layers]]
+#type = "Activation"
+#function = "Leaky ReLu"
+#
+#[[layers]]
+#type = "Dense"
+#input_shape = [16, 1]
+#output_shape = [8, 1]
+
+
+
+
