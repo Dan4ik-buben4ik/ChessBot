@@ -8,6 +8,11 @@ maybe Direct Spatial Convolution?
 import numpy as np
 from numpy.lib.stride_tricks import sliding_window_view
 
+__all__ = (
+    "correlate2d",
+    "convolve2d"
+)
+
 
 def correlate2d(matrice: np.ndarray, kernel: np.ndarray, mode: str = "valid") -> np.ndarray:
     m_h, m_w = matrice.shape

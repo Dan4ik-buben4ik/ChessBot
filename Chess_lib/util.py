@@ -1,14 +1,99 @@
-import random
 import csv
-import enum
+import enum  # do we need it?
 import array
 import re
 import numpy as np
 import numpy.random
 from typing import TypeAlias
-from pathlib import Path
+import pathlib
+import dataclasses
+
+
+try:
+    import tomllib
+except ModuleNotFoundError:
+    import tomli as tomllib
 
 from .file_formats import read_nnue
+
+
+@dataclasses.dataclass(frozen=True)
+class EngineConfig:
+    config_path: pathlib.Path
+
+    mode: str
+    generate_params: bool
+    network_structure: dict
+    source_file: pathlib.Path
+
+    input_size: int
+    output_size: int
+
+    dtype: type
+
+
+project_base_dir = pathlib.Path(__file__).resolve().parent.parent
+config_path = project_base_dir / "config.toml"
+
+with open(config_path, "rb") as f:
+    data = tomllib.load(f)
+    training = data["setup"]["training"]
+    RNG_SEED = data["setup"]["random_seed"]
+    RNG = np.random.default_rng(RNG_SEED)
+
+    MAGIC_TABLE_PATH = pathlib.Path(__file__).resolve().parent / data["setup"]["magic_table_path"]
+
+    # Half KA
+    HALF_KA_NNUE_PATH = project_base_dir / data["Half_KA"]["path"]
+    HALF_KA_LENGTH = data["Half_KA"]["length"]
+    GENERATE_HALF_KA = data["Half_KA"]["generate_params"]
+
+    config_half_ka_dtype = data["Half_KA"]["data_type"]
+    if config_half_ka_dtype == "float32":
+        HALF_KA_DTYPE = np.float32
+    else:
+        raise NotImplementedError
+
+
+    # EvaluationNNUE
+    ENGINE_WEIGHTS_PATH = project_base_dir / data["EvaluationNNUE"]["path"]
+    config_param_dtype = data["EvaluationNNUE"]["data_type"]
+    if config_param_dtype == "float32":
+        PARAM_DTYPE = np.float32
+    else:
+        raise NotImplementedError
+
+    ENGINE_CONFIG = EngineConfig(
+        config_path, data["EvaluationNNUE"]["param_mode"],
+        data["EvaluationNNUE"]["generate_params"],
+        data["EvaluationNNUE"]["layers"],
+        ENGINE_WEIGHTS_PATH,
+        data["EvaluationNNUE"]["input_size"],
+        data["EvaluationNNUE"]["output_size"],
+        PARAM_DTYPE
+    )
+
+    # Training
+    if training:
+        TRAINING_DATA_80K_PATH = project_base_dir / data["training"]["training_data"]
+
+# -----------------------Everything that needs to be loaded---------------------
+# # NN + util -> RNG SEED and RNG
+# make all random stuff go to np.random
+
+
+
+# Constants
+# File Related Constants
+# project_base_dir = pathlib.Path(__file__).resolve().parent.parent
+# HALF_KA_NNUE_PATH = project_base_dir / "nn_version_001.nnue"
+# ENGINE_WEIGHTS_PATH = project_base_dir / "nn_version_001.nnue"
+# PAWN_CNN_WEIGHTS_PATH = project_base_dir / "pawn_cnn_version_001.nnue"
+
+# TRAINING_DATA_80K_PATH = project_base_dir / "TrainingData" / "80kChessData.csv"
+
+# MAGIC_TABLE_PATH = pathlib.Path(__file__).resolve().parent / "magic_table.bin"
+
 
 
 # Errors
@@ -20,9 +105,9 @@ class UnrecognisedSanMove(BaseException):
     def __init__(self, san):
         super().__init__(f"Cant recognise the SAN move [{san}]")
 
-class NotImplementedError(BaseException):
-    def __init__(self):
-        super().__init__("Haven't implemented yet")
+# class NotImplementedError(BaseException):
+#     def __init__(self):
+#         super().__init__("Haven't implemented yet")
 
 
 # game results
@@ -36,17 +121,6 @@ class GameResult(enum.Enum):
 
 
 # Constants
-# File Related Constants
-project_base_dir = Path(__file__).resolve().parent.parent
-HALF_KA_NNUE_PATH = project_base_dir / "nn_version_001.nnue"
-ENGINE_WEIGHTS_PATH = project_base_dir / "nn_version_001.nnue"
-PAWN_CNN_WEIGHTS_PATH = project_base_dir / "pawn_cnn_version_001.nnue"
-
-TRAINING_DATA_80K_PATH = project_base_dir / "TrainingData" / "80kChessData.csv"
-
-MAGIC_TABLE_PATH = Path(__file__).resolve().parent / "magic_table.bin"
-
-
 
 # Piece-Square Constants
 
@@ -626,7 +700,6 @@ class BitBoardState:
 
 # Zobrist Hashing
 class ZobristHasher:
-    rng = random.Random(0)
     table = [[[bytes(0) for _ in range(64)] for _ in range(12)] for _ in range(2)]
 
     used = set()
@@ -635,22 +708,22 @@ class ZobristHasher:
             for j in range(64):
                 # ensures that there are no repeats in teh hashing
                 while True:
-                    random_bits = rng.getrandbits(64)
+                    random_bits = int.from_bytes(RNG.bytes(8), "big")
                     if random_bits not in used:
                         used.add(random_bits)
-                        table[c][i][j] = rng.getrandbits(64)
+                        table[c][i][j] = int.from_bytes(RNG.bytes(8), "big")
                         break
 
 
-    black_turn = rng.getrandbits(64)
+    black_turn = int.from_bytes(RNG.bytes(8), "big")
 
     castling_rights = []
     for _ in range(16):
-        castling_rights.append(rng.getrandbits(64))
+        castling_rights.append(int.from_bytes(RNG.bytes(8), "big"))
 
     en_passant = {}
     for i in list(FILES):
-        en_passant[i] = rng.getrandbits(64)
+        en_passant[i] = int.from_bytes(RNG.bytes(8), "big")
 
     @classmethod
     def hash(cls, bitboard):
@@ -701,11 +774,13 @@ class ZobristHasher:
 # Engine Related
 
 # Declaring Constants
-INF = np.inf # change to a ridiculously high number later
+INF = np.inf  # change to a ridiculously high number later
 MATE_SCORE = 100_000
-NP_RNG_SEED = 0
+
+
 def generate_feature_table(rng, shape):
-    return rng.random(shape)
+    return rng.random(shape, dtype=HALF_KA_DTYPE)
+
 
 def innit_half_ka(file_name):
     arr_dict = read_nnue(file_name)
@@ -718,12 +793,15 @@ def innit_half_ka(file_name):
 - pinned - key: Color | piece type | square | from square
 - pinner - key: Color | piece type | square | to square
 """
-table_rng = np.random.default_rng(NP_RNG_SEED)
-try:
-    feature_table = innit_half_ka(HALF_KA_NNUE_PATH)
-except FileNotFoundError as e:
-    feature_table = generate_feature_table(table_rng, (6 * 2 * 64 * 64, 128, 1))
-    print(f"Cant find the file, generating random table")
+
+if GENERATE_HALF_KA:
+    feature_table = generate_feature_table(RNG, (6 * 2 * 64 * 64, 128, 1))
+else:
+    try:
+        feature_table = innit_half_ka(HALF_KA_NNUE_PATH)
+    except FileNotFoundError as e:
+        feature_table = generate_feature_table(RNG, (6 * 2 * 64 * 64, 128, 1))
+        print(f"Cant find the file, generating random table")
 
 # checks_feature_table = generate_feature_table((2 * 6 * 64))
 # pinned_feature_table = generate_feature_table((2 * 6 * 64 * 64))
@@ -868,7 +946,7 @@ class DataBatcher:  # think about making it to help others later
                 except IndexError:
                     break
         print("shuffling data")
-        random.shuffle(prep_data)
+        RNG.shuffle(prep_data)
 
 
 

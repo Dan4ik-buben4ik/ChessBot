@@ -33,11 +33,19 @@ from .util import *
 from .nn_maths import *
 from .file_formats import write_nnue, read_nnue
 
+__all__ = (
+    "squared_error_loss",
+    "squared_error_loss_prime",
+    "cosh_loss",
+    "cosh_loss_prime",
+    "cp_to_target",
+    "target_to_cp",
+    "init_engine"
+)
 
 # Initialization of Random Number Generator for a random initialization of weights and biases
-RNG_SEED = 0
-RNG = np.random.default_rng(RNG_SEED)
-
+PARAM_DTYPE = np.float32
+RNG_ALPHA = 0.01
 # Different loss functions. Experimenting
 
 def squared_error_loss(pred, expected):
@@ -68,11 +76,11 @@ def target_to_cp(ev, k=1000):
 
 def scale(x):
     soft_sign = x/(1 + abs(x))
-    return (np.atanh(soft_sign)).astype(np.float32)
+    return (np.atanh(soft_sign)).astype(PARAM_DTYPE)
 
 def scale_inverse(x):
     soft_sign = np.tanh(x)
-    return (soft_sign / (1 - abs(soft_sign))).astype(np.float32)
+    return (soft_sign / (1 - abs(soft_sign))).astype(PARAM_DTYPE)
 
 
 
@@ -98,13 +106,17 @@ class DenseLayer(Layer):
         self.output_shape = (output_size, 1)
 
         # Uses normal distribution and standard derivation to initialise the weights in the most optimal way for the leaky ReLu
-        alpha = 0.01
-        global RNG
-        std = np.sqrt(2 / ((1 + alpha ** 2) * input_size))
-        self.weights = RNG.normal(0, std, (output_size, input_size)).astype(np.float32)
-        self.bias = np.zeros(self.output_shape, dtype=np.float32)
+        self.weights = np.zeros((output_size, input_size), dtype=PARAM_DTYPE)
+        self.bias = np.zeros(self.output_shape, dtype=PARAM_DTYPE)
 
 
+    def randomly_generate(self):
+        global RNG, RNG_ALPHA
+        std = np.sqrt(2 / ((1 + RNG_ALPHA ** 2) * self.input_shape[0]))
+        weights = RNG.normal(0, std, (self.output_shape[0], self.input_shape[0])).astype(PARAM_DTYPE)
+        bias = np.zeros(self.output_shape, dtype=PARAM_DTYPE)
+
+        self.update_params(weights, bias)
 
 
     def forward(self, input_vector: np.ndarray) -> np.ndarray:
@@ -150,13 +162,13 @@ class DenseLayer(Layer):
 
     def update_params(self, new_weights, new_bias):
         if new_weights.shape != self.weights.shape or new_bias.shape != self.bias.shape:
-            raise InvalidShape("Trying to update the weights/bias values resulted in shape change")
+            raise InvalidShape(f"Trying to update the weights/bias values resulted in shape change.\n\nCurrent Shape\nWeights: {self.weights.shape}\nBias: {self.bias.shape}\n\nAttempted Shape\nWeights: {new_weights.shape}\nBias: {new_bias.shape}")
         self.weights = new_weights
         self.bias = new_bias
 
 
 
-    def __repr__(self):
+    def __str__(self):
         return f"Dense Layer of input {self.input_shape} and output {self.output_shape}"
 
 
@@ -181,7 +193,11 @@ def leaky_ReLu(input_vector, alpha=0.01):
     return np.maximum(alpha * input_vector, input_vector)
 
 def leaky_ReLu_prime(input_vector, alpha=0.01):
-    return np.where(input_vector > 0, 1.0, alpha).astype(np.float32)
+    return np.where(input_vector > 0, 1.0, alpha).astype(PARAM_DTYPE)
+
+ACTIVATION_FUNC_BY_NAME = {
+                    "Leaky ReLu": (leaky_ReLu, leaky_ReLu_prime)
+                }
 
 
 class ConvolutionalLayer(Layer):
@@ -201,8 +217,8 @@ class ConvolutionalLayer(Layer):
         global RNG
         fan_in = input_depth * kernel_size * kernel_size
         std = np.sqrt(2 / ((1 + alpha ** 2) * fan_in))
-        self.kernels = RNG.normal(0, std, self.kernel_shape).astype(np.float32)
-        self.bias = np.zeros(self.output_dimensions, dtype=np.float32)
+        self.kernels = RNG.normal(0, std, self.kernel_shape).astype(PARAM_DTYPE)
+        self.bias = np.zeros(self.output_dimensions, dtype=PARAM_DTYPE)
 
 
 
@@ -266,112 +282,104 @@ class ReshapeLayer(Layer):
         return np.reshape(output_grad_vector, self.input_shape)
 
 
-class PawnStructCNN:
-    version = 1
-    network = [
-        ConvolutionalLayer((2, 8, 8), 5, 2),
-        ReshapeLayer((2, 4, 4), (2 * 4 * 4, 1)),
-        ActivationLayer(leaky_ReLu, leaky_ReLu_prime),
-        DenseLayer(32, 16),
-        ActivationLayer(leaky_ReLu, leaky_ReLu_prime),
-        DenseLayer(16, 8),
-    ]
-
-    input_shape = (2, 8, 8)
-    output_shape = (8, 1)
-
-    @classmethod
-    def forward(cls, input_matrice):
-        if input_matrice.shape != cls.input_shape:
-            raise InvalidShape(f"Invalid shape for the input. Expected {cls.input_shape} but given {input_matrice.shape}")
-        # print("Pawn CNN FOrward")
-        for layer in cls.network:
-            assert np.isfinite(input_matrice).all()
-            # print(layer)
-            # print(input_matrice.shape)
-            input_matrice = layer.forward(input_matrice)
-            # print("output")
-            # print(input_matrice.shape)
-
-        return input_matrice
-
-
-    @classmethod
-    def backward_propagation(cls, error_gard_vector: np.ndarray, learning_rate: float):
-        if error_gard_vector.shape != cls.output_shape:
-            raise InvalidShape(f"Invalid shape for the input. Expected {cls.output_shape} but given {error_gard_vector.shape}")
-
-        for layer in cls.network[::-1]:
-            error_gard_vector = layer.backward(error_gard_vector, learning_rate)
-        return
-
-    @classmethod
-    def from_file(cls, file_path):
-        """
-        system of writing the layers:
-        {nn name} + "_" + {layer name} + "_" + {num of occurance - from top} + "_" + {type of array}
-
-        :param file_path:
-        :return:
-        """
-        arr_dict = read_nnue(file_path)
-        occurance_dict = {}
-        # print(arr_dict.keys())
-
-        for layer in cls.network:
-            if not isinstance(layer, DenseLayer | ConvolutionalLayer):
-                continue
-            layer_name = layer.__class__.__name__
-            occ = occurance_dict.get(layer_name, 0)
-
-            key = "_".join((cls.__name__, layer_name, str(occ)))
-
-            weights = arr_dict[f"{key}_weights"] # I cant be bothered renaming to kernels for thr convolution so bear with it
-            bias = arr_dict[f"{key}_bias"]
-            layer.update_params(weights, bias)
-
-            occurance_dict[layer_name] = occ + 1
-
-    @classmethod
-    def to_file(cls, file_path):
-        arr_dict = {}
-        occurance_dict = {}
-        for layer in cls.network:
-            if not isinstance(layer, DenseLayer | ConvolutionalLayer):
-                continue
-            layer_name = layer.__class__.__name__
-            occ = occurance_dict.get(layer_name, 0)
-
-            key = "_".join((cls.__name__, layer_name, str(occ)))
-            if isinstance(layer, ConvolutionalLayer):
-                arr_dict[f"{key}_weights"] = layer.kernels
-            else:
-                arr_dict[f"{key}_weights"] = layer.weights
-            arr_dict[f"{key}_bias"] = layer.bias
-
-
-            occurance_dict[layer_name] = occ + 1
-
-        arr_dict["Half_KA_Table"] = feature_table
-
-        write_nnue(file_path, 1, arr_dict)
+# class PawnStructCNN:
+#     version = 1
+#     network = [
+#         ConvolutionalLayer((2, 8, 8), 5, 2),
+#         ReshapeLayer((2, 4, 4), (2 * 4 * 4, 1)),
+#         ActivationLayer(leaky_ReLu, leaky_ReLu_prime),
+#         DenseLayer(32, 16),
+#         ActivationLayer(leaky_ReLu, leaky_ReLu_prime),
+#         DenseLayer(16, 8),
+#     ]
+#
+#     input_shape = (2, 8, 8)
+#     output_shape = (8, 1)
+#
+#     @classmethod
+#     def forward(cls, input_matrice):
+#         if input_matrice.shape != cls.input_shape:
+#             raise InvalidShape(f"Invalid shape for the input. Expected {cls.input_shape} but given {input_matrice.shape}")
+#         # print("Pawn CNN FOrward")
+#         for layer in cls.network:
+#             assert np.isfinite(input_matrice).all()
+#             # print(layer)
+#             # print(input_matrice.shape)
+#             input_matrice = layer.forward(input_matrice)
+#             # print("output")
+#             # print(input_matrice.shape)
+#
+#         return input_matrice
+#
+#
+#     @classmethod
+#     def backward_propagation(cls, error_gard_vector: np.ndarray, learning_rate: float):
+#         if error_gard_vector.shape != cls.output_shape:
+#             raise InvalidShape(f"Invalid shape for the input. Expected {cls.output_shape} but given {error_gard_vector.shape}")
+#
+#         for layer in cls.network[::-1]:
+#             error_gard_vector = layer.backward(error_gard_vector, learning_rate)
+#         return
+#
+#     @classmethod
+#     def from_file(cls, file_path):
+#         """
+#         system of writing the layers:
+#         {nn name} + "_" + {layer name} + "_" + {num of occurance - from top} + "_" + {type of array}
+#
+#         :param file_path:
+#         :return:
+#         """
+#         arr_dict = read_nnue(file_path)
+#         occurance_dict = {}
+#         # print(arr_dict.keys())
+#
+#         for layer in cls.network:
+#             if not isinstance(layer, DenseLayer | ConvolutionalLayer):
+#                 continue
+#             layer_name = layer.__class__.__name__
+#             occ = occurance_dict.get(layer_name, 0)
+#
+#             key = "_".join((cls.__name__, layer_name, str(occ)))
+#
+#             weights = arr_dict[f"{key}_weights"] # I cant be bothered renaming to kernels for thr convolution so bear with it
+#             bias = arr_dict[f"{key}_bias"]
+#             layer.update_params(weights, bias)
+#
+#             occurance_dict[layer_name] = occ + 1
+#
+#     @classmethod
+#     def to_file(cls, file_path):
+#         arr_dict = {}
+#         occurance_dict = {}
+#         for layer in cls.network:
+#             if not isinstance(layer, DenseLayer | ConvolutionalLayer):
+#                 continue
+#             layer_name = layer.__class__.__name__
+#             occ = occurance_dict.get(layer_name, 0)
+#
+#             key = "_".join((cls.__name__, layer_name, str(occ)))
+#             if isinstance(layer, ConvolutionalLayer):
+#                 arr_dict[f"{key}_weights"] = layer.kernels
+#             else:
+#                 arr_dict[f"{key}_weights"] = layer.weights
+#             arr_dict[f"{key}_bias"] = layer.bias
+#
+#
+#             occurance_dict[layer_name] = occ + 1
+#
+#         arr_dict["Half_KA_Table"] = feature_table
+#
+#         write_nnue(file_path, 1, arr_dict)
 
 
 
 
 class EvaluationNNUE:
     def __init__(self):
-        self.network = [
-            DenseLayer(276, 64),
-            ActivationLayer(leaky_ReLu, leaky_ReLu_prime),
-            DenseLayer(64, 64),
-            ActivationLayer(leaky_ReLu, leaky_ReLu_prime),
-            DenseLayer(64, 32),
-            ActivationLayer(leaky_ReLu, leaky_ReLu_prime),
-            DenseLayer(32, 1)
-        ]
-        self.input_shape = (276, 1)
-        self.output_shape = (1, 1)
+        self.network = []
+        self.input_shape = ()
+        self.output_shape = ()
 
 
     def forward(self, input_vector, cp=True):
@@ -392,8 +400,10 @@ class EvaluationNNUE:
             #     print(layer.weights.shape)
             #     print(layer.weights[:, 0])
             #     print(layer.weights[:, 128])
-
-        return target_to_cp(input_vector.item())
+        if cp is True:
+            return target_to_cp(input_vector.item())
+        else:
+            return input_vector.item()
 
     def back_propagation(self, error_gard_vector: np.ndarray, learning_rate: float, original_position: BitBoard):
         if error_gard_vector.shape != self.output_shape:
@@ -451,9 +461,9 @@ class EvaluationNNUE:
         back_propagation_of_accumulator(board, BLACK, arrays_list[1], learning_rate)
 
         # print("propagating Pawn CNN")
-        PawnStructCNN.backward_propagation(arrays_list[2], learning_rate)
+        # PawnStructCNN.backward_propagation(arrays_list[2], learning_rate)
 
-    def from_file(self, file_path):
+    def from_config(self, config_obj: EngineConfig):
         """
         system of writing the layers:
         {nn name} + "_" + {layer name} + "_" + {num of occurance - from top} + "_" + {type of array}
@@ -461,25 +471,41 @@ class EvaluationNNUE:
         :param file_path:
         :return:
         """
-        arr_dict = read_nnue(file_path)
+        self.network = []
+        arr_dict = read_nnue(config_obj.source_file)
         occurance_dict = {}
-        # print(arr_dict.keys())
 
-        for layer in self.network:
-            if not isinstance(layer, DenseLayer | ConvolutionalLayer):
+        for layer_data in config_obj.network_structure:
+            layer_type = layer_data["type"]
+            if layer_type == "DenseLayer":
+                layer_obj = DenseLayer(layer_data["input_size"], layer_data["output_size"])
+                self.network.append(layer_obj)
+            elif layer_type == "ActivationLayer":
+                layer_obj = ActivationLayer(*ACTIVATION_FUNC_BY_NAME[layer_data["function"]])
+                self.network.append(layer_obj)
                 continue
-            layer_name = layer.__class__.__name__
-            occ = occurance_dict.get(layer_name, 0)
 
-            key = "_".join((self.__class__.__name__, layer_name, str(occ)))
+            else:
+                raise NotImplementedError
+
+            if config_obj.generate_params is True:
+                layer_obj.randomly_generate()
+                continue
+            occ = occurance_dict.get(layer_type, 0)
+
+            key = "_".join((self.__class__.__name__, layer_type, str(occ)))
 
             weights = arr_dict[f"{key}_weights"] # I cant be bothered renaming to kernels for thr convolution so bear with it
             bias = arr_dict[f"{key}_bias"]
-            layer.update_params(weights, bias)
 
-            occurance_dict[layer_name] = occ + 1
+            layer_obj.update_params(weights, bias)
 
-    def to_file(self, file_path):
+            occurance_dict[layer_type] = occ + 1
+        self.input_shape = (config_obj.input_size, 1)
+        self.output_shape = (config_obj.output_size, 1)
+
+
+    def weights_to_file(self, file_path):
         arr_dict = {}
         occurance_dict = {}
         for layer in self.network:
@@ -504,9 +530,12 @@ class EvaluationNNUE:
 
 
 
-def init_engine():
+def init_engine(config=ENGINE_CONFIG):
 
     engine = EvaluationNNUE()
-    engine.from_file(ENGINE_WEIGHTS_PATH)
-    PawnStructCNN.from_file(PAWN_CNN_WEIGHTS_PATH)
+    engine.from_config(config)
+    # PawnStructCNN.from_file(PAWN_CNN_WEIGHTS_PATH)
     return engine
+
+
+# def init_pawn_cnn(config=ENGINE_CONFIG):

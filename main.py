@@ -15,26 +15,35 @@ import time
 # starting position: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 # diagonal pin : "4k3/8/8/8/7q/8/5N2/4K3 w KQkq - 0 1"
 # empty : "8/8/8/8/8/8/8/8 w - - 0 1"
+def main():
+    board = Chess_lib.Board.from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+    engine = init_engine()
 
-board = Chess_lib.Board.from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
-engine = init_engine()
+    import cProfile, pstats
 
-start = time.time()
-move, evaluation, logger = Chess_lib.engine.evaluate(board, engine, -100, 100, 2)
-end = time.time()
+    profiler = cProfile.Profile()
 
 
-time_taken = end - start
+    start = time.time()
+    profiler.enable()
+    move, evaluation, logger = Chess_lib.engine.evaluate(board, engine, -100, 100, 2)
+    profiler.disable()
+    end = time.time()
 
-print(move.uci(), evaluation)
-print(f"Best move: {move.uci()}")
-print(f"Position evaluation: {evaluation}")
-print(f"Nodes checked: {logger.nodes}")
-print(f"Time taken: {time_taken:2g}")
-print(f"NPS = {(logger.nodes /time_taken):.2g}")
-#
-# board.push(move)
-# board.construct()
-#
-# print("legal moves")
-# print(list(board.generate_legal_moves()))
+    stats = pstats.Stats(profiler).sort_stats('tottime')
+    stats.print_stats(15)
+
+
+    time_taken = end - start
+
+    print(move.uci(), evaluation)
+    print(f"Best move: {move.uci()}")
+    print(f"Position evaluation: {evaluation}")
+    print(f"Nodes checked: {logger.nodes}")
+    print(f"Time taken: {time_taken:2g}")
+    print(f"NPS = {(logger.nodes /time_taken):.2g}")
+
+
+
+
+main()

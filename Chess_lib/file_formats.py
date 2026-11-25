@@ -19,6 +19,12 @@ For the files we would assume this structure:
         Data:           float32 values
 """
 
+__all__ = (
+    "ExitPreventionLock",
+    "write_nnue",
+    "read_nnue"
+)
+
 MAGIC = b"CHNN"
 SUPPORTED_VERSIONS = (0,)
 

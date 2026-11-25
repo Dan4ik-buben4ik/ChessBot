@@ -51,11 +51,10 @@ def train(engine: EvaluationNNUE, datafile, positions_num=-1, learning_rate=0.00
 
         input_vector = engine.build_input(board)
         prediction = engine.forward(input_vector, cp=False)
-        prediction = prediction.item()
+        print(prediction)
 
         # print(alpha * np.sinh(alpha * (pred_evaluation - target)))
         error = squared_error_loss_prime(prediction, target)
-        print(error)
         assert np.isfinite(error)
 
         cp_diff = abs(target_to_cp(target) - target_to_cp(prediction))  # potential experiments with scalers
@@ -174,32 +173,32 @@ training_num = 10
 epochs = 0
 learning_rate = 0.000001
 
-# assess(10)
-# for _ in range(10):
-#     train(10, learning_rate, TRAINING_DATA_80K_PATH, save_cycle=1000)
+# assess
+for _ in range(10):
+    train(engine, TRAINING_DATA_80K_PATH, 10, learning_rate, save_cycle=1000)
 
 
 
-while True:
-    count, error_av, white_count, white_mae, white_cp_mae, black_count, black_mae, black_cp_mae = train(engine, TRAINING_DATA_80K_PATH, -1, learning_rate)
-
-    with ExitPreventionLock():
-        with open("logger.txt", "a") as f:
-
-
-            print(f"Mean abs error: {error_av}", file=f)
-            print(f"Positions count: {count}", file=f)
-
-            print(f"\nNumber of positions with white adv: {white_count}", file=f)
-            print(f"White average absolute mae: {white_mae / white_count} | White average absolute cp mae: {white_cp_mae / white_count}", file=f)
-
-            print(f"\nNumber of positions with black adv: {black_count}", file=f)
-            print(f"Black average absolute mae: {black_mae / black_count} | Black average absolute cp mae: {black_cp_mae / black_count}", file=f)
-            f.write("\n")
-
-
-    epochs += 1
-    print(f"epochs: {epochs}")
+# while True:
+#     count, error_av, white_count, white_mae, white_cp_mae, black_count, black_mae, black_cp_mae = train(engine, TRAINING_DATA_80K_PATH, -1, learning_rate)
+#
+#     with ExitPreventionLock():
+#         with open("logger.txt", "a") as f:
+#
+#
+#             print(f"Mean abs error: {error_av}", file=f)
+#             print(f"Positions count: {count}", file=f)
+#
+#             print(f"\nNumber of positions with white adv: {white_count}", file=f)
+#             print(f"White average absolute mae: {white_mae / white_count} | White average absolute cp mae: {white_cp_mae / white_count}", file=f)
+#
+#             print(f"\nNumber of positions with black adv: {black_count}", file=f)
+#             print(f"Black average absolute mae: {black_mae / black_count} | Black average absolute cp mae: {black_cp_mae / black_count}", file=f)
+#             f.write("\n")
+#
+#
+#     epochs += 1
+#     print(f"epochs: {epochs}")
 
 
 

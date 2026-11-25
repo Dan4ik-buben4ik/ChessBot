@@ -4,8 +4,9 @@ from util import _subsets, _sliding_attacks
 import random
 import array
 import os
+import pathlib
 
-MAGIC_TABLE_PATH = Path(__file__).resolve().parent / "magic_table.bin"
+MAGIC_TABLE_PATH = pathlib.Path(__file__).resolve().parent / "magic_table.bin"
 
 
 def find_magic_numbers(square: Square, mask: BitBoard, deltas):

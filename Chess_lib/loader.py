@@ -1,13 +1,12 @@
 from .util import *
-from .nn import PawnStructCNN
+# from .nn import PawnStructCNN
 
 import re
 import numpy as np
 import numpy.random
 import numpy.testing
 
-print()
-
+__all__ = ("Board",)
 
 class Board:
     #TODO: slots later?
@@ -38,7 +37,7 @@ class Board:
         self.repetition_table = {}
 
         # engine related
-        self.nnue = [np.zeros((128, 1)), np.zeros((128, 1))]
+        self.nnue = [np.zeros((HALF_KA_LENGTH, 1)), np.zeros((HALF_KA_LENGTH, 1))]
         self.pawn_nn = np.zeros((8, 1))
         # self.debug_feature_indexes = [set(), set()]
 
@@ -291,12 +290,12 @@ class Board:
 
         return GameResult.ONGOING
 
-    def update_pawn_nn(self):
-        # print("Update pawn nn")
-        # print(bitboards_to_plane(self.pawns & self.occupancy_color[self.turn],
-        #                    self.pawns & self.occupancy_color[1 ^ self.turn]))
-        self.pawn_nn = PawnStructCNN.forward(bitboards_to_plane(self.pawns & self.occupancy_color[self.turn], self.pawns & self.occupancy_color[1 ^ self.turn]))
-        assert np.isfinite(self.pawn_nn).all()
+    # def update_pawn_nn(self):
+    #     # print("Update pawn nn")
+    #     # print(bitboards_to_plane(self.pawns & self.occupancy_color[self.turn],
+    #     #                    self.pawns & self.occupancy_color[1 ^ self.turn]))
+    #     self.pawn_nn = PawnStructCNN.forward(bitboards_to_plane(self.pawns & self.occupancy_color[self.turn], self.pawns & self.occupancy_color[1 ^ self.turn]))
+    #     assert np.isfinite(self.pawn_nn).all()
 
 
     def push(self, move, *, add_history=True):
@@ -358,8 +357,8 @@ class Board:
         self.set_piece_at(move.to_square, piece, piece_color)
 
         # update pawn nn values
-        if piece == PAWN or captured_piece == PAWN:
-            self.update_pawn_nn()
+        # if piece == PAWN or captured_piece == PAWN:
+        #     self.update_pawn_nn()
 
         # update the move clocks
         if piece == PAWN or captured_piece:
@@ -762,7 +761,7 @@ class Board:
         # for i in bit_board.debug_feature_indexes[1]:
         #     debug_feature_index(i)
         # print()
-        bit_board.update_pawn_nn()
+        # bit_board.update_pawn_nn()
         return bit_board
 
 

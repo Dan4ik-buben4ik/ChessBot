@@ -5,6 +5,90 @@ NN Training
 ├── Self-play
 ├── MCTS
 
+Plan For Today. NEED TO DO!!!!
+
+- work on Novelty ideas
+
+2) experiment with the engine structure and predictions
+
+- training config?
+- continue training
+
+3) start working on clean API
+4) Start work on website
+-
+
+
+- make a website (using fastapi) !!! :O
+
+For novelty:
+add a few context features and use hadamard product and then pass to nn. Only issue, is computation costs
+
+king safety
+- add king zone - aka 3x3 or 3x4 around king, updating when a piece moves in/out or pawn move
+- (piece_type, piece_colour, distance from king)
+- or even better take closest 5x5 and pass through 2 conv2d layers
+
+make pawn cnn a 96 bit input NN (as 96 -> 64 -> 64 -> 32) (96 because we take ranks 2-7)
+- use screlu for that
+
+
+in endgame chucg all bitboards and use heavy rounding to make the system smaller
+
+Ternary feature transformer (-1, 0, +1) using 4-bit group-quantized weights (inspired by BitNet / LLM quantization)
+- so the structure is 4096-wide feature table of -1, 0, +1 that could cancel out.
+- use pos and neg arrays for a single accumulator, as for more efficient 1-bit operations on 8-bit numbers
+
+
+
+
+Steps after training
+
+Website
+- Vite, React, Three.js
+- optimised and smooth 3d stuff
+
+GPU and Acceleration
+- use mojo for gpu access
+
+
+
+
+# Notes
+By removing the pawn nn, the NPS increased to 350 from 64
+
+Run Benchmarks
+- Nodes per second
+- Elo
+- Accuracy in the dataset
+- win/loss against stockfish
+- write a better README
+
+
+SPeed culprits
+- print
+- einsum
+
+
+
+# speeed tester
+import cProfile, pstats
+
+profiler = cProfile.Profile()
+profiler.enable()
+# run your search for depth 3 or 4 here
+profiler.disable()
+
+stats = pstats.Stats(profiler).sort_stats('tottime')
+stats.print_stats(10)
+
+
+
+
+
+
+
+
 
 
 [ ] AlphaBeta runs on it
@@ -65,3 +149,6 @@ Applications
 ├── AlphaZero clone
 ├── Move intent analyzer
 ├── Puzzle generator
+
+
+- mate distance pruning and others?
